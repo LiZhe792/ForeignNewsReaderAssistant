@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#254b3e">
+  <meta name="description" content="Margin 知刊：阅读外刊、查询生词、记录阅读进度与每日打卡。Python 外刊学习助手。">
+  <title>Margin 知刊 · 外刊学习助手</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <a class="brand" href="#library" aria-label="Margin 知刊首页"><span class="brand-mark">m<span>·</span></span><span><strong>Margin<span class="brand-cn">知刊</span></strong><small>READ. REFLECT. REMEMBER.</small></span></a>
+      <div class="workspace-label">我的学习空间</div>
+      <nav class="nav-list">
+        <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
+        <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
+        <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title">每天留一点时间给世界<span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span>今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div></div>
+        <button class="settings-link" data-action="settings" aria-label="使用说明"><span data-icon="info"></span>使用说明<span class="status-dot"></span></button>
+        <div class="local-profile"><span class="avatar">M</span><div><strong>我的阅读手记</strong><small>本地存储 · 点滴积累</small></div><span data-icon="shield"></span></div>
+      </div>
+    </aside>
+    <main class="main-shell">
+      <header class="topbar"><div class="breadcrumb"><span>我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><span class="local-badge"><i></i>本地学习空间</span><button class="button primary small" data-action="import"><span data-icon="plus"></span>导入文章</button></div></header>
+      <div id="app" class="page-content" aria-live="polite"><div class="loading-screen"><span class="spinner"></span><p>正在翻开你的阅读空间…</p></div></div>
+    </main>
+  </div>
+
+  <dialog id="import-dialog" class="modal import-modal">
+    <div class="modal-heading"><div><span class="eyebrow">MAKE IT YOUR READING</span><h2>把好文章，带到这里</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭导入窗口"><span data-icon="close"></span></button></div>
+    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button></div>
+    <form id="import-form">
+      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label></div>
+      <div id="url-fields" hidden><label>文章链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/article" disabled></label><div class="info-note"><span data-icon="info"></span><p>自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div></div>
+      <label>文章分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label>
+      <p class="form-error" id="import-error" role="alert"></p>
+      <div class="modal-footer"><span>导入后将自动估算阅读难度</span><button type="submit" class="button primary" id="import-submit">导入并开始阅读<span data-icon="arrow-right"></span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="modal">
+    <div class="modal-heading"><div><span class="eyebrow">YOUR READING COMPANION</span><h2>让阅读成为日常</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭使用说明"><span data-icon="close"></span></button></div>
+    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，按需要调整字号和行距。</li><li>单击或选中一个英文单词查看基础释义，将需要的词加入生词本。</li><li>在「我的生词」中增删词条并手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
+    <div class="help-section"><h3>关于这个阅读空间</h3><p>所有学习记录保存在本机 <code>instance/margin.sqlite3</code>。阅读时自动保存进度；页面隐藏或停止操作一段时间后暂停计时。打卡日期采用北京时间。</p><p>内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。</p></div>
+  </dialog>
+
+  <dialog id="word-dialog" class="modal">
+    <div class="modal-heading"><div><span class="eyebrow">A WORD WORTH KEEPING</span><h2 id="word-dialog-title">添加生词</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭生词编辑"><span data-icon="close"></span></button></div>
+    <form id="word-form"><label>英文单词<input name="word" pattern="[A-Za-z]+(['’-][A-Za-z]+)*" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="modal compact"><div class="modal-heading"><h2>删除这条记录？</h2><button class="icon-button" data-action="cancel-confirm" aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm">保留记录</button><button class="button danger" data-action="accept-confirm">确认删除</button></div></dialog>
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+</body>
+</html>
