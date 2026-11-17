@@ -37,7 +37,7 @@ function toast(message, error = false) {
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
 async function api(path, options = {}) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 55000);
   try {
     const response = await fetch('/api' + path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
@@ -48,7 +48,7 @@ async function api(path, options = {}) {
 }
 
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
-  category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
+  category:'全部', difficulty:'全部', query:'', searchMode:'text', source:'', tag:'', minWords:'', maxWords:'', minMinutes:'', maxMinutes:'', readingStatus:'', searchVersion:0, searchOptions:{sources:[],tags:[]}, mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
@@ -99,13 +99,32 @@ function renderLibrary() {
     <div class="dashboard-top">${featured?`<section class="featured-card"><div class="feature-copy"><div class="feature-kicker">${icon('book')}${continuing?'PICK UP WHERE YOU LEFT OFF':'THE READING EDIT · 编辑精选'}</div><h2>${escapeHTML(featured.title)}</h2><p>${escapeHTML(featured.subtitle || '在字里行间，发现新的视角。')}</p><div class="feature-meta">${levelTag(featured.level)}<span>${featured.reading_minutes} 分钟</span><span>·</span><span>${escapeHTML(featured.category)}</span></div><button class="button primary" data-open="${featured.id}">${continuing?'继续阅读 · '+Math.round(featured.progress)+'%':'开始阅读'}${icon('arrow-right')}</button></div><div class="feature-art">${artwork(featured.category,true)}<span class="feature-caption">THE ART OF SLOW READING</span></div></section>`:empty('下一篇好文章，等你带来','导入一篇文章，开启你的阅读手记。','<button class="button primary" data-action="import">导入文章</button>')}
     <section class="daily-overview"><div class="section-label">一点一滴，正在发生<span>DAILY MOMENT</span></div><div class="streak-row"><div class="streak-icon">${icon('flame')}</div><div><div class="streak-number">${state.stats.streak}<span>天</span></div><small>连续学习的日子</small></div></div><div class="week-dots">${weekDots()}</div><button class="button" data-action="checkin" ${state.stats.checked_in?'disabled':''}>${icon(state.stats.checked_in?'check':'sun')}${state.stats.checked_in?'今日已打卡 · 继续保持':'今天，也来读一点'}</button></section></div>
     <div class="library-toolbar"><h2 class="section-heading">发现好文章 <small>READ SOMETHING GOOD</small></h2><div class="filters">${['全部','科技','文化','科学','生活','环境','其他'].map(cat=>`<button class="filter ${state.category===cat?'active':''}" data-category="${cat}">${cat}</button>`).join('')}</div></div>
-    <div class="library-controls"><div class="search-box">${icon('search')}<input id="article-search" aria-label="搜索文章" placeholder="寻找感兴趣的标题或主题…" value="${escapeHTML(state.query)}"></div><select id="difficulty-filter" class="difficulty-select" aria-label="筛选文章难度">${['全部','A2','B1','B2','C1','C2'].map(level=>`<option value="${level}" ${level===state.difficulty?'selected':''}>${level==='全部'?'所有阅读难度':level+' 难度'}</option>`).join('')}</select></div>
+    <div class="search-panel"><div class="search-primary"><div class="search-box">${icon('search')}<input id="article-search" aria-label="搜索文章" maxlength="200" placeholder="搜索标题、正文、来源或标签" value="${escapeHTML(state.query)}"></div><select id="search-mode" aria-label="搜索方式"><option value="text" ${state.searchMode==='text'?'selected':''}>全文搜索</option><option value="semantic" ${state.searchMode==='semantic'?'selected':''}>语义搜索（英文）</option></select><button class="button primary" data-action="search-articles">搜索</button></div>
+    <div class="search-filters"><label>来源<select id="source-filter"><option value="">全部来源</option>${state.searchOptions.sources.map(s=>`<option value="${escapeHTML(s)}" ${s===state.source?'selected':''}>${escapeHTML(s)}</option>`).join('')}</select></label><label>标签<select id="tag-filter"><option value="">全部标签</option>${state.searchOptions.tags.map(t=>`<option value="${escapeHTML(t)}" ${t===state.tag?'selected':''}>${escapeHTML(t)}</option>`).join('')}</select></label><label>难度<select id="difficulty-filter">${['全部','A2','B1','B2','C1','C2'].map(level=>`<option value="${level}" ${level===state.difficulty?'selected':''}>${level==='全部'?'全部难度':level}</option>`).join('')}</select></label><label>阅读状态<select id="status-filter"><option value="">全部状态</option><option value="unread" ${state.readingStatus==='unread'?'selected':''}>未读</option><option value="reading" ${state.readingStatus==='reading'?'selected':''}>阅读中</option><option value="completed" ${state.readingStatus==='completed'?'selected':''}>已读</option></select></label><label>词数（最少）<input id="min-words" type="number" min="0" max="9999999" value="${escapeHTML(state.minWords)}" placeholder="不限"></label><label>词数（最多）<input id="max-words" type="number" min="0" max="9999999" value="${escapeHTML(state.maxWords)}" placeholder="不限"></label><label>时长（最少分钟）<input id="min-minutes" type="number" min="0" max="9999999" value="${escapeHTML(state.minMinutes)}" placeholder="不限"></label><label>时长（最多分钟）<input id="max-minutes" type="number" min="0" max="9999999" value="${escapeHTML(state.maxMinutes)}" placeholder="不限"></label></div><div class="search-note"><span id="search-status" role="status">全文搜索支持正文；语义搜索首次使用需下载模型。</span><button data-action="reset-filters" class="search-reset">清除筛选</button></div></div>
     <div id="article-grid" class="article-grid"></div><div class="page-footnote">${icon('leaf')}阅读不必匆忙，理解自有回响。<span>·</span>内置内容为原创学习示例</div></div>`;
   renderArticleCards();
 }
-function renderArticleCards() {
-  const articles = state.articles.filter(a=>(state.category==='全部'||a.category===state.category)&&(state.difficulty==='全部'||a.level===state.difficulty)&&`${a.title} ${a.subtitle} ${a.source}`.toLowerCase().includes(state.query.toLowerCase()));
-  $('#article-grid').innerHTML = articles.length ? articles.map(a=>`<article class="article-card"><button class="card-art" data-open="${a.id}" aria-label="阅读 ${escapeHTML(a.title)}">${artwork(a.category)}<span class="art-label">${{科技:'TECH & IDEAS',文化:'ARTS & CULTURE',科学:'SCIENCE & NATURE',生活:'LIFE & JOURNEYS',环境:'A GREENER WORLD',其他:'NEW PERSPECTIVES'}[a.category] || 'NEW PERSPECTIVES'}</span></button><div class="card-copy"><div class="card-meta"><span>${escapeHTML(a.source)}</span><span>· ${escapeHTML(a.category)}</span>${levelTag(a.level)}</div><button class="card-title" data-open="${a.id}">${escapeHTML(a.title)}</button><p class="card-subtitle">${escapeHTML(a.subtitle || '从这篇文章，遇见一个新的视角。')}</p><div class="card-footer"><span>${icon('clock')}${a.reading_minutes} 分钟<span>·</span>${a.word_count} 词</span><button class="read-link" data-open="${a.id}">${a.progress>=100?'再读一遍':a.progress>0?'继续 '+Math.round(a.progress)+'%':'去阅读'}${icon('arrow-right')}</button></div></div><div class="card-progress"><span style="width:${a.progress}%"></span></div></article>`).join('') : empty('暂时没有找到匹配文章','换一个关键词或分类，也许会有新的发现。','<button class="button" data-action="reset-filters">查看全部文章</button>','search');
+function highlight(text, query) {
+  if (!query || state.searchMode !== 'text') return escapeHTML(text);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(' + escaped + ')', 'gi');
+  return String(text || '').split(re).map((part, i) => i % 2 ? `<mark>${escapeHTML(part)}</mark>` : escapeHTML(part)).join('');
+}
+let searchTimer;
+async function renderArticleCards() {
+  const version=++state.searchVersion;
+  const params=new URLSearchParams({q:state.query.trim(), mode:state.searchMode});
+  const filters={category:state.category==='全部'?'':state.category,level:state.difficulty==='全部'?'':state.difficulty,source:state.source,tag:state.tag,status:state.readingStatus,min_words:state.minWords,max_words:state.maxWords,min_minutes:state.minMinutes,max_minutes:state.maxMinutes};
+  for (const [key,value] of Object.entries(filters)) if(value!=='') params.set(key,value);
+  const status=$('#search-status'); if(!status)return;
+  status.textContent=state.searchMode==='semantic' && state.query.trim()?'正在计算语义相似度；首次使用需下载模型，请稍候…':'正在搜索…';
+  try {
+    const result=await api('/articles/search?'+params,{timeoutMs:300000});
+    if(version!==state.searchVersion||state.view!=='library'||!$('#article-grid'))return;
+    const articles=result.articles;
+    status.textContent=`找到 ${articles.length} 篇文章${state.searchMode==='semantic' && state.query.trim()?' · 按语义相关度排序（英文模型）':''}`;
+    $('#article-grid').innerHTML=articles.length?articles.map(a=>`<article class="article-card"><button class="card-art" data-open="${a.id}" aria-label="阅读 ${escapeHTML(a.title)}">${artwork(a.category)}<span class="art-label">${{科技:'TECH & IDEAS',文化:'ARTS & CULTURE',科学:'SCIENCE & NATURE',生活:'LIFE & JOURNEYS',环境:'A GREENER WORLD',其他:'NEW PERSPECTIVES'}[a.category] || 'NEW PERSPECTIVES'}</span></button><div class="card-copy"><div class="card-meta"><span>${highlight(a.source,state.query.trim())}</span><span>· ${escapeHTML(a.category)}</span>${levelTag(a.level)}</div><button class="card-title" data-open="${a.id}">${highlight(a.title,state.query.trim())}</button><p class="card-subtitle">${highlight(a.subtitle || '从这篇文章，遇见一个新的视角。',state.query.trim())}</p>${a.snippet?`<p class="search-snippet">${highlight(a.snippet,state.query.trim())}</p>`:''}${a.tags?.length?`<p class="article-tags">${a.tags.map(t=>`<span>${highlight(t,state.query.trim())}</span>`).join('')}</p>`:''}<div class="card-footer"><span>${icon('clock')}${a.reading_minutes} 分钟<span>·</span>${a.word_count} 词</span><button class="read-link" data-open="${a.id}">${a.progress>=100?'再读一遍':a.progress>0?'继续 '+Math.round(a.progress)+'%':'去阅读'}${icon('arrow-right')}</button></div></div><div class="card-progress"><span style="width:${a.progress}%"></span></div></article>`).join(''):empty('暂时没有找到匹配文章','换一个关键词或筛选条件，也许会有新的发现。','<button class="button" data-action="reset-filters">查看全部文章</button>','search');
+  } catch(error) {if(version===state.searchVersion&&state.view==='library')status.textContent=error.message;}
 }
 
 function tokenizeParagraph(paragraph) {
@@ -141,6 +160,8 @@ function renderReader(article) {
         ${article.source_url?`<a href="${escapeHTML(article.source_url)}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>`:(article.is_demo?'<span>原创学习示例</span>':'<span>个人导入</span>')}
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
       </div>
+      <form id="article-tags-form" class="reader-tags"><label>文章标签（用逗号分隔，最多 10 个）<input name="tags" aria-label="文章标签" maxlength="220" value="${escapeHTML((article.tags || []).join(', '))}" placeholder="例如：环境, 城市"></label><button type="submit" class="button">保存标签</button></form>
+      <section class="similar-section"><button class="button" data-action="similar-articles">查找相似文章</button><span class="similar-hint">本机语义匹配，首次使用需下载英文模型</span><div id="similar-results" role="status"></div></section>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
       <div class="article-body" id="article-body">${paragraphs.map(p => `<p class="paragraph">${tokenizeParagraph(p.trim())}</p>`).join('')}</div>
       <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p>又多了解了一点世界，也离目标近了一点。</p>
@@ -279,7 +300,7 @@ async function navigate() {
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
     else {await refreshStats();if(version!==state.routeVersion)return;
-      if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
+      if(state.view==='library'){const [articles,options]=await Promise.all([api('/articles'),api('/articles/search-options')]);state.articles=articles.articles;state.searchOptions=options;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)renderVocabulary();}
       else await renderActivity('',version);
     }
@@ -302,7 +323,14 @@ document.addEventListener('click',async event=> {
     else if(action==='close-dialog')button.closest('dialog').close();
     else if(action==='close-margin')$('.reader-margin')?.classList.remove('mobile-open');
     else if(action==='settings')openSettings();
-    else if(action==='reset-filters'){state.category=state.difficulty='全部';state.query='';renderLibrary();}
+    else if(action==='reset-filters'){Object.assign(state,{category:'全部',difficulty:'全部',query:'',searchMode:'text',source:'',tag:'',minWords:'',maxWords:'',minMinutes:'',maxMinutes:'',readingStatus:''});renderLibrary();}
+    else if(action==='search-articles'){clearTimeout(searchTimer);await renderArticleCards();}
+    else if(action==='similar-articles'){
+      const id=state.article.id,results=$('#similar-results');button.disabled=true;results.textContent='正在查找；首次使用需下载语义模型，请稍候…';
+      try {const data=await api(`/articles/${id}/similar`,{timeoutMs:300000});if(state.view==='reader'&&state.article?.id===id&&$('#similar-results')===results)results.innerHTML=data.articles.length?data.articles.map(a=>`<button class="similar-item" data-open="${a.id}">${escapeHTML(a.title)} <small>${escapeHTML(a.source)} · ${escapeHTML(a.level)}</small></button>`).join(''):'文章库中暂时没有其他文章。';}
+      catch(error){if(state.view==='reader'&&state.article?.id===id)results.textContent=error.message;}
+      finally{button.disabled=false;}
+    }
     else if(action==='checkin'){button.disabled=true;await api('/checkin',{method:'POST',body:{}});await refreshStats();if(state.view==='library')renderLibrary();else if(state.view==='activity')await renderActivity(state.month);toast('今天的学习，已留下足迹。');}
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
     else if(action==='save-lookup')await saveLookup();
@@ -314,10 +342,15 @@ document.addEventListener('click',async event=> {
   }catch(error){toast(error.message,true);button.disabled=false;}
 });
 
-document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;renderArticleCards();}else if(event.target.id==='word-search'){state.wordQuery=event.target.value;renderWordRows();}});
+document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;clearTimeout(searchTimer);++state.searchVersion;if(state.searchMode==='text')searchTimer=setTimeout(renderArticleCards,300);else $('#search-status').textContent='输入英文主题后点击搜索。';}else if(event.target.id==='word-search'){state.wordQuery=event.target.value;renderWordRows();}});
 document.addEventListener('change',async event=> {
   const input=event.target;
   try {if(input.id==='difficulty-filter'){state.difficulty=input.value;renderArticleCards();}
+    else if(input.id==='search-mode'){state.searchMode=input.value;renderArticleCards();}
+    else if(input.id==='source-filter'){state.source=input.value;renderArticleCards();}
+    else if(input.id==='tag-filter'){state.tag=input.value;renderArticleCards();}
+    else if(input.id==='status-filter'){state.readingStatus=input.value;renderArticleCards();}
+    else if({'min-words':'minWords','max-words':'maxWords','min-minutes':'minMinutes','max-minutes':'maxMinutes'}[input.id]){state[{'min-words':'minWords','max-words':'maxWords','min-minutes':'minMinutes','max-minutes':'maxMinutes'}[input.id]]=input.value;renderArticleCards();}
     else if(input.id==='line-height')saveSettings({line_height:Number(input.value)});
     else if(input.dataset.wordMastery){const id=Number(input.dataset.wordMastery);input.disabled=true;const result=await api('/vocabulary/'+id,{method:'PATCH',body:{mastery:input.value}});const word=state.words.find(w=>w.id===id);Object.assign(word,result);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('掌握度已更新。');}
   }catch(error){input.disabled=false;toast(error.message,true);if(input.dataset.wordMastery)input.value=state.words.find(w=>w.id===Number(input.dataset.wordMastery)).mastery;}
@@ -325,6 +358,10 @@ document.addEventListener('change',async event=> {
 document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
+  if(form.id==='article-tags-form'){
+    const button=$('button[type="submit"]',form);button.disabled=true;
+    try {const tags=form.elements.tags.value.split(/[,，]/).map(t=>t.trim()).filter(Boolean);const result=await api(`/articles/${state.article.id}/tags`,{method:'PATCH',body:{tags}});state.article.tags=result.tags;form.elements.tags.value=result.tags.join(', ');toast('文章标签已保存。');}catch(error){toast(error.message,true);}finally{button.disabled=false;}return;
+  }
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
     $('#import-error').textContent='';button.textContent=state.importMode==='url'?'正在提取正文…':'正在导入…';
@@ -345,7 +382,7 @@ document.addEventListener('mouseup',event=> {
   }
   const target=event.target.closest('[data-word]');if(target)lookup(target.dataset.word,currentContext(target.dataset.word,target.closest('.paragraph')?.dataset.plain));
 });
-document.addEventListener('keydown', () => { lastActive = performance.now(); });
+document.addEventListener('keydown', event => { lastActive = performance.now();if(event.target.id==='article-search'&&event.key==='Enter'){event.preventDefault();clearTimeout(searchTimer);renderArticleCards();} });
 $('#confirm-dialog').addEventListener('cancel',()=> {if(confirmResolve){confirmResolve(false);confirmResolve=null;}});
 window.addEventListener('hashchange',navigate);
 document.addEventListener('pointerdown',()=>lastActive=performance.now(),{passive:true});

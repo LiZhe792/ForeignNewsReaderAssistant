@@ -70,6 +70,17 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS article_tags (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY (article_id, tag)
+);
+CREATE INDEX IF NOT EXISTS article_tags_tag ON article_tags(tag);
+CREATE TABLE IF NOT EXISTS article_embeddings (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL, digest TEXT NOT NULL, model TEXT NOT NULL,
+    vector TEXT NOT NULL, PRIMARY KEY(article_id, chunk_index)
+);
 """
 
 
