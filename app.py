@@ -14,6 +14,7 @@ from werkzeug.exceptions import HTTPException
 from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
+from newsreader.file_import import extract_file
 
 ROOT = Path(__file__).resolve().parent
 
@@ -22,7 +23,7 @@ def create_app(test_config=None):
     app = Flask(__name__)
     app.config.update(
         DATABASE=str(ROOT / "instance" / "margin.sqlite3"),
-        MAX_CONTENT_LENGTH=512 * 1024,
+        MAX_CONTENT_LENGTH=21 * 1024 * 1024,
         JSON_AS_ASCII=False,
         TRUSTED_HOSTS=["localhost", "127.0.0.1", "[::1]"],
     )
@@ -40,8 +41,13 @@ def create_app(test_config=None):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
                 return jsonify(error="不允许跨站修改本地学习数据。"), 403
-            if not request.is_json:
+            if request.path == "/api/import/preview" and request.method == "POST":
+                if request.mimetype != "multipart/form-data":
+                    return jsonify(error="请选择要导入的文件。"), 415
+            elif not request.is_json:
                 return jsonify(error="请使用 JSON 格式提交数据。"), 415
+            elif request.content_length and request.content_length > 512 * 1024:
+                return jsonify(error="提交内容过大。"), 413
 
     @app.after_request
     def security_headers(response):
@@ -106,6 +112,16 @@ def create_app(test_config=None):
             created_at, is_demo FROM articles ORDER BY created_at DESC, id ASC"""
         ).fetchall()
         return jsonify(articles=[dict(row) for row in rows])
+
+    @app.post("/api/import/preview")
+    def preview_file():
+        upload = request.files.get("file")
+        if not upload or not upload.filename:
+            raise ValueError("请选择一个文件。")
+        data = upload.stream.read(20 * 1024 * 1024 + 1)
+        if len(data) > 20 * 1024 * 1024:
+            raise ValueError("文件不能超过 20 MB。")
+        return jsonify(extract_file(upload.filename, data))
 
     @app.get("/api/articles/<int:article_id>")
     def article_detail(article_id):
