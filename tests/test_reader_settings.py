@@ -25,6 +25,8 @@ class ReaderPreferenceTests(unittest.TestCase):
             "content_width": 1120, "paragraph_spacing": 2.25,
             "theme": "dark", "layout": "double", "paragraph_numbers": True,
             "focus_mode": True, "shortcuts_enabled": False, "gestures_enabled": False,
+            "reading_mode": "intensive", "definition_collapsed": False,
+            "hint_density": "quiet", "suppress_mastered": False, "reminder_minutes": 20,
         }
         response = self.client.patch("/api/settings", json=preferences)
         self.assertEqual(response.status_code, 200)
@@ -65,6 +67,9 @@ class ReaderPreferenceTests(unittest.TestCase):
             "line_height": [float("nan"), float("-inf"), True],
             "paragraph_numbers": [0, 1, "true", None],
             "focus_mode": [[], {}], "shortcuts_enabled": [1], "gestures_enabled": ["false"],
+            "reading_mode": ["auto", []], "hint_density": ["high", 1],
+            "definition_collapsed": [0, "false"], "suppress_mastered": [1, None],
+            "reminder_minutes": [-1, 61, 1.5, True, "10"],
         }
         for key, values in invalid.items():
             for value in values:

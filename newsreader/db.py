@@ -71,6 +71,14 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS pending_words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    paragraph_index INTEGER NOT NULL CHECK(paragraph_index >= -1),
+    word TEXT NOT NULL COLLATE NOCASE,
+    context TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+    UNIQUE(article_id, paragraph_index, word)
+);
 """
 
 
