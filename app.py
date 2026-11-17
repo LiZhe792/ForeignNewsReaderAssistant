@@ -14,6 +14,7 @@ from werkzeug.exceptions import HTTPException
 from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
+from newsreader.search import filtered_articles, similar_articles
 
 ROOT = Path(__file__).resolve().parent
 
@@ -111,7 +112,43 @@ def create_app(test_config=None):
     def article_detail(article_id):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
+        article["tags"] = [row[0] for row in get_db().execute("SELECT tag FROM article_tags WHERE article_id=? ORDER BY tag COLLATE NOCASE", (article_id,))]
         return jsonify(article)
+
+    @app.get("/api/articles/search")
+    def search_articles():
+        return jsonify(articles=filtered_articles(get_db(), request.args))
+
+    @app.get("/api/articles/search-options")
+    def search_options():
+        db = get_db()
+        return jsonify(sources=[r[0] for r in db.execute("SELECT DISTINCT source FROM articles ORDER BY source COLLATE NOCASE")],
+                       tags=[r[0] for r in db.execute("SELECT DISTINCT tag FROM article_tags ORDER BY tag COLLATE NOCASE")])
+
+    @app.patch("/api/articles/<int:article_id>/tags")
+    def update_article_tags(article_id):
+        record("articles", article_id)
+        data = body()
+        tags = data.get("tags")
+        if not isinstance(tags, list) or len(tags) > 10 or any(not isinstance(tag, str) or not tag.strip() or len(tag.strip()) > 20 for tag in tags):
+            raise ValueError("标签最多 10 个，每个标签为 1–20 个字符。")
+        unique = {}
+        for tag in tags:
+            cleaned = tag.strip()
+            unique.setdefault(cleaned.casefold(), cleaned)
+        db = get_db()
+        db.execute("DELETE FROM article_tags WHERE article_id=?", (article_id,))
+        db.executemany("INSERT INTO article_tags (article_id, tag) VALUES (?, ?)", [(article_id, tag) for tag in unique.values()])
+        db.commit()
+        return jsonify(tags=list(unique.values()))
+
+    @app.get("/api/articles/<int:article_id>/similar")
+    def similar(article_id):
+        result = similar_articles(get_db(), article_id)
+        if result is None:
+            from flask import abort
+            abort(404)
+        return jsonify(articles=result)
 
     @app.post("/api/articles")
     def add_article():
