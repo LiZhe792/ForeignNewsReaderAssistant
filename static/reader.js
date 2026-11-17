@@ -50,7 +50,7 @@ window.MarginReader = class MarginReader {
   selectionActive() { return Boolean(window.getSelection()?.toString().trim()); }
   ignoreWordTap() { return performance.now() < this.ignoreTapUntil; }
   overlayMargin() {
-    return matchMedia('(max-width: 1000px)').matches || this.settings.focus_mode || Boolean(document.fullscreenElement);
+    return matchMedia('(max-width: 1000px)').matches || this.settings.focus_mode || this.settings.reading_mode === 'fluent' || Boolean(document.fullscreenElement);
   }
 
   apply(settings, anchor = null) {
@@ -65,6 +65,7 @@ window.MarginReader = class MarginReader {
     document.body.classList.toggle('reader-focused', settings.focus_mode);
     document.body.classList.toggle('reader-fullscreen', Boolean(document.fullscreenElement));
     document.body.dataset.readerTheme = settings.theme;
+    document.body.dataset.readingMode = settings.reading_mode;
     this.paper.style.setProperty('--reader-font', `${settings.font_size}px`);
     this.paper.style.setProperty('--reader-line', settings.line_height);
     this.paper.style.setProperty('--reader-typeface', fonts[settings.font_family] || fonts.serif);
@@ -255,7 +256,7 @@ window.MarginReader = class MarginReader {
       case 'next': this.jump(this.current + 1); break;
       case 'lookup':
         this.root.querySelector('.reader-margin').classList.add('mobile-open');
-        this.root.querySelector('.lookup-form input').focus();
+        this.root.querySelector('.lookup-form input').focus({preventScroll: true});
         break;
       case 'reset': this.onChange(JSON.parse(document.body.dataset.readerDefaults)); break;
       case 'retry-settings': this.onChange({...this.settings}); break;
@@ -265,7 +266,8 @@ window.MarginReader = class MarginReader {
   onSettingChange(event) {
     const input = event.target.closest('[data-reader-setting]');
     if (!input) return;
-    const value = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+    const value = input.type === 'checkbox' ? input.checked : ['range', 'number'].includes(input.type) ? Number(input.value) : input.value;
+    if (input.type === 'number' && !input.reportValidity()) { this.syncControls(); return; }
     this.onChange({[input.dataset.readerSetting]: value});
   }
 
@@ -345,6 +347,7 @@ window.MarginReader = class MarginReader {
     ['reader-settings-dialog', 'reader-toc-dialog', 'reader-help-dialog'].forEach(id => document.getElementById(id).close());
     document.body.classList.remove('reader-active', 'reader-focused', 'reader-fullscreen');
     delete document.body.dataset.readerTheme;
+    delete document.body.dataset.readingMode;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
 };

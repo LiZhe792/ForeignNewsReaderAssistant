@@ -38,7 +38,7 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertIn("Margin 知刊", home.get_data(as_text=True))
         self.assertIn("frame-ancestors 'none'", home.headers["Content-Security-Policy"])
-        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg", "/static/reader.js", "/static/reader.css"):
+        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg", "/static/reader.js", "/static/reader.css", "/static/reading-flow.js", "/static/reading-flow.css"):
             with self.client.get(asset) as response:
                 self.assertEqual(response.status_code, 200)
 

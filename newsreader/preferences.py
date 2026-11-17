@@ -15,18 +15,26 @@ READER_DEFAULTS = {
     "focus_mode": False,
     "shortcuts_enabled": True,
     "gestures_enabled": True,
+    "reading_mode": "fluent",
+    "definition_collapsed": True,
+    "hint_density": "balanced",
+    "suppress_mastered": True,
+    "reminder_minutes": 10,
 }
 
 ENUMS = {
     "font_family": ("serif", "classic", "sans", "mono"),
     "theme": ("light", "dark", "sepia"),
     "layout": ("single", "double"),
+    "reading_mode": ("fluent", "intensive"),
+    "hint_density": ("quiet", "balanced", "detailed"),
 }
 RANGES = {
     "font_size": (16, 28, True, "字号"),
     "line_height": (1.4, 2.4, False, "行距"),
     "content_width": (560, 1200, True, "正文宽度"),
     "paragraph_spacing": (0.5, 3, False, "段落间距"),
+    "reminder_minutes": (0, 60, True, "提醒间隔（分钟，0 为关闭）"),
 }
 
 
@@ -37,7 +45,7 @@ def validate_preferences(data):
             raise ValueError("不支持的阅读设置。")
         if key in ENUMS:
             if not isinstance(value, str) or value not in ENUMS[key]:
-                raise ValueError("请选择有效的字体、主题或排版。")
+                raise ValueError("请选择有效的阅读设置选项。")
         elif key in RANGES:
             minimum, maximum, integer, label = RANGES[key]
             if (type(value) not in (int, float) or

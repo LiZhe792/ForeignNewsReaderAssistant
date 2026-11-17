@@ -9,7 +9,9 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/reader.css">
+  <link rel="stylesheet" href="/static/reading-flow.css">
   <script src="/static/reader.js" defer></script>
+  <script src="/static/reading-flow.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
@@ -48,7 +50,7 @@
 
   <dialog id="settings-dialog" class="modal">
     <div class="modal-heading"><div><span class="eyebrow">YOUR READING COMPANION</span><h2>让阅读成为日常</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭使用说明"><span data-icon="close"></span></button></div>
-    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li>单击或选中一个英文单词查看基础释义，将需要的词加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li>在「我的生词」中增删词条并手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
+    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li>流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li>在「我的生词」中增删词条并手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
     <div class="help-section"><h3>关于这个阅读空间</h3><p>所有学习记录保存在本机 <code>instance/margin.sqlite3</code>。阅读时自动保存进度；页面隐藏或停止操作一段时间后暂停计时。打卡日期采用北京时间。</p><p>内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。</p></div>
   </dialog>
 
@@ -72,6 +74,15 @@
     <fieldset class="reader-theme-options"><legend>阅读主题</legend><label><input type="radio" name="reader-theme" value="light" data-reader-setting="theme">浅色</label><label><input type="radio" name="reader-theme" value="dark" data-reader-setting="theme">深色</label><label><input type="radio" name="reader-theme" value="sepia" data-reader-setting="theme">护眼</label></fieldset>
     <div class="reader-switches"><label><input type="checkbox" data-reader-setting="paragraph_numbers">显示段落编号</label><label><input type="checkbox" data-reader-setting="focus_mode">专注模式</label><label><input type="checkbox" data-reader-setting="shortcuts_enabled">启用阅读快捷键</label><label><input type="checkbox" data-reader-setting="gestures_enabled">启用手机左右轻扫</label></div>
     <p class="reader-setting-note">宽度会适应当前窗口；正文区域不足 680 px 时，双栏自动显示为单栏。字体使用本机可用字体，无需下载。</p>
+    <fieldset class="flow-settings"><legend>阅读与学习节奏</legend>
+      <div class="reader-setting-grid">
+        <label>阅读模式<select data-reader-setting="reading_mode"><option value="fluent">流畅阅读 · 点词先暂存</option><option value="intensive">精读模式 · 点词打开查词卡片</option></select></label>
+        <label>学习提示密度<select data-reader-setting="hint_density"><option value="quiet">安静 · 手动操作，无主动提示</option><option value="balanced">适中 · 每段首次遇见时标记</option><option value="detailed">详细 · 全部学习词与操作提示</option></select></label>
+        <label>阶段提醒间隔（分钟）<input type="number" data-reader-setting="reminder_minutes" min="0" max="60" step="1" required></label>
+      </div>
+      <div class="reader-switches"><label><input type="checkbox" data-reader-setting="definition_collapsed">查词卡片默认折叠释义</label><label><input type="checkbox" data-reader-setting="suppress_mastered">已掌握词减少标记</label></div>
+      <p class="reader-setting-note">提醒按本次前台活跃阅读时间计算；弹窗、离开页面或停止操作时暂停。填 0 关闭提醒，安静档也不主动提醒。待查列表中的释义始终按需展开。</p>
+    </fieldset>
     <div class="modal-footer"><span id="reader-settings-status" role="status">设置自动保存在本机</span><button class="button small" data-reader-action="retry-settings" id="retry-reader-settings" hidden>重试保存</button><button class="button small" data-reader-action="reset">恢复默认</button><button class="button primary small" data-reader-action="close-dialog">完成</button></div>
   </dialog>
   <dialog id="reader-toc-dialog" class="modal reader-toc-modal" aria-labelledby="reader-toc-title">
@@ -82,6 +93,14 @@
     <div class="modal-heading"><h2 id="reader-help-title">阅读操作帮助</h2><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭阅读操作帮助">✕</button></div>
     <dl class="reader-shortcuts"><dt><kbd>F</kbd></dt><dd>切换专注模式</dd><dt><kbd>G</kbd></dt><dd>进入或退出全屏</dd><dt><kbd>T</kbd> / <kbd>S</kbd></dt><dd>段落目录 / 阅读设置</dd><dt><kbd>N</kbd> / <kbd>C</kbd></dt><dd>段落编号 / 单双栏</dd><dt><kbd>[</kbd> / <kbd>]</kbd></dt><dd>上一段 / 下一段</dd><dt><kbd>−</kbd> / <kbd>+</kbd></dt><dd>减小 / 增大字号</dd><dt><kbd>Space</kbd> / <kbd>Shift Space</kbd></dt><dd>向下 / 向上翻一屏</dd><dt><kbd>Home</kbd> / <kbd>End</kbd></dt><dd>文章顶部 / 文末</dd><dt><kbd>?</kbd></dt><dd>显示本帮助</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗或查词面板；退出全屏或专注模式</dd></dl>
     <div class="help-section"><h3>手机手势</h3><p>在正文区域向左轻扫进入下一段，向右轻扫返回上一段。上下滑动正常滚动；长按选词和双指缩放保留浏览器原有行为。</p><p>输入文字、使用按钮或打开弹窗时，阅读快捷键不会触发。可在阅读设置中关闭快捷键或手势。全屏需要浏览器支持，并由你主动开启。</p></div>
+    <div class="help-section"><h3>先读懂，再深究</h3><p>流畅阅读中点词会先暂存，不弹出释义。读完一段可点段末的「处理待查词」，也可用工具栏的「本段生词」或「待查词」。精读模式中点词打开查词卡片，点击「展开释义」再查看。任何模式都可以在查词面板主动输入单词。</p><p>待查词按文章与段落保存在本机，刷新后仍在；收藏时保留原文语境。安静档隐藏正文提示，手动查词和待查列表仍然可用。已掌握词默认不再主动标记，但仍可手动查询。</p></div>
+  </dialog>
+  <dialog id="pending-words-dialog" class="modal pending-words-modal" aria-labelledby="pending-words-title">
+    <div class="modal-heading"><div><span class="eyebrow">READ FIRST, LEARN TOGETHER</span><h2 id="pending-words-title">集中处理待查词</h2></div><button class="icon-button" data-flow-action="close-queue" aria-label="关闭待查词">✕</button></div>
+    <label class="pending-filter-label">处理范围<select id="pending-filter" aria-label="待查词段落范围"></select></label>
+    <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
+    <div id="pending-word-list"></div>
+    <div class="modal-footer"><button class="button primary" data-flow-action="close-queue">完成，继续阅读</button></div>
   </dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
