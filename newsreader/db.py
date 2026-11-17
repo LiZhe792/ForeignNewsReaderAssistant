@@ -70,7 +70,43 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    domain TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS feed_seen (
+    feed_id INTEGER NOT NULL, guid TEXT NOT NULL, first_seen TEXT NOT NULL,
+    PRIMARY KEY (feed_id, guid)
+);
+CREATE TABLE IF NOT EXISTS feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER REFERENCES sources(id) ON DELETE CASCADE,
+    title TEXT NOT NULL, url TEXT NOT NULL UNIQUE, site_url TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '其他', keywords TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    etag TEXT NOT NULL DEFAULT '', last_modified TEXT NOT NULL DEFAULT '',
+    last_fetched_at TEXT, last_status TEXT NOT NULL DEFAULT '', last_error TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
 """
+
+
+def migrate_article_columns(db):
+    """Add feed bookkeeping columns to article tables created by earlier builds."""
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(articles)")}
+    if "feed_id" not in columns:
+        db.execute("ALTER TABLE articles ADD COLUMN feed_id INTEGER")
+    if "guid" not in columns:
+        db.execute("ALTER TABLE articles ADD COLUMN guid TEXT")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_source_url ON articles(source_url)")
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_feed_guid ON articles(feed_id, guid) "
+        "WHERE guid IS NOT NULL AND guid != ''"
+    )
+    db.commit()
 
 
 def migrate_to_basic_schema(db):
@@ -105,12 +141,23 @@ def migrate_to_basic_schema(db):
         raise
 
 
+def backfill_sources(db):
+    """Register every media source that already owns articles."""
+    db.execute(
+        """INSERT OR IGNORE INTO sources (name, domain, created_at)
+        SELECT DISTINCT source, '', ? FROM articles WHERE source != ''""",
+        (now(),),
+    )
+    db.commit()
+
+
 def init_db():
     from .learning import assess_difficulty
 
     db = get_db()
     db.executescript(SCHEMA)
     migrate_to_basic_schema(db)
+    migrate_article_columns(db)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
@@ -127,3 +174,5 @@ def init_db():
             )
         db.execute("INSERT INTO settings (key, value) VALUES ('seeded', 'true')")
         db.commit()
+
+    backfill_sources(db)

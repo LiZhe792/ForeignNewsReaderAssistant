@@ -18,6 +18,7 @@
       <nav class="nav-list">
         <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
         <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
+        <a href="#feeds" data-nav="feeds" aria-label="订阅源" title="订阅源"><span data-icon="rss"></span><span>订阅源</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
       </nav>
       <div class="sidebar-bottom">
@@ -34,10 +35,11 @@
 
   <dialog id="import-dialog" class="modal import-modal">
     <div class="modal-heading"><div><span class="eyebrow">MAKE IT YOUR READING</span><h2>把好文章，带到这里</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭导入窗口"><span data-icon="close"></span></button></div>
-    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button></div>
+    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button><button data-import-tab="batch" type="button">批量链接</button></div>
     <form id="import-form">
-      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label></div>
-      <div id="url-fields" hidden><label>文章链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/article" disabled></label><div class="info-note"><span data-icon="info"></span><p>自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div></div>
+      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label><button type="button" class="button small clipboard-button" data-action="paste-clipboard" data-target="content">从剪贴板粘贴正文</button></div>
+      <div id="url-fields" hidden><label>文章链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/article" disabled></label><div class="info-note"><span data-icon="info"></span><p>自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div><button type="button" class="button small clipboard-button" data-action="paste-clipboard" data-target="url">从剪贴板读取链接</button></div>
+      <div id="batch-fields" hidden><label>文章链接（每行一个，最多 10 个）<textarea name="urls" rows="6" maxlength="20000" placeholder="https://example.com/one&#10;https://example.com/two" disabled></textarea></label><div class="info-note"><span data-icon="info"></span><p>逐条提取正文，失败的链接会单独提示原因，成功的文章直接进入文章库。</p></div><button type="button" class="button small clipboard-button" data-action="paste-clipboard" data-target="urls">从剪贴板读取链接列表</button><div id="batch-results" class="batch-results" role="status"></div></div>
       <label>文章分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label>
       <p class="form-error" id="import-error" role="alert"></p>
       <div class="modal-footer"><span>导入后将自动估算阅读难度</span><button type="submit" class="button primary" id="import-submit">导入并开始阅读<span data-icon="arrow-right"></span></button></div>
@@ -53,6 +55,23 @@
   <dialog id="word-dialog" class="modal">
     <div class="modal-heading"><div><span class="eyebrow">A WORD WORTH KEEPING</span><h2 id="word-dialog-title">添加生词</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭生词编辑"><span data-icon="close"></span></button></div>
     <form id="word-form"><label>英文单词<input name="word" pattern="[A-Za-z]+(['’-][A-Za-z]+)*" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
+  </dialog>
+
+  <dialog id="feed-dialog" class="modal">
+    <div class="modal-heading"><div><span class="eyebrow">SUBSCRIBE TO THE WORLD</span><h2>订阅一个栏目</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭订阅窗口"><span data-icon="close"></span></button></div>
+    <form id="feed-form">
+      <label>RSS / Atom 链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/rss.xml" required></label>
+      <div class="two-column"><label>媒体来源（选填）<input name="source" maxlength="100" placeholder="例如：The Guardian"></label><label>栏目分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label></div>
+      <label>关键词订阅（选填）<input name="keywords" maxlength="300" placeholder="用逗号分隔，例如：climate, energy"></label>
+      <div class="info-note"><span data-icon="info"></span><p>订阅后立即抓取最新文章；填写关键词时只导入标题或正文包含这些词的文章。</p></div>
+      <p class="form-error" id="feed-error" role="alert"></p>
+      <div class="modal-footer"><span>抓取数量受每源 10 篇限制</span><button type="submit" class="button primary">添加订阅<span data-icon="arrow-right"></span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="source-dialog" class="modal compact">
+    <div class="modal-heading"><div><span class="eyebrow">MEDIA SOURCE</span><h2>编辑媒体来源</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭来源编辑"><span data-icon="close"></span></button></div>
+    <form id="source-form"><label>来源名称<input name="name" maxlength="100" required placeholder="例如：The Guardian"></label><label>备注（选填）<textarea name="note" rows="2" maxlength="500" placeholder="订阅范围、阅读偏好等"></textarea></label><p class="form-error" id="source-error" role="alert"></p><div class="modal-footer"><span>改名会同步到已导入的文章</span><button class="button primary" type="submit">保存修改<span data-icon="check"></span></button></div></form>
   </dialog>
 
   <dialog id="confirm-dialog" class="modal compact"><div class="modal-heading"><h2>删除这条记录？</h2><button class="icon-button" data-action="cancel-confirm" aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm">保留记录</button><button class="button danger" data-action="accept-confirm">确认删除</button></div></dialog>
