@@ -50,6 +50,41 @@ async function api(path, options = {}) {
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
   category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
+let filePreviewVersion = 0, filePreviewReady = false;
+async function previewFile(file) {
+  if (!file) return;
+  const version = ++filePreviewVersion;
+  filePreviewReady = false;
+  $('#import-error').textContent = '';
+  $('#file-status').textContent = `正在识别 ${file.name}，扫描文件可能需要一些时间…`;
+  if (file.size > 20 * 1024 * 1024) { $('#file-status').textContent = ''; $('#import-error').textContent = '文件不能超过 20 MB。'; return; }
+  const data = new FormData(); data.append('file', file);
+  try {
+    const response = await fetch('/api/import/preview', {method:'POST', body:data});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || '文件识别失败。');
+    if (version !== filePreviewVersion || state.importMode !== 'file') return;
+    const form = $('#import-form');
+    form.elements.title.value = result.title;
+    form.elements.content.value = result.content;
+    form.elements.source.value = result.source;
+    filePreviewReady = true;
+    $('#file-status').textContent = `已提取 ${file.name}${result.ocr_pages ? `（${result.ocr_pages} 页或张使用 OCR）` : ''}。请在下方预览并校对正文。`;
+  } catch (error) {
+    if (version !== filePreviewVersion) return;
+    $('#file-status').textContent = '';
+    $('#import-error').textContent = error.message || '无法连接本地服务。';
+  }
+}
+const dropZone = $('#file-drop');
+['dragenter','dragover'].forEach(type => dropZone.addEventListener(type, event => {event.preventDefault(); dropZone.classList.add('dragging');}));
+['dragleave','drop'].forEach(type => dropZone.addEventListener(type, event => {event.preventDefault(); dropZone.classList.remove('dragging');}));
+dropZone.addEventListener('drop', event => {
+  if (event.dataTransfer.files.length !== 1) {++filePreviewVersion;filePreviewReady=false;$('#file-status').textContent='';$('#import-error').textContent='请一次选择一个文件。';return;}
+  previewFile(event.dataTransfer.files[0]);
+});
+$('#import-file').addEventListener('change', event => {const file=event.target.files[0];event.target.value='';previewFile(file);});
+$('#import-dialog').addEventListener('close', () => {++filePreviewVersion;if(!filePreviewReady)$('#file-status').textContent='';});
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -296,7 +331,7 @@ document.addEventListener('click',async event=> {
     if(button.dataset.deleteWord){const id=Number(button.dataset.deleteWord),word=state.words.find(w=>w.id===id);if(await confirmDelete(`删除生词「${word.word}」？`)){await api('/vocabulary/'+id,{method:'DELETE',body:{}});state.words=state.words.filter(w=>w.id!==id);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('生词已删除。');}return;}
     if(button.dataset.monthOffset){const [year,month]=state.month.split('-').map(Number);const next=new Date(year,month-1+Number(button.dataset.monthOffset),1);await renderActivity(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);return;}
     if(button.dataset.calendarDay){const date=button.dataset.calendarDay,day=state.calendarStats.days.find(d=>d.date===date);$('#calendar-detail').textContent=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 ${day.reading_seconds%60} 秒 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录。`;return;}
-    if(button.dataset.importTab){state.importMode=button.dataset.importTab;$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode!=='paste';$('#url-fields').hidden=state.importMode!=='url';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode!=='paste');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
+    if(button.dataset.importTab){state.importMode=button.dataset.importTab;++filePreviewVersion;if(!filePreviewReady)$('#file-status').textContent='';$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode==='url';$('#url-fields').hidden=state.importMode!=='url';$('#file-fields').hidden=state.importMode!=='file';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode==='url');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
     const action=button.dataset.action;
     if(action==='import'){$('#import-error').textContent='';$('#import-dialog').showModal();}
     else if(action==='close-dialog')button.closest('dialog').close();
@@ -327,8 +362,9 @@ document.addEventListener('submit',async event=> {
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
+    if(state.importMode==='file' && !filePreviewReady) throw new Error('请先选择文件并等待识别完成。');
     $('#import-error').textContent='';button.textContent=state.importMode==='url'?'正在提取正文…':'正在导入…';
-    const payload=Object.fromEntries(new FormData(form));const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
+    const payload=Object.fromEntries(new FormData(form));const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();filePreviewReady=false;++filePreviewVersion;$('#file-status').textContent='';toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
   }else if(form.id==='word-form') {
     $('#word-error').textContent='';const payload=Object.fromEntries(new FormData(form));const result=await api('/vocabulary'+(state.editWord?'/'+state.editWord:''),{method:state.editWord?'PATCH':'POST',body:payload});$('#word-dialog').close();state.words=(await api('/vocabulary')).words;await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast(result.duplicate?'这个单词已经收藏过了。':'生词已保存。');
   }}catch(error){const target=form.id==='import-form'?$('#import-error'):$('#word-error');if(target)target.textContent=error.message;else toast(error.message,true);}

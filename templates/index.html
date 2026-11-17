@@ -34,13 +34,14 @@
 
   <dialog id="import-dialog" class="modal import-modal">
     <div class="modal-heading"><div><span class="eyebrow">MAKE IT YOUR READING</span><h2>把好文章，带到这里</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭导入窗口"><span data-icon="close"></span></button></div>
-    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button></div>
+    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button><button data-import-tab="file" type="button">文件 / 图片</button></div>
     <form id="import-form">
-      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label></div>
+      <div id="file-fields" hidden><div id="file-drop" class="file-drop"><strong>拖拽文件到这里</strong><span>或选择文件，识别后可预览和修改</span><input id="import-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.docx,.epub,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff" aria-label="选择要导入的文件"><small>TXT、Markdown、HTML、PDF、DOCX、EPUB、图片 · 最大 20 MB，PDF 最多 30 页</small></div><p id="file-status" class="file-status" role="status"></p></div>
+      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文（可预览、编辑和纠错）<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label></div>
       <div id="url-fields" hidden><label>文章链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/article" disabled></label><div class="info-note"><span data-icon="info"></span><p>自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div></div>
       <label>文章分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label>
       <p class="form-error" id="import-error" role="alert"></p>
-      <div class="modal-footer"><span>导入后将自动估算阅读难度</span><button type="submit" class="button primary" id="import-submit">导入并开始阅读<span data-icon="arrow-right"></span></button></div>
+      <div class="modal-footer"><span>至少 40 个英文单词；导入后估算阅读难度</span><button type="submit" class="button primary" id="import-submit">导入并开始阅读<span data-icon="arrow-right"></span></button></div>
     </form>
   </dialog>
 
