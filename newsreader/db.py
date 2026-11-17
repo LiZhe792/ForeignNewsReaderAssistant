@@ -1,6 +1,7 @@
 """SQLite persistence. All user data lives in instance/margin.sqlite3."""
 
 import json
+import re
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -9,6 +10,13 @@ from pathlib import Path
 from flask import current_app, g
 
 CHINA_TZ = timezone(timedelta(hours=8))
+
+DEFAULT_CATEGORIES = ("科技", "文化", "科学", "生活", "环境", "其他")
+
+
+def normalize_title(title):
+    """Lowercase alphanumeric title used for duplicate detection."""
+    return re.sub(r"[^a-z0-9]+", "", (title or "").lower())
 
 
 def today():
@@ -59,7 +67,10 @@ CREATE TABLE IF NOT EXISTS articles (
     created_at TEXT NOT NULL, is_demo INTEGER NOT NULL DEFAULT 0,
     progress REAL NOT NULL DEFAULT 0, position REAL NOT NULL DEFAULT 0,
     reading_seconds INTEGER NOT NULL DEFAULT 0, last_read_at TEXT,
-    completed_at TEXT
+    completed_at TEXT,
+    favorite INTEGER NOT NULL DEFAULT 0, read_later INTEGER NOT NULL DEFAULT 0,
+    priority INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
+    published_at TEXT NOT NULL DEFAULT '', title_norm TEXT NOT NULL DEFAULT ''
 );
 """ + VOCABULARY_SCHEMA + """
 CREATE TABLE IF NOT EXISTS checkins (
@@ -69,6 +80,21 @@ CREATE TABLE IF NOT EXISTS checkins (
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS article_tags (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (article_id, tag_id)
 );
 """
 
@@ -105,12 +131,44 @@ def migrate_to_basic_schema(db):
         raise
 
 
+def migrate_library_columns(db):
+    """Add library-management columns to article tables from earlier builds."""
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(articles)")}
+    additions = {
+        "favorite": "INTEGER NOT NULL DEFAULT 0",
+        "read_later": "INTEGER NOT NULL DEFAULT 0",
+        "priority": "INTEGER NOT NULL DEFAULT 0",
+        "status": "TEXT NOT NULL DEFAULT 'active'",
+        "published_at": "TEXT NOT NULL DEFAULT ''",
+        "title_norm": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, ddl in additions.items():
+        if name not in columns:
+            db.execute(f"ALTER TABLE articles ADD COLUMN {name} {ddl}")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_title_norm ON articles(title_norm)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category)")
+    for row in db.execute("SELECT id, title FROM articles WHERE title_norm=''"):
+        db.execute("UPDATE articles SET title_norm=? WHERE id=?", (normalize_title(row["title"]), row["id"]))
+    db.commit()
+
+
+def seed_categories(db):
+    existing = {row["name"] for row in db.execute("SELECT name FROM categories")}
+    for name in DEFAULT_CATEGORIES:
+        if name not in existing:
+            db.execute("INSERT INTO categories (name, created_at) VALUES (?, ?)", (name, now()))
+    db.commit()
+
+
 def init_db():
     from .learning import assess_difficulty
 
     db = get_db()
     db.executescript(SCHEMA)
     migrate_to_basic_schema(db)
+    migrate_library_columns(db)
+    seed_categories(db)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
@@ -118,12 +176,12 @@ def init_db():
             metrics = assess_difficulty(article["content"])
             db.execute(
                 """INSERT INTO articles (title, subtitle, content, source, category, author,
-                level, difficulty_score, word_count, reading_minutes, created_at, is_demo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                level, difficulty_score, word_count, reading_minutes, created_at, is_demo, title_norm)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)""",
                 (article["title"], article["subtitle"], article["content"],
                  "Margin 原创示例", article["category"], "Margin Editorial",
                  metrics["level"], metrics["score"], metrics["word_count"],
-                 metrics["reading_minutes"], now()),
+                 metrics["reading_minutes"], now(), normalize_title(article["title"])),
             )
         db.execute("INSERT INTO settings (key, value) VALUES ('seeded', 'true')")
         db.commit()
