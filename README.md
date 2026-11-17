@@ -4,7 +4,7 @@
 
 使用 **Python + Flask + SQLite** 完成赛题 1 的五项基础要求。前端使用原生 HTML / CSS / JavaScript，无需 Node.js 或单独的数据库服务。
 
-本项目使用本地 **PyCharm 直接运行 app.py**，当前版本仅包含五项基础功能，不提供批处理启动脚本。
+本项目使用本地 **PyCharm 直接运行 app.py**，包含基础功能和扩展的文章搜索，不提供批处理启动脚本。
 
 ![Margin 知刊首页](docs/screenshots/home.jpg)
 
@@ -61,6 +61,12 @@
 
 查词优先使用 `data/dictionary.json` 中的英汉词库，并处理一些常见词形；未收录的词联网查询 Free Dictionary API，返回英英释义并缓存。没有查到时会明确提示，允许手动填写释义。
 
+### 文章搜索
+
+文章库支持搜索标题、副标题、正文、来源和标签，结果中高亮搜索词及正文摘录；可组合分类、来源、标签、难度、词数、预计时长和阅读状态筛选。打开文章后可编辑标签（每篇最多 10 个）。阅读状态按是否有阅读记录和完成进度区分，时长使用文章的预计阅读分钟数。
+
+选择「语义搜索（英文）」并输入英文主题，可以根据语义相关度排序；文章页的「查找相似文章」使用同一模型。首次使用需要联网下载 FastEmbed 的 `BAAI/bge-small-en-v1.5` 模型（约 67 MB）；之后推理在本机进行，不发送搜索内容或文章正文。正文按重叠片段建立向量缓存，文章修改后对应片段会重新计算；首次建立索引或处理长文章可能较慢。该模型面向英文，语义结果仅供参考；模型下载失败时可继续使用普通全文搜索。语义索引与标签保存在本机数据库，删除文章时一并清理。
+
 ### 难度标注
 
 按平均句长和近似音节数计算 Flesch Reading Ease：
@@ -76,11 +82,12 @@
 ```text
 ForeignNewsReaderAssistant/
 ├── app.py                    # PyCharm 运行入口、Flask API
-├── requirements.txt          # Flask、Beautiful Soup
+├── requirements.txt          # Flask、Beautiful Soup、FastEmbed
 ├── newsreader/
 │   ├── db.py                 # SQLite 初始化、旧库迁移、北京时间
 │   ├── learning.py           # 词数与阅读难度估算
 │   ├── content.py            # 正文提取、基础查词、释义缓存
+│   ├── search.py             # 搜索筛选、语义向量与相似文章
 │   └── network.py            # 公开网页访问、重定向与大小限制
 ├── data/
 │   ├── articles.json         # 原创示例文章
@@ -94,7 +101,7 @@ ForeignNewsReaderAssistant/
 └── instance/margin.sqlite3   # 首次运行自动创建的本地数据库
 ```
 
-当前数据库使用 `articles`、`vocabulary`、`checkins`、`settings`、`dictionary_cache` 五张业务表。
+数据库使用 `articles`、`vocabulary`、`checkins`、`settings`、`dictionary_cache`，以及文章标签和语义向量缓存表。
 
 从旧版升级时，程序会先备份原库为 `instance/margin-before-basic.sqlite3`，再清理已移除功能的表和字段，保留文章、生词、掌握度、笔记、阅读进度和打卡记录。该转换只在检测到旧表结构时执行。
 
