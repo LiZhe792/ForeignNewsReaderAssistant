@@ -24,6 +24,7 @@ const icons = {
   leaf:'<path d="M20 3C9 3 3 8 4 15c2 9 14 7 16-12ZM4 21 16 9"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
   minus:'<path d="M5 12h14"/>',
+  fullscreen:'<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
   edit:'<path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14v6Z"/>',
   trash:'<path d="M3 6h18M9 3h6m-10 3 1 15h12l1-15M10 10v7m4-7v7"/>',
   flame:'<path d="M12 2c2 6 7 6 7 12a7 7 0 0 1-14 0c0-3 2-5 3-7 0 4 3 4 4-5Zm0 11c-5 5-2 8 0 8s5-3 0-8Z"/>',
@@ -50,6 +51,7 @@ async function api(path, options = {}) {
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
   category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
+let reader = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -122,18 +124,21 @@ function renderReader(article) {
   app.innerHTML = `
     <div class="reader-toolbar">
       <a class="reader-back" href="#library">${icon('arrow-left')}返回文章库</a>
-      <div class="reader-controls">
+      <div class="reader-controls" aria-label="阅读工具栏">
         <div class="control-group"><span class="control-label">字号</span>
           <button class="icon-button" data-action="font-down" aria-label="减小字号">${icon('minus')}</button>
           <span class="font-label" id="font-label">${state.settings.font_size}</span>
           <button class="icon-button" data-action="font-up" aria-label="增大字号">${icon('plus')}</button>
         </div>
-        <div class="control-group"><label for="line-height" class="control-label">行距</label>
-          <select id="line-height" class="line-select" aria-label="行距">${[1.4,1.6,1.8,1.9,2,2.2,2.4].map(n => `<option value="${n}" ${n===state.settings.line_height?'selected':''}>${n.toFixed(1)} 倍</option>`).join('')}</select>
-        </div>
+        <button class="reader-tool-button" data-reader-action="toc" aria-haspopup="dialog" title="段落目录（T）">${icon('book')}<span>目录</span></button>
+        <button class="reader-tool-button" data-reader-action="settings" aria-haspopup="dialog" title="阅读设置（S）">${icon('settings')}<span>阅读设置</span></button>
+        <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
+        <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
+        <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
+        <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
     </div>
-    <div class="reader-grid"><div class="reader-scroll"><article class="reader-paper">
+    <div class="reader-grid"><div class="reader-scroll" tabindex="0" role="region" aria-label="文章阅读区域"><article class="reader-paper">
       <div class="reader-label"><span>${escapeHTML(article.category)}</span><span> / </span>${levelTag(article.level)}<span title="${escapeHTML(article.difficulty.method)}">易读度 ${article.difficulty_score}</span></div>
       <h1 class="reader-title">${escapeHTML(article.title)}</h1>
       ${article.subtitle?`<p class="reader-subtitle">${escapeHTML(article.subtitle)}</p>`:''}
@@ -142,7 +147,8 @@ function renderReader(article) {
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
       </div>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
-      <div class="article-body" id="article-body">${paragraphs.map(p => `<p class="paragraph">${tokenizeParagraph(p.trim())}</p>`).join('')}</div>
+      <p id="reader-layout-note" class="reader-layout-note" hidden></p>
+      <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${tokenizeParagraph(p.trim())}</p>`).join('')}</div>
       <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p>又多了解了一点世界，也离目标近了一点。</p>
         <button class="button primary" data-action="complete-reading" id="complete-reading">${icon('check')}${article.progress>=100?'已完成阅读':'标记为已读 · 完成打卡'}</button>
       </div>
@@ -151,36 +157,45 @@ function renderReader(article) {
       <form class="lookup-form" id="lookup-form"><input name="word" aria-label="输入英文单词查词" placeholder="输入单词，或直接点击正文" maxlength="60" required><button type="submit" class="icon-button" aria-label="查询单词">${icon('search')}</button></form>
       <div id="learning-panel">${marginPlaceholder()}</div>
     </aside></div>
-    <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
-  applyReaderSettings();
+    <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><div class="reader-step-controls"><button class="icon-button" data-reader-action="previous" aria-label="上一段" title="上一段（[）">${icon('chevron-left')}</button><span id="reader-position-label"></span><button class="icon-button" data-reader-action="next" aria-label="下一段" title="下一段（]）">${icon('chevron-right')}</button></div><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
   activeSession = readingSessions.get(article.id) || {id:article.id, seconds:0, position:article.position, progress:article.progress, saving:null, dirty:false};
   readingSessions.set(article.id, activeSession);
   lastActive = lastTick = performance.now();
   $$('.paragraph').forEach((p, i) => { p.dataset.plain = paragraphs[i].trim(); });
+  reader = new MarginReader({root:app, settings:state.settings, onChange:saveSettings,
+    onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
-    if (!scroller) return;
+    if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
     const limit = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     scroller.scrollTop = limit * activeSession.position / 100;
+    reader.remember();
     scroller.addEventListener('scroll', onReaderScroll, {passive:true});
   });
 }
 function marginPlaceholder() { return `<div class="margin-placeholder"><div class="margin-symbol">${icon('book')}</div><h3>好奇心，值得停留</h3><p>点击一个单词，发现它的意思。<br>把想记住的词，收藏到生词本。</p></div><div class="margin-tip"><span class="eyebrow">A SMALL READING TIP</span><p>不必查清每一个生词。先理解文章的大意，再回头关注那些让你好奇的表达。</p></div>`; }
-function applyReaderSettings() {
-  if (!$('.reader-paper')) return;
-  $('.reader-paper').style.setProperty('--reader-font',state.settings.font_size+'px'); $('.reader-paper').style.setProperty('--reader-line',state.settings.line_height);
-  $('#font-label').textContent=state.settings.font_size;
-}
 let settingsQueue = Promise.resolve();
+let settingsRevision = 0;
 function saveSettings(patch) {
-  Object.assign(state.settings,patch); applyReaderSettings();
-  settingsQueue = settingsQueue.catch(()=>{}).then(()=>api('/settings',{method:'PATCH',body:patch})).catch(error=>toast(error.message,true));
+  const anchor = reader?.captureAnchor();
+  Object.assign(state.settings,patch); reader?.apply(state.settings,anchor);
+  const snapshot = {...state.settings}, revision = ++settingsRevision;
+  $('#reader-settings-status').textContent='正在保存设置…';
+  $('#retry-reader-settings').hidden=true;
+  settingsQueue = settingsQueue.catch(()=>{}).then(()=>api('/settings',{method:'PATCH',body:snapshot})).then(()=>{
+    if(revision===settingsRevision)$('#reader-settings-status').textContent='阅读设置已保存';
+  }).catch(error=>{
+    if(revision===settingsRevision){$('#reader-settings-status').textContent='设置尚未保存，请重试';$('#retry-reader-settings').hidden=false;}
+    toast(error.message,true);
+  });
 }
-function onReaderScroll() {
-  if (!activeSession) return;
+function onReaderScroll(event = {}) {
+  if (!activeSession || reader?.restoring) return;
   const scroller=readerScroller(); const contentHeight = scroller.scrollHeight;
   const limit=Math.max(0,contentHeight-scroller.clientHeight);
-  if (limit>0) { activeSession.position=Math.max(0,Math.min(100,scroller.scrollTop/limit*100)); activeSession.progress=Math.max(activeSession.progress,Math.min(99,activeSession.position)); activeSession.dirty=true; }
+  activeSession.position=limit>0?Math.max(0,Math.min(100,scroller.scrollTop/limit*100)):0;
+  if (!event.layoutOnly) activeSession.progress=Math.max(activeSession.progress,Math.min(99,activeSession.position));
+  activeSession.dirty=true;
   updateReaderStatus();
 }
 function updateReaderStatus() {
@@ -205,7 +220,7 @@ function currentContext(word, paragraph) {
   return (sentences.find(s=>s.toLowerCase().includes(word.toLowerCase()))||paragraph).trim().slice(0,5000);
 }
 function revealMargin() {
-  if(matchMedia('(max-width:760px)').matches) $('.reader-margin')?.classList.add('mobile-open');
+  if(reader?.overlayMargin()) $('.reader-margin')?.classList.add('mobile-open');
 }
 async function lookup(word, context='') {
   const version=++state.lookupVersion; state.lookup=null;
@@ -274,6 +289,7 @@ async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
+  reader?.destroy();reader=null;
   const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
@@ -318,7 +334,6 @@ document.addEventListener('input',event=> {if(event.target.id==='article-search'
 document.addEventListener('change',async event=> {
   const input=event.target;
   try {if(input.id==='difficulty-filter'){state.difficulty=input.value;renderArticleCards();}
-    else if(input.id==='line-height')saveSettings({line_height:Number(input.value)});
     else if(input.dataset.wordMastery){const id=Number(input.dataset.wordMastery);input.disabled=true;const result=await api('/vocabulary/'+id,{method:'PATCH',body:{mastery:input.value}});const word=state.words.find(w=>w.id===id);Object.assign(word,result);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('掌握度已更新。');}
   }catch(error){input.disabled=false;toast(error.message,true);if(input.dataset.wordMastery)input.value=state.words.find(w=>w.id===Number(input.dataset.wordMastery)).mastery;}
 });
@@ -336,6 +351,7 @@ document.addEventListener('submit',async event=> {
 });
 
 document.addEventListener('mouseup',event=> {
+  if(reader?.ignoreWordTap())return;
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {

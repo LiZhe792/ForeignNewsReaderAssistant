@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from flask import current_app, g
+from .preferences import READER_DEFAULTS
 
 CHINA_TZ = timezone(timedelta(hours=8))
 
@@ -98,7 +99,9 @@ def migrate_to_basic_schema(db):
             db.execute(f"INSERT INTO vocabulary_basic ({retained}) SELECT {retained} FROM vocabulary")
             db.execute("DROP TABLE vocabulary")
             db.execute("ALTER TABLE vocabulary_basic RENAME TO vocabulary")
-        db.execute("DELETE FROM settings WHERE key NOT IN ('seeded', 'font_size', 'line_height')")
+        retained_settings = ["seeded", *READER_DEFAULTS]
+        placeholders = ",".join("?" for _ in retained_settings)
+        db.execute(f"DELETE FROM settings WHERE key NOT IN ({placeholders})", retained_settings)
         db.commit()
     except Exception:
         db.rollback()
