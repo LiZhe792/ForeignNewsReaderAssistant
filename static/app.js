@@ -29,6 +29,10 @@ const icons = {
   flame:'<path d="M12 2c2 6 7 6 7 12a7 7 0 0 1-14 0c0-3 2-5 3-7 0 4 3 4 4-5Zm0 11c-5 5-2 8 0 8s5-3 0-8Z"/>',
   pen:'<path d="m4 20 4-1L20 7l-3-3L5 16l-1 4Zm10-13 3 3M4 22h16"/>',
   plant:'<path d="M12 21V10M12 15C5 15 3 11 3 5c7 0 9 4 9 10Zm0-3c0-6 3-9 9-9 0 6-3 9-9 9Z"/>',
+  tag:'<path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59A2 2 0 0 0 3.83 11l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83Z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+  star:'<path d="m12 3 2.9 5.9 6.5.94-4.7 4.58 1.1 6.47L12 17.77 6.2 20.89l1.1-6.47L2.6 9.84l6.5-.94L12 3Z"/>',
+  archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+  flag:'<path d="M5 22V4"/><path d="M5 4c3-2.4 5-2.4 8 0s5 2.4 8 0v9c-3 2.4-5 2.4-8 0s-5-2.4-8 0"/>',
 };
 const icon = (name, extra = '') => `<svg class="icon ${extra}" viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.book}</svg>`;
 function hydrateIcons(root = document) { $$('[data-icon]', root).forEach(node => { node.innerHTML = icon(node.dataset.icon); }); }
@@ -47,8 +51,9 @@ async function api(path, options = {}) {
   finally { clearTimeout(timeout); }
 }
 
-const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
-  category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
+const state = {articles:[], words:[], categories:[], tags:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
+  category:'全部', difficulty:'全部', query:'', status:'all', tag:'全部', priority:'全部', selected:new Set(),
+  mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null, editArticle:null, manageMode:'categories'};
 const app = $('#app');
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
@@ -80,8 +85,9 @@ function updateSidebar() {
   $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
-  const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
-  state.articles = articles.articles; state.words = vocabulary.words; state.stats = stats; state.settings = settings; updateSidebar();
+  const [articles, vocabulary, stats, settings, categories, tags] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings'),api('/categories'),api('/tags')]);
+  state.articles = articles.articles; state.words = vocabulary.words; state.stats = stats; state.settings = settings;
+  state.categories = categories.categories; state.tags = tags.tags; updateSidebar();
 }
 function dateLabel() { return new Intl.DateTimeFormat('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Shanghai'}).format(new Date()); }
 function weekDots() {
@@ -92,20 +98,146 @@ function weekDots() {
   }).join('');
 }
 
+async function loadArticles() {
+  const params = new URLSearchParams();
+  if (state.status === 'favorite') params.set('favorite', '1');
+  else if (state.status === 'read_later') params.set('read_later', '1');
+  else if (state.status === 'archived') params.set('status', 'archived');
+  else if (state.status === 'trashed') params.set('status', 'trashed');
+  else params.set('status', 'all');
+  const result = await api('/articles?' + params.toString());
+  state.articles = result.articles;
+  state.selected = new Set();
+}
+async function loadCategoriesTags() {
+  const [categories, tags] = await Promise.all([api('/categories'), api('/tags')]);
+  state.categories = categories.categories;
+  state.tags = tags.tags;
+}
+const priorityBadge = level => level ? `<span class="tag priority-${level}">${icon('flag')}${['低','中','高'][level-1]}</span>` : '';
+function cardHtml(a) {
+  const checked = state.selected.has(a.id);
+  const tags = a.tags || [];
+  const marks = `${a.favorite ? `<span class="card-flag fav" title="已收藏">${icon('star')}</span>` : ''}${a.read_later ? `<span class="card-flag later" title="待读">${icon('clock')}</span>` : ''}`;
+  return `<article class="article-card${checked ? ' selected' : ''}">
+    <label class="card-check" title="选择文章"><input type="checkbox" data-select="${a.id}" ${checked ? 'checked' : ''}></label>
+    <button class="card-art" data-open="${a.id}" aria-label="阅读 ${escapeHTML(a.title)}">${artwork(a.category)}<span class="art-label">${{科技:'TECH & IDEAS',文化:'ARTS & CULTURE',科学:'SCIENCE & NATURE',生活:'LIFE & JOURNEYS',环境:'A GREENER WORLD',其他:'NEW PERSPECTIVES'}[a.category] || 'NEW PERSPECTIVES'}</span></button>
+    <div class="card-copy">
+      <div class="card-meta"><span>${escapeHTML(a.source)}</span><span>· ${escapeHTML(a.category)}</span>${levelTag(a.level)}${priorityBadge(a.priority)}</div>
+      <div class="card-title-row"><button class="card-title" data-open="${a.id}">${escapeHTML(a.title)}</button>${marks}</div>
+      <p class="card-subtitle">${escapeHTML(a.subtitle || '从这篇文章，遇见一个新的视角。')}</p>
+      ${tags.length ? `<div class="card-tags">${tags.map(t => `<span class="keyword-pill">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
+      <div class="card-footer"><span>${icon('clock')}${a.reading_minutes} 分钟<span>·</span>${a.word_count} 词</span>
+        <div class="card-actions"><button class="icon-button" data-action="edit-article" data-edit="${a.id}" title="整理这篇文章" aria-label="编辑">${icon('edit')}</button>
+        <button class="read-link" data-open="${a.id}">${a.progress >= 100 ? '再读一遍' : a.progress > 0 ? '继续 ' + Math.round(a.progress) + '%' : '去阅读'}${icon('arrow-right')}</button></div></div>
+    </div>
+    <div class="card-progress"><span style="width:${a.progress}%"></span></div>
+  </article>`;
+}
+function renderBatchBar() {
+  const el = $('#batch-bar');
+  if (!el) return;
+  const n = state.selected.size;
+  if (!n) { el.classList.remove('visible'); return; }
+  const inTrash = state.status === 'trashed';
+  el.classList.add('visible');
+  el.innerHTML = `<span class="batch-count">已选 ${n} 篇</span>
+    ${inTrash ? `
+      <button class="button small" data-batch="restore">${icon('archive')}恢复</button>
+      <button class="button small danger" data-batch="delete">${icon('trash')}彻底删除</button>` : `
+      <button class="button small" data-batch="favorite">${icon('star')}收藏</button>
+      <button class="button small" data-batch="read_later">${icon('clock')}待读</button>
+      <button class="button small" data-batch="archive">${icon('archive')}归档</button>
+      <button class="button small danger" data-batch="trash">${icon('trash')}移入回收站</button>
+      <button class="button small" data-action="add-tag">${icon('tag')}加标签</button>
+      <label class="batch-select-label">分类<select data-batch-select="set_category"><option value="">设置分类…</option>${state.categories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}</select></label>
+      <label class="batch-select-label">优先级<select data-batch-select="set_priority"><option value="">设置优先级…</option><option value="0">无</option><option value="1">低</option><option value="2">中</option><option value="3">高</option></select></label>`}
+    <button class="icon-button" data-action="clear-selection" title="取消选择">${icon('close')}</button>`;
+}
+async function doBatch(op, extra = {}) {
+  const ids = [...state.selected];
+  if (!ids.length) { toast('请先选择文章。', true); return; }
+  const result = await api('/articles/batch', { method: 'POST', body: { ids, op, ...extra } });
+  toast(`已处理 ${result.count} 篇文章。`);
+  await loadArticles();
+  renderLibrary();
+}
+function openArticleDialog(id) {
+  const article = state.articles.find(a => a.id === id);
+  if (!article) return;
+  state.editArticle = id;
+  const form = $('#article-form');
+  $('#article-dialog-title').textContent = '整理「' + article.title.slice(0, 18) + '」';
+  $('#article-category').innerHTML = state.categories.map(c => `<option value="${escapeHTML(c.name)}" ${c.name === article.category ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('');
+  $('#tag-options').innerHTML = state.tags.map(t => `<option value="${escapeHTML(t.name)}">`).join('');
+  form.elements.category.value = article.category;
+  form.elements.priority.value = String(article.priority || 0);
+  form.elements.tags.value = (article.tags || []).join(', ');
+  form.elements.author.value = article.author || '';
+  form.elements.published_at.value = article.published_at || '';
+  form.elements.favorite.checked = !!article.favorite;
+  form.elements.read_later.checked = !!article.read_later;
+  $('#article-error').textContent = '';
+  $('#article-dialog').showModal();
+}
+function renderManage() {
+  const el = $('#manage-content');
+  if (!el) return;
+  $$('[data-manage-tab]').forEach(b => b.classList.toggle('active', b.dataset.manageTab === state.manageMode));
+  if (state.manageMode === 'categories') {
+    el.innerHTML = `<form class="manage-add" id="category-add-form"><input name="name" maxlength="20" placeholder="新分类名称" required><button class="button small primary" type="submit">添加分类</button></form>
+      <div class="manage-list">${state.categories.map(c => `<div class="manage-row" data-manage-row="${c.id}"><span class="manage-name">${escapeHTML(c.name)}</span><small>${c.article_count} 篇</small><button class="icon-button" data-action="rename-category" data-id="${c.id}" title="重命名">${icon('edit')}</button><button class="icon-button danger" data-action="delete-category" data-id="${c.id}" title="删除">${icon('trash')}</button></div>`).join('')}</div>`;
+  } else {
+    el.innerHTML = `<form class="manage-add" id="tag-add-form"><input name="name" maxlength="30" placeholder="新标签名称" required><button class="button small primary" type="submit">添加标签</button></form>
+      <div class="manage-list">${state.tags.map(t => `<div class="manage-row" data-manage-row="${t.id}"><span class="manage-name">${escapeHTML(t.name)}</span><small>${t.article_count} 篇</small><button class="icon-button" data-action="rename-tag" data-id="${t.id}" title="重命名">${icon('edit')}</button><button class="icon-button danger" data-action="delete-tag" data-id="${t.id}" title="删除">${icon('trash')}</button></div>`).join('')}</div>`;
+  }
+}
+function startRename(kind, id) {
+  const row = $(`[data-manage-row="${id}"]`);
+  if (!row) return;
+  const current = row.querySelector('.manage-name').textContent;
+  const max = kind === 'category' ? 20 : 30;
+  row.innerHTML = `<input class="manage-rename-input" value="${escapeHTML(current)}" maxlength="${max}">
+    <button class="button small primary" data-action="confirm-rename" data-kind="${kind}" data-id="${id}">保存</button>
+    <button class="button small" data-action="cancel-manage">取消</button>`;
+  row.querySelector('input').focus();
+}
 function renderLibrary() {
-  const continuing = [...state.articles].filter(a=>a.progress>0 && a.progress<100).sort((a,b)=>(b.last_read_at||'').localeCompare(a.last_read_at||''))[0];
-  const featured = continuing || state.articles.find(a=>a.is_demo) || state.articles[0];
-  app.innerHTML = `<div class="page-wrap">${intro('A WINDOW TO THE WORLD','把世界，读成自己的见识。','从一篇好文章开始，让每一次阅读都有所收获。',`<div class="date-label">${icon('calendar')}${dateLabel()}</div>`)}
-    <div class="dashboard-top">${featured?`<section class="featured-card"><div class="feature-copy"><div class="feature-kicker">${icon('book')}${continuing?'PICK UP WHERE YOU LEFT OFF':'THE READING EDIT · 编辑精选'}</div><h2>${escapeHTML(featured.title)}</h2><p>${escapeHTML(featured.subtitle || '在字里行间，发现新的视角。')}</p><div class="feature-meta">${levelTag(featured.level)}<span>${featured.reading_minutes} 分钟</span><span>·</span><span>${escapeHTML(featured.category)}</span></div><button class="button primary" data-open="${featured.id}">${continuing?'继续阅读 · '+Math.round(featured.progress)+'%':'开始阅读'}${icon('arrow-right')}</button></div><div class="feature-art">${artwork(featured.category,true)}<span class="feature-caption">THE ART OF SLOW READING</span></div></section>`:empty('下一篇好文章，等你带来','导入一篇文章，开启你的阅读手记。','<button class="button primary" data-action="import">导入文章</button>')}
-    <section class="daily-overview"><div class="section-label">一点一滴，正在发生<span>DAILY MOMENT</span></div><div class="streak-row"><div class="streak-icon">${icon('flame')}</div><div><div class="streak-number">${state.stats.streak}<span>天</span></div><small>连续学习的日子</small></div></div><div class="week-dots">${weekDots()}</div><button class="button" data-action="checkin" ${state.stats.checked_in?'disabled':''}>${icon(state.stats.checked_in?'check':'sun')}${state.stats.checked_in?'今日已打卡 · 继续保持':'今天，也来读一点'}</button></section></div>
-    <div class="library-toolbar"><h2 class="section-heading">发现好文章 <small>READ SOMETHING GOOD</small></h2><div class="filters">${['全部','科技','文化','科学','生活','环境','其他'].map(cat=>`<button class="filter ${state.category===cat?'active':''}" data-category="${cat}">${cat}</button>`).join('')}</div></div>
-    <div class="library-controls"><div class="search-box">${icon('search')}<input id="article-search" aria-label="搜索文章" placeholder="寻找感兴趣的标题或主题…" value="${escapeHTML(state.query)}"></div><select id="difficulty-filter" class="difficulty-select" aria-label="筛选文章难度">${['全部','A2','B1','B2','C1','C2'].map(level=>`<option value="${level}" ${level===state.difficulty?'selected':''}>${level==='全部'?'所有阅读难度':level+' 难度'}</option>`).join('')}</select></div>
+  const tabs = [['all','全部'],['favorite','收藏'],['read_later','待读'],['archived','归档'],['trashed','回收站']];
+  const isAll = state.status === 'all';
+  const continuing = isAll ? [...state.articles].filter(a=>a.progress>0 && a.progress<100).sort((a,b)=>(b.last_read_at||'').localeCompare(a.last_read_at||''))[0] : null;
+  const featured = isAll ? (continuing || state.articles.find(a=>a.is_demo) || state.articles[0]) : null;
+  const dashboard = featured ? `<div class="dashboard-top"><section class="featured-card"><div class="feature-copy"><div class="feature-kicker">${icon('book')}${continuing?'PICK UP WHERE YOU LEFT OFF':'THE READING EDIT · 编辑精选'}</div><h2>${escapeHTML(featured.title)}</h2><p>${escapeHTML(featured.subtitle || '在字里行间，发现新的视角。')}</p><div class="feature-meta">${levelTag(featured.level)}<span>${featured.reading_minutes} 分钟</span><span>·</span><span>${escapeHTML(featured.category)}</span></div><button class="button primary" data-open="${featured.id}">${continuing?'继续阅读 · '+Math.round(featured.progress)+'%':'开始阅读'}${icon('arrow-right')}</button></div><div class="feature-art">${artwork(featured.category,true)}<span class="feature-caption">THE ART OF SLOW READING</span></div></section>
+    <section class="daily-overview"><div class="section-label">一点一滴，正在发生<span>DAILY MOMENT</span></div><div class="streak-row"><div class="streak-icon">${icon('flame')}</div><div><div class="streak-number">${state.stats.streak}<span>天</span></div><small>连续学习的日子</small></div></div><div class="week-dots">${weekDots()}</div><button class="button" data-action="checkin" ${state.stats.checked_in?'disabled':''}>${icon(state.stats.checked_in?'check':'sun')}${state.stats.checked_in?'今日已打卡 · 继续保持':'今天，也来读一点'}</button></section></div>` : '';
+  const heading = isAll ? '发现好文章' : state.status === 'trashed' ? '回收站' : state.status === 'archived' ? '已归档' : '筛选结果';
+  app.innerHTML = `<div class="page-wrap">${intro('A WINDOW TO THE WORLD','把世界，读成自己的见识。','从一篇好文章开始，让每一次阅读都有所收获。',`<div class="intro-actions"><button class="button small" data-action="manage-library">${icon('settings')}分类与标签</button></div>`)}
+    ${dashboard}
+    <div class="library-toolbar"><h2 class="section-heading">${heading} <small>${isAll?'READ SOMETHING GOOD':'ORGANIZE YOUR SHELF'}</small></h2></div>
+    <div class="status-tabs">${tabs.map(([key,label])=>`<button class="status-tab ${state.status===key?'active':''}" data-status="${key}">${label}</button>`).join('')}</div>
+    <div class="library-controls">
+      <div class="search-box">${icon('search')}<input id="article-search" aria-label="搜索文章" placeholder="寻找感兴趣的标题或主题…" value="${escapeHTML(state.query)}"></div>
+      <select id="category-filter" class="select-filter" aria-label="按分类筛选"><option value="全部">全部分类</option>${state.categories.map(c=>`<option value="${escapeHTML(c.name)}" ${state.category===c.name?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select>
+      <select id="tag-filter" class="select-filter" aria-label="按标签筛选"><option value="全部">全部标签</option>${state.tags.map(t=>`<option value="${escapeHTML(t.name)}" ${state.tag===t.name?'selected':''}>${escapeHTML(t.name)}</option>`).join('')}</select>
+      <select id="difficulty-filter" class="select-filter" aria-label="按难度筛选">${['全部','A2','B1','B2','C1','C2'].map(level=>`<option value="${level}" ${level===state.difficulty?'selected':''}>${level==='全部'?'所有难度':level+' 难度'}</option>`).join('')}</select>
+      <select id="priority-filter" class="select-filter" aria-label="按优先级筛选"><option value="全部" ${state.priority==='全部'?'selected':''}>全部优先级</option><option value="0" ${state.priority==='0'?'selected':''}>无优先级</option><option value="1" ${state.priority==='1'?'selected':''}>低</option><option value="2" ${state.priority==='2'?'selected':''}>中</option><option value="3" ${state.priority==='3'?'selected':''}>高</option></select>
+    </div>
+    <div id="batch-bar" class="batch-bar"></div>
     <div id="article-grid" class="article-grid"></div><div class="page-footnote">${icon('leaf')}阅读不必匆忙，理解自有回响。<span>·</span>内置内容为原创学习示例</div></div>`;
+  renderBatchBar();
   renderArticleCards();
 }
 function renderArticleCards() {
-  const articles = state.articles.filter(a=>(state.category==='全部'||a.category===state.category)&&(state.difficulty==='全部'||a.level===state.difficulty)&&`${a.title} ${a.subtitle} ${a.source}`.toLowerCase().includes(state.query.toLowerCase()));
-  $('#article-grid').innerHTML = articles.length ? articles.map(a=>`<article class="article-card"><button class="card-art" data-open="${a.id}" aria-label="阅读 ${escapeHTML(a.title)}">${artwork(a.category)}<span class="art-label">${{科技:'TECH & IDEAS',文化:'ARTS & CULTURE',科学:'SCIENCE & NATURE',生活:'LIFE & JOURNEYS',环境:'A GREENER WORLD',其他:'NEW PERSPECTIVES'}[a.category] || 'NEW PERSPECTIVES'}</span></button><div class="card-copy"><div class="card-meta"><span>${escapeHTML(a.source)}</span><span>· ${escapeHTML(a.category)}</span>${levelTag(a.level)}</div><button class="card-title" data-open="${a.id}">${escapeHTML(a.title)}</button><p class="card-subtitle">${escapeHTML(a.subtitle || '从这篇文章，遇见一个新的视角。')}</p><div class="card-footer"><span>${icon('clock')}${a.reading_minutes} 分钟<span>·</span>${a.word_count} 词</span><button class="read-link" data-open="${a.id}">${a.progress>=100?'再读一遍':a.progress>0?'继续 '+Math.round(a.progress)+'%':'去阅读'}${icon('arrow-right')}</button></div></div><div class="card-progress"><span style="width:${a.progress}%"></span></div></article>`).join('') : empty('暂时没有找到匹配文章','换一个关键词或分类，也许会有新的发现。','<button class="button" data-action="reset-filters">查看全部文章</button>','search');
+  const articles = state.articles.filter(a =>
+    (state.category==='全部'||a.category===state.category) &&
+    (state.difficulty==='全部'||a.level===state.difficulty) &&
+    (state.tag==='全部'||(a.tags||[]).includes(state.tag)) &&
+    (state.priority==='全部'||String(a.priority)===state.priority) &&
+    `${a.title} ${a.subtitle} ${a.source}`.toLowerCase().includes(state.query.toLowerCase()));
+  $('#article-grid').innerHTML = articles.length ? articles.map(cardHtml).join('') : empty(
+    state.status==='trashed' ? '回收站空空如也' : '暂时没有找到匹配文章',
+    state.status==='trashed' ? '移入回收站的文章会出现在这里，随时可以恢复。' : '换一个关键词或筛选条件，也许会有新的发现。',
+    state.status==='trashed' ? '' : '<button class="button" data-action="reset-filters">查看全部文章</button>', 'search');
+  renderBatchBar();
 }
 
 function tokenizeParagraph(paragraph) {
@@ -279,7 +411,7 @@ async function navigate() {
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
     else {await refreshStats();if(version!==state.routeVersion)return;
-      if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
+      if(state.view==='library'){await Promise.all([loadArticles(), loadCategoriesTags()]);if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)renderVocabulary();}
       else await renderActivity('',version);
     }
@@ -290,25 +422,36 @@ document.addEventListener('click',async event=> {
   lastActive=performance.now();const button=event.target.closest('button, a');if(!button)return;
   try {
     if(button.dataset.open){location.hash='reader/'+button.dataset.open;return;}
-    if(button.dataset.category){state.category=button.dataset.category;$$('[data-category]').forEach(b=>b.classList.toggle('active',b===button));renderArticleCards();return;}
+    if(button.dataset.status){state.status=button.dataset.status;await loadArticles();renderLibrary();return;}
+    if(button.dataset.manageTab){state.manageMode=button.dataset.manageTab;renderManage();return;}
     if(button.dataset.masteryFilter){state.mastery=button.dataset.masteryFilter;$$('[data-mastery-filter]').forEach(b=>b.classList.toggle('active',b===button));renderWordRows();return;}
     if(button.dataset.editWord){showWordDialog(Number(button.dataset.editWord));return;}
     if(button.dataset.deleteWord){const id=Number(button.dataset.deleteWord),word=state.words.find(w=>w.id===id);if(await confirmDelete(`删除生词「${word.word}」？`)){await api('/vocabulary/'+id,{method:'DELETE',body:{}});state.words=state.words.filter(w=>w.id!==id);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('生词已删除。');}return;}
     if(button.dataset.monthOffset){const [year,month]=state.month.split('-').map(Number);const next=new Date(year,month-1+Number(button.dataset.monthOffset),1);await renderActivity(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);return;}
     if(button.dataset.calendarDay){const date=button.dataset.calendarDay,day=state.calendarStats.days.find(d=>d.date===date);$('#calendar-detail').textContent=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 ${day.reading_seconds%60} 秒 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录。`;return;}
     if(button.dataset.importTab){state.importMode=button.dataset.importTab;$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode!=='paste';$('#url-fields').hidden=state.importMode!=='url';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode!=='paste');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
+    if(button.dataset.batch){await doBatch(button.dataset.batch);return;}
     const action=button.dataset.action;
     if(action==='import'){$('#import-error').textContent='';$('#import-dialog').showModal();}
     else if(action==='close-dialog')button.closest('dialog').close();
     else if(action==='close-margin')$('.reader-margin')?.classList.remove('mobile-open');
     else if(action==='settings')openSettings();
-    else if(action==='reset-filters'){state.category=state.difficulty='全部';state.query='';renderLibrary();}
+    else if(action==='reset-filters'){state.category=state.difficulty=state.tag=state.priority='全部';state.query='';renderLibrary();}
     else if(action==='checkin'){button.disabled=true;await api('/checkin',{method:'POST',body:{}});await refreshStats();if(state.view==='library')renderLibrary();else if(state.view==='activity')await renderActivity(state.month);toast('今天的学习，已留下足迹。');}
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
     else if(action==='save-lookup')await saveLookup();
     else if(action==='complete-reading'){button.disabled=true;activeSession.progress=100;activeSession.dirty=true;await flushSession();updateReaderStatus();button.innerHTML=icon('check')+'已完成阅读';await refreshStats();toast('读完一篇，点亮一天。进度已保存。');}
     else if(action==='delete-article'){const article=state.article;if(await confirmDelete(`删除文章「${article.title}」？已收藏的单词与历史学习记录会保留。`)){await flushSession();activeSession=null;readingSessions.delete(article.id);await api('/articles/'+article.id,{method:'DELETE',body:{}});location.hash='library';toast('文章已删除，生词仍然保留。');}}
     else if(action==='add-word')showWordDialog();
+    else if(action==='manage-library'){$('#manage-dialog').showModal();renderManage();}
+    else if(action==='edit-article')openArticleDialog(Number(button.dataset.edit));
+    else if(action==='clear-selection'){state.selected.clear();renderLibrary();}
+    else if(action==='add-tag'){$('#tag-error').textContent='';$('#tag-form').reset();$('#tag-dialog').showModal();}
+    else if(action==='rename-category'||action==='rename-tag')startRename(action==='rename-category'?'category':'tag', Number(button.dataset.id));
+    else if(action==='cancel-manage')renderManage();
+    else if(action==='confirm-rename'){const input=button.parentElement.querySelector('.manage-rename-input');const value=(input?.value||'').trim();if(!value){toast('名称不能为空。',true);return;}const kind=button.dataset.kind;await api(`/${kind==='category'?'categories':'tags'}/${button.dataset.id}`,{method:'PATCH',body:{name:value}});await loadCategoriesTags();renderManage();toast('已重命名。');}
+    else if(action==='delete-category'){const c=state.categories.find(x=>x.id===Number(button.dataset.id));if(await confirmDelete(`删除分类「${c.name}」？其下文章会移到其他分类。`)){await api('/categories/'+c.id,{method:'DELETE',body:{}});await loadCategoriesTags();renderManage();toast('分类已删除。');}}
+    else if(action==='delete-tag'){const t=state.tags.find(x=>x.id===Number(button.dataset.id));if(await confirmDelete(`删除标签「${t.name}」？会从所有文章上移除。`)){await api('/tags/'+t.id,{method:'DELETE',body:{}});await loadCategoriesTags();renderManage();toast('标签已删除。');}}
     else if(action==='cancel-confirm')resolveConfirm(false);
     else if(action==='accept-confirm')resolveConfirm(true);
   }catch(error){toast(error.message,true);button.disabled=false;}
@@ -318,6 +461,11 @@ document.addEventListener('input',event=> {if(event.target.id==='article-search'
 document.addEventListener('change',async event=> {
   const input=event.target;
   try {if(input.id==='difficulty-filter'){state.difficulty=input.value;renderArticleCards();}
+    else if(input.id==='category-filter'){state.category=input.value;renderArticleCards();}
+    else if(input.id==='tag-filter'){state.tag=input.value;renderArticleCards();}
+    else if(input.id==='priority-filter'){state.priority=input.value;renderArticleCards();}
+    else if(input.dataset.select){const id=Number(input.dataset.select);if(input.checked)state.selected.add(id);else state.selected.delete(id);input.closest('.article-card')?.classList.toggle('selected',input.checked);renderBatchBar();}
+    else if(input.dataset.batchSelect){const value=input.value;if(!value)return;await doBatch(input.dataset.batchSelect, input.dataset.batchSelect==='set_category'?{category:value}:{priority:Number(value)});}
     else if(input.id==='line-height')saveSettings({line_height:Number(input.value)});
     else if(input.dataset.wordMastery){const id=Number(input.dataset.wordMastery);input.disabled=true;const result=await api('/vocabulary/'+id,{method:'PATCH',body:{mastery:input.value}});const word=state.words.find(w=>w.id===id);Object.assign(word,result);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('掌握度已更新。');}
   }catch(error){input.disabled=false;toast(error.message,true);if(input.dataset.wordMastery)input.value=state.words.find(w=>w.id===Number(input.dataset.wordMastery)).mastery;}
@@ -331,7 +479,22 @@ document.addEventListener('submit',async event=> {
     const payload=Object.fromEntries(new FormData(form));const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
   }else if(form.id==='word-form') {
     $('#word-error').textContent='';const payload=Object.fromEntries(new FormData(form));const result=await api('/vocabulary'+(state.editWord?'/'+state.editWord:''),{method:state.editWord?'PATCH':'POST',body:payload});$('#word-dialog').close();state.words=(await api('/vocabulary')).words;await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast(result.duplicate?'这个单词已经收藏过了。':'生词已保存。');
-  }}catch(error){const target=form.id==='import-form'?$('#import-error'):$('#word-error');if(target)target.textContent=error.message;else toast(error.message,true);}
+  }else if(form.id==='article-form') {
+    $('#article-error').textContent='';
+    const payload={category:form.elements.category.value, priority:Number(form.elements.priority.value), author:form.elements.author.value.trim(), published_at:form.elements.published_at.value.trim(), favorite:form.elements.favorite.checked, read_later:form.elements.read_later.checked, tags:form.elements.tags.value.split(/[,，、]/).map(item=>item.trim()).filter(Boolean)};
+    await api('/articles/'+state.editArticle,{method:'PATCH',body:payload});
+    $('#article-dialog').close();await loadArticles();renderLibrary();toast('文章信息已更新。');
+  }else if(form.id==='tag-form') {
+    $('#tag-error').textContent='';
+    await doBatch('add_tag',{tag:form.elements.tag.value.trim()});
+    $('#tag-dialog').close();
+  }else if(form.id==='category-add-form') {
+    await api('/categories',{method:'POST',body:{name:form.elements.name.value.trim()}});
+    await loadCategoriesTags();renderManage();toast('分类已添加。');
+  }else if(form.id==='tag-add-form') {
+    await api('/tags',{method:'POST',body:{name:form.elements.name.value.trim()}});
+    await loadCategoriesTags();renderManage();toast('标签已添加。');
+  }}catch(error){const target=form.id==='import-form'?$('#import-error'):form.id==='word-form'?$('#word-error'):form.id==='article-form'?$('#article-error'):form.id==='tag-form'?$('#tag-error'):null;if(target)target.textContent=error.message;else toast(error.message,true);}
   finally{button.disabled=false;if(form.id==='import-form')button.innerHTML='导入并开始阅读'+icon('arrow-right');}
 });
 

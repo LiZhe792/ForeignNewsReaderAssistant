@@ -55,6 +55,30 @@
     <form id="word-form"><label>英文单词<input name="word" pattern="[A-Za-z]+(['’-][A-Za-z]+)*" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
   </dialog>
 
+  <dialog id="article-dialog" class="modal">
+    <div class="modal-heading"><div><span class="eyebrow">ORGANIZE YOUR SHELF</span><h2 id="article-dialog-title">整理文章</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭文章编辑"><span data-icon="close"></span></button></div>
+    <form id="article-form">
+      <div class="two-column"><label>文章分类<select name="category" id="article-category"></select></label><label>阅读优先级<select name="priority"><option value="0">无优先级</option><option value="1">低</option><option value="2">中</option><option value="3">高</option></select></label></div>
+      <label>标签（逗号分隔）<input name="tags" maxlength="300" placeholder="例如：气候, 能源, 深度报道" list="tag-options"></label>
+      <div class="two-column"><label>作者（选填）<input name="author" maxlength="100" placeholder="例如：Jane Goodall"></label><label>发布日期（选填）<input name="published_at" maxlength="40" placeholder="YYYY-MM-DD"></label></div>
+      <div class="toggle-row"><label class="toggle"><input type="checkbox" name="favorite"><span>收藏这篇文章</span></label><label class="toggle"><input type="checkbox" name="read_later"><span>加入待读清单</span></label></div>
+      <datalist id="tag-options"></datalist>
+      <p class="form-error" id="article-error" role="alert"></p>
+      <div class="modal-footer"><span>修改会立即保存</span><button type="submit" class="button primary">保存修改<span data-icon="check"></span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="manage-dialog" class="modal manage-modal">
+    <div class="modal-heading"><div><span class="eyebrow">YOUR LIBRARY, YOUR RULES</span><h2>分类与标签</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭管理窗口"><span data-icon="close"></span></button></div>
+    <div class="segmented manage-tabs"><button class="active" data-manage-tab="categories" type="button">分类</button><button data-manage-tab="tags" type="button">标签</button></div>
+    <div id="manage-content"></div>
+  </dialog>
+
+  <dialog id="tag-dialog" class="modal compact">
+    <div class="modal-heading"><div><span class="eyebrow">ADD A TAG</span><h2>批量添加标签</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭标签窗口"><span data-icon="close"></span></button></div>
+    <form id="tag-form"><label>标签名称<input name="tag" maxlength="30" list="tag-options" required placeholder="例如：精读"></label><p class="form-error" id="tag-error" role="alert"></p><div class="modal-footer"><button type="submit" class="button primary">添加到所选文章<span data-icon="check"></span></button></div></form>
+  </dialog>
+
   <dialog id="confirm-dialog" class="modal compact"><div class="modal-heading"><h2>删除这条记录？</h2><button class="icon-button" data-action="cancel-confirm" aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm">保留记录</button><button class="button danger" data-action="accept-confirm">确认删除</button></div></dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>

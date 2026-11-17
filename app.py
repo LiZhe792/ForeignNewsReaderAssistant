@@ -12,8 +12,11 @@ from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
 from newsreader.content import import_url, lookup_word
-from newsreader.db import close_db, get_db, init_db, now, today
+from newsreader.db import close_db, get_db, init_db, normalize_title, now, today
 from newsreader.learning import assess_difficulty, words
+from newsreader.library import (
+    PRIORITIES, STATUSES, ensure_tag, find_duplicate, set_article_tags, tags_for_articles,
+)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -90,6 +93,9 @@ def create_app(test_config=None):
             abort(404)
         return dict(row)
 
+    def category_exists(name):
+        return get_db().execute("SELECT 1 FROM categories WHERE name=?", (name,)).fetchone() is not None
+
     @app.get("/")
     def index():
         return render_template("index.html")
@@ -100,17 +106,44 @@ def create_app(test_config=None):
 
     @app.get("/api/articles")
     def articles():
-        rows = get_db().execute(
-            """SELECT id, title, subtitle, source, category, level, difficulty_score,
+        db = get_db()
+        status = request.args.get("status", "all")
+        where, params = [], []
+        if status in STATUSES:
+            where.append("status=?"); params.append(status)
+        elif status == "all":
+            where.append("status!='trashed'")
+        if request.args.get("favorite") == "1":
+            where.append("favorite=1")
+        if request.args.get("read_later") == "1":
+            where.append("read_later=1")
+        priority = request.args.get("priority", "")
+        if priority.isdigit() and int(priority) in PRIORITIES:
+            where.append("priority=?"); params.append(int(priority))
+        tag = request.args.get("tag", "")
+        if tag:
+            where.append("id IN (SELECT at.article_id FROM article_tags at JOIN tags t ON t.id=at.tag_id WHERE t.name=?)")
+            params.append(tag)
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = db.execute(
+            f"""SELECT id, title, subtitle, source, category, level, difficulty_score,
             word_count, reading_minutes, progress, reading_seconds, last_read_at,
-            created_at, is_demo FROM articles ORDER BY created_at DESC, id ASC"""
+            created_at, is_demo, favorite, read_later, priority, status, author, published_at
+            FROM articles {clause} ORDER BY created_at DESC, id ASC""", params
         ).fetchall()
-        return jsonify(articles=[dict(row) for row in rows])
+        tag_map = tags_for_articles(db)
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["tags"] = tag_map.get(item["id"], [])
+            result.append(item)
+        return jsonify(articles=result)
 
     @app.get("/api/articles/<int:article_id>")
     def article_detail(article_id):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
+        article["tags"] = tags_for_articles(get_db()).get(article_id, [])
         return jsonify(article)
 
     @app.post("/api/articles")
@@ -119,9 +152,6 @@ def create_app(test_config=None):
         url = text(data, "url", 2048)
         if url:
             article = import_url(url)
-            duplicate = get_db().execute("SELECT id FROM articles WHERE source_url=?", (article["source_url"],)).fetchone()
-            if duplicate:
-                return jsonify(id=duplicate["id"], duplicate=True), 200
         else:
             article = {"title": text(data, "title", 250, required=True),
                        "content": text(data, "content", 100000, required=True),
@@ -129,18 +159,29 @@ def create_app(test_config=None):
         if len(words(article["content"])) < 40:
             raise ValueError("请至少提供 40 个英文单词的正文。")
         category = text(data, "category", 20, default="其他")
-        if category not in ("科技", "文化", "科学", "生活", "环境", "其他"):
+        if not category_exists(category):
             raise ValueError("请选择有效的文章分类。")
-        metrics = assess_difficulty(article["content"])
         db = get_db()
+        duplicate = find_duplicate(db, article["title"], article["source_url"])
+        if duplicate:
+            return jsonify(id=duplicate, duplicate=True), 200
+        author = text(data, "author", 100, default=article.get("author", ""))
+        published_at = text(data, "published_at", 40)
+        metrics = assess_difficulty(article["content"])
         cursor = db.execute(
             """INSERT INTO articles (title, content, source, source_url, category, level,
-            difficulty_score, word_count, reading_minutes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            difficulty_score, word_count, reading_minutes, created_at, author, published_at, title_norm)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (article["title"], article["content"], article["source"], article["source_url"], category,
-             metrics["level"], metrics["score"], metrics["word_count"], metrics["reading_minutes"], now()),
+             metrics["level"], metrics["score"], metrics["word_count"], metrics["reading_minutes"], now(),
+             author, published_at, normalize_title(article["title"])),
         )
+        article_id = cursor.lastrowid
+        tags = data.get("tags")
+        if isinstance(tags, list):
+            set_article_tags(db, article_id, [item for item in tags if isinstance(item, str)])
         db.commit()
-        return jsonify(id=cursor.lastrowid, duplicate=False), 201
+        return jsonify(id=article_id, duplicate=False), 201
 
     @app.delete("/api/articles/<int:article_id>")
     def delete_article(article_id):
@@ -300,6 +341,182 @@ def create_app(test_config=None):
             if row["key"] in defaults:
                 defaults[row["key"]] = json.loads(row["value"])
         return jsonify(defaults)
+
+
+    @app.patch("/api/articles/<int:article_id>")
+    def edit_article(article_id):
+        record("articles", article_id)
+        data = body()
+        db = get_db()
+        sets, params = [], []
+        if "favorite" in data:
+            if not isinstance(data["favorite"], bool):
+                raise ValueError("收藏标记必须是布尔值。")
+            sets.append("favorite=?"); params.append(int(data["favorite"]))
+        if "read_later" in data:
+            if not isinstance(data["read_later"], bool):
+                raise ValueError("待读标记必须是布尔值。")
+            sets.append("read_later=?"); params.append(int(data["read_later"]))
+        if "priority" in data:
+            priority = data["priority"]
+            if isinstance(priority, bool) or not isinstance(priority, int) or priority not in PRIORITIES:
+                raise ValueError("阅读优先级无效。")
+            sets.append("priority=?"); params.append(priority)
+        if "status" in data:
+            status = data["status"]
+            if status not in STATUSES:
+                raise ValueError("文章状态无效。")
+            sets.append("status=?"); params.append(status)
+        if "category" in data:
+            category = text(data, "category", 20, required=True)
+            if not category_exists(category):
+                raise ValueError("请选择有效的文章分类。")
+            sets.append("category=?"); params.append(category)
+        if "author" in data:
+            sets.append("author=?"); params.append(text(data, "author", 100))
+        if "published_at" in data:
+            sets.append("published_at=?"); params.append(text(data, "published_at", 40))
+        if "tags" in data:
+            if not isinstance(data["tags"], list):
+                raise ValueError("标签必须是字符串列表。")
+            set_article_tags(db, article_id, [item for item in data["tags"] if isinstance(item, str)])
+        if sets:
+            db.execute(f"UPDATE articles SET {', '.join(sets)} WHERE id=?", (*params, article_id))
+        db.commit()
+        result = record("articles", article_id)
+        result["tags"] = tags_for_articles(db).get(article_id, [])
+        return jsonify(result)
+
+    @app.post("/api/articles/batch")
+    def batch_articles():
+        data = body()
+        ids = data.get("ids")
+        if not isinstance(ids, list) or not ids or len(ids) > 200:
+            raise ValueError("请选择 1 到 200 篇文章。")
+        if any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in ids):
+            raise ValueError("文章编号无效。")
+        op = data.get("op")
+        db = get_db()
+        placeholders = ",".join("?" * len(ids))
+        if op in ("trash", "archive", "restore"):
+            status = {"trash": "trashed", "archive": "archived", "restore": "active"}[op]
+            db.execute(f"UPDATE articles SET status=? WHERE id IN ({placeholders})", (status, *ids))
+        elif op == "delete":
+            db.execute(f"DELETE FROM articles WHERE id IN ({placeholders})", ids)
+        elif op in ("favorite", "unfavorite"):
+            db.execute(f"UPDATE articles SET favorite=? WHERE id IN ({placeholders})",
+                       (1 if op == "favorite" else 0, *ids))
+        elif op in ("read_later", "unread_later"):
+            db.execute(f"UPDATE articles SET read_later=? WHERE id IN ({placeholders})",
+                       (1 if op == "read_later" else 0, *ids))
+        elif op == "set_priority":
+            priority = data.get("priority")
+            if isinstance(priority, bool) or not isinstance(priority, int) or priority not in PRIORITIES:
+                raise ValueError("阅读优先级无效。")
+            db.execute(f"UPDATE articles SET priority=? WHERE id IN ({placeholders})", (priority, *ids))
+        elif op == "set_category":
+            category = text(data, "category", 20, required=True)
+            if not category_exists(category):
+                raise ValueError("请选择有效的文章分类。")
+            db.execute(f"UPDATE articles SET category=? WHERE id IN ({placeholders})", (category, *ids))
+        elif op in ("add_tag", "remove_tag"):
+            name = text(data, "tag", 30, required=True)
+            if op == "add_tag":
+                tag_id = ensure_tag(db, name)
+                for article_id in ids:
+                    db.execute("INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)",
+                               (article_id, tag_id))
+            else:
+                db.execute(
+                    "DELETE FROM article_tags WHERE tag_id=(SELECT id FROM tags WHERE name=?) "
+                    f"AND article_id IN ({placeholders})", (name, *ids))
+        else:
+            raise ValueError("不支持的操作。")
+        db.commit()
+        return jsonify(ok=True, count=len(ids))
+
+    @app.get("/api/categories")
+    def categories():
+        rows = get_db().execute(
+            """SELECT c.*, (SELECT COUNT(*) FROM articles a WHERE a.category=c.name AND a.status!='trashed') AS article_count
+            FROM categories c ORDER BY c.id"""
+        ).fetchall()
+        return jsonify(categories=[dict(row) for row in rows])
+
+    @app.post("/api/categories")
+    def add_category():
+        data = body()
+        name = text(data, "name", 20, required=True)
+        db = get_db()
+        existing = db.execute("SELECT id FROM categories WHERE name=?", (name,)).fetchone()
+        if existing:
+            return jsonify(id=existing["id"], duplicate=True), 200
+        cursor = db.execute("INSERT INTO categories (name, created_at) VALUES (?, ?)", (name, now()))
+        db.commit()
+        return jsonify(id=cursor.lastrowid, name=name), 201
+
+    @app.patch("/api/categories/<int:category_id>")
+    def rename_category(category_id):
+        category = record("categories", category_id)
+        data = body()
+        name = text(data, "name", 20, required=True)
+        db = get_db()
+        if db.execute("SELECT 1 FROM categories WHERE name=? AND id!=?", (name, category_id)).fetchone():
+            raise ValueError("已有同名分类。")
+        db.execute("UPDATE categories SET name=? WHERE id=?", (name, category_id))
+        db.execute("UPDATE articles SET category=? WHERE category=?", (name, category["name"]))
+        db.commit()
+        return jsonify(record("categories", category_id))
+
+    @app.delete("/api/categories/<int:category_id>")
+    def delete_category(category_id):
+        category = record("categories", category_id)
+        db = get_db()
+        if db.execute("SELECT COUNT(*) FROM categories").fetchone()[0] <= 1:
+            raise ValueError("至少需要保留一个分类。")
+        target = "其他" if category["name"] != "其他" and category_exists("其他") else None
+        if target is None:
+            target = db.execute("SELECT name FROM categories WHERE id!=? ORDER BY id LIMIT 1", (category_id,)).fetchone()["name"]
+        db.execute("UPDATE articles SET category=? WHERE category=?", (target, category["name"]))
+        db.execute("DELETE FROM categories WHERE id=?", (category_id,))
+        db.commit()
+        return jsonify(ok=True)
+
+    @app.get("/api/tags")
+    def tags():
+        rows = get_db().execute(
+            """SELECT t.*, (SELECT COUNT(*) FROM article_tags at WHERE at.tag_id=t.id) AS article_count
+            FROM tags t ORDER BY t.name"""
+        ).fetchall()
+        return jsonify(tags=[dict(row) for row in rows])
+
+    @app.post("/api/tags")
+    def add_tag():
+        data = body()
+        tag_id = ensure_tag(get_db(), text(data, "name", 30, required=True))
+        get_db().commit()
+        return jsonify(id=tag_id), 201
+
+    @app.patch("/api/tags/<int:tag_id>")
+    def rename_tag(tag_id):
+        record("tags", tag_id)
+        data = body()
+        name = text(data, "name", 30, required=True)
+        db = get_db()
+        if db.execute("SELECT 1 FROM tags WHERE name=? AND id!=?", (name, tag_id)).fetchone():
+            raise ValueError("已有同名标签。")
+        db.execute("UPDATE tags SET name=? WHERE id=?", (name, tag_id))
+        db.commit()
+        return jsonify(record("tags", tag_id))
+
+    @app.delete("/api/tags/<int:tag_id>")
+    def delete_tag(tag_id):
+        record("tags", tag_id)
+        db = get_db()
+        db.execute("DELETE FROM tags WHERE id=?", (tag_id,))
+        db.commit()
+        return jsonify(ok=True)
+
 
     return app
 
