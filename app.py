@@ -11,8 +11,10 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
+from newsreader.articles import CATEGORIES, ensure_source, import_many, insert_article
 from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
+from newsreader.feeds import refresh_feed, subscribe
 from newsreader.learning import assess_difficulty, words
 
 ROOT = Path(__file__).resolve().parent
@@ -40,7 +42,7 @@ def create_app(test_config=None):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
                 return jsonify(error="不允许跨站修改本地学习数据。"), 403
-            if not request.is_json:
+            if not request.is_json and request.content_length:
                 return jsonify(error="请使用 JSON 格式提交数据。"), 415
 
     @app.after_request
@@ -131,16 +133,14 @@ def create_app(test_config=None):
         category = text(data, "category", 20, default="其他")
         if category not in ("科技", "文化", "科学", "生活", "环境", "其他"):
             raise ValueError("请选择有效的文章分类。")
-        metrics = assess_difficulty(article["content"])
         db = get_db()
-        cursor = db.execute(
-            """INSERT INTO articles (title, content, source, source_url, category, level,
-            difficulty_score, word_count, reading_minutes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (article["title"], article["content"], article["source"], article["source_url"], category,
-             metrics["level"], metrics["score"], metrics["word_count"], metrics["reading_minutes"], now()),
+        article_id = insert_article(
+            db, title=article["title"], content=article["content"], source=article["source"],
+            source_url=article["source_url"], category=category,
         )
+        ensure_source(db, article["source"])
         db.commit()
-        return jsonify(id=cursor.lastrowid, duplicate=False), 201
+        return jsonify(id=article_id, duplicate=False), 201
 
     @app.delete("/api/articles/<int:article_id>")
     def delete_article(article_id):
@@ -300,6 +300,138 @@ def create_app(test_config=None):
             if row["key"] in defaults:
                 defaults[row["key"]] = json.loads(row["value"])
         return jsonify(defaults)
+
+
+    @app.post("/api/articles/batch")
+    def batch_articles():
+        data = body()
+        urls = data.get("urls")
+        if isinstance(urls, str):
+            urls = urls.splitlines()
+        if not isinstance(urls, list):
+            raise ValueError("请提供要导入的链接列表。")
+        links = [item.strip() for item in urls if isinstance(item, str) and item.strip()]
+        if not links:
+            raise ValueError("请至少提供一个文章链接。")
+        if len(links) > 10:
+            raise ValueError("一次最多导入 10 个链接。")
+        category = text(data, "category", 20, default="其他")
+        if category not in CATEGORIES:
+            raise ValueError("请选择有效的文章分类。")
+        results = import_many(links, category=category)
+        return jsonify(results=results, imported=sum(
+            1 for item in results if item.get("ok") and not item.get("duplicate")))
+
+    @app.get("/api/feeds")
+    def feeds():
+        rows = get_db().execute(
+            """SELECT f.*, s.name AS source_name, s.domain,
+            (SELECT COUNT(*) FROM articles a WHERE a.feed_id=f.id) AS article_count
+            FROM feeds f LEFT JOIN sources s ON s.id=f.source_id
+            ORDER BY f.created_at DESC, f.id DESC"""
+        ).fetchall()
+        return jsonify(feeds=[dict(row) for row in rows])
+
+    @app.post("/api/feeds")
+    def add_feed():
+        data = body()
+        url = text(data, "url", 2048, required=True)
+        category = text(data, "category", 20, default="其他")
+        if category not in CATEGORIES:
+            raise ValueError("请选择有效的栏目分类。")
+        result = subscribe(
+            url, category=category,
+            source_name=text(data, "source", 100),
+            keywords=text(data, "keywords", 300),
+            title=text(data, "title", 250),
+        )
+        return jsonify(result), 201
+
+    @app.post("/api/feeds/refresh")
+    def refresh_feeds():
+        db = get_db()
+        rows = db.execute(
+            """SELECT * FROM feeds WHERE enabled=1
+            ORDER BY CASE WHEN last_fetched_at IS NULL THEN 0 ELSE 1 END, last_fetched_at
+            LIMIT 12"""
+        ).fetchall()
+        results = []
+        for row in rows:
+            try:
+                results.append({"id": row["id"], "title": row["title"], "ok": True, **refresh_feed(row)})
+            except ValueError as exc:
+                results.append({"id": row["id"], "title": row["title"], "ok": False, "error": str(exc)})
+        return jsonify(results=results, updated=sum(item.get("added", 0) for item in results))
+
+    @app.post("/api/feeds/<int:feed_id>/refresh")
+    def refresh_one_feed(feed_id):
+        feed = record("feeds", feed_id)
+        return jsonify(id=feed_id, **refresh_feed(feed))
+
+    @app.patch("/api/feeds/<int:feed_id>")
+    def update_feed(feed_id):
+        feed = record("feeds", feed_id)
+        data = body()
+        db = get_db()
+        if "enabled" in data:
+            if not isinstance(data["enabled"], bool):
+                raise ValueError("启用状态必须是布尔值。")
+            db.execute("UPDATE feeds SET enabled=? WHERE id=?", (int(data["enabled"]), feed_id))
+        if "category" in data:
+            category = text(data, "category", 20)
+            if category not in CATEGORIES:
+                raise ValueError("请选择有效的栏目分类。")
+            db.execute("UPDATE feeds SET category=? WHERE id=?", (category, feed_id))
+        if "keywords" in data:
+            db.execute("UPDATE feeds SET keywords=? WHERE id=?", (text(data, "keywords", 300), feed_id))
+        if "title" in data:
+            db.execute("UPDATE feeds SET title=? WHERE id=?", (text(data, "title", 250, required=True), feed_id))
+        db.commit()
+        return jsonify(record("feeds", feed_id))
+
+    @app.delete("/api/feeds/<int:feed_id>")
+    def delete_feed(feed_id):
+        record("feeds", feed_id)
+        db = get_db()
+        db.execute("DELETE FROM feed_seen WHERE feed_id=?", (feed_id,))
+        db.execute("UPDATE articles SET feed_id=NULL WHERE feed_id=?", (feed_id,))
+        db.execute("DELETE FROM feeds WHERE id=?", (feed_id,))
+        db.commit()
+        return jsonify(ok=True)
+
+    @app.get("/api/sources")
+    def sources():
+        rows = get_db().execute(
+            """SELECT s.*, (SELECT COUNT(*) FROM articles a WHERE a.source=s.name) AS article_count,
+            (SELECT COUNT(*) FROM feeds f WHERE f.source_id=s.id) AS feed_count
+            FROM sources s ORDER BY article_count DESC, s.name ASC"""
+        ).fetchall()
+        return jsonify(sources=[dict(row) for row in rows])
+
+    @app.patch("/api/sources/<int:source_id>")
+    def update_source(source_id):
+        source = record("sources", source_id)
+        data = body()
+        db = get_db()
+        if "name" in data:
+            name = text(data, "name", 100, required=True)
+            duplicate = db.execute("SELECT id FROM sources WHERE name=? AND id!=?", (name, source_id)).fetchone()
+            if duplicate:
+                raise ValueError("已有同名的媒体来源。")
+            db.execute("UPDATE sources SET name=? WHERE id=?", (name, source_id))
+            db.execute("UPDATE articles SET source=? WHERE source=?", (name, source["name"]))
+        if "note" in data:
+            db.execute("UPDATE sources SET note=? WHERE id=?", (text(data, "note", 500), source_id))
+        db.commit()
+        return jsonify(record("sources", source_id))
+
+    @app.delete("/api/sources/<int:source_id>")
+    def delete_source(source_id):
+        record("sources", source_id)
+        db = get_db()
+        db.execute("DELETE FROM sources WHERE id=?", (source_id,))
+        db.commit()
+        return jsonify(ok=True)
 
     return app
 
