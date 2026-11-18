@@ -15,6 +15,7 @@ from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
 from newsreader.reading_flow import reading_flow
+from newsreader.deep_analysis import deep_analysis
 
 ROOT = Path(__file__).resolve().parent
 
@@ -26,6 +27,9 @@ def create_app(test_config=None):
         MAX_CONTENT_LENGTH=512 * 1024,
         JSON_AS_ASCII=False,
         TRUSTED_HOSTS=["localhost", "127.0.0.1", "[::1]"],
+        AI_API_KEY=os.getenv("MARGIN_AI_API_KEY", ""),
+        AI_MODEL=os.getenv("MARGIN_AI_MODEL", ""),
+        AI_BASE_URL=os.getenv("MARGIN_AI_BASE_URL", "https://api.openai.com/v1"),
     )
     if test_config:
         app.config.update(test_config)
@@ -33,6 +37,7 @@ def create_app(test_config=None):
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
     app.register_blueprint(reading_flow)
+    app.register_blueprint(deep_analysis)
     with app.app_context():
         init_db()
 

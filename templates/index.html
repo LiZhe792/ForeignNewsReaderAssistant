@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/reading-flow.css">
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
+  <script src="/static/deep-analysis.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
@@ -101,6 +102,21 @@
     <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
     <div id="pending-word-list"></div>
     <div class="modal-footer"><button class="button primary" data-flow-action="close-queue">完成，继续阅读</button></div>
+  </dialog>
+  <dialog id="deep-analysis-dialog" class="modal deep-analysis-modal" aria-labelledby="deep-analysis-title">
+    <div class="modal-heading"><div><span class="eyebrow">READ BEYOND THE WORDS</span><h2 id="deep-analysis-title">长难句解析</h2></div><button class="icon-button" data-analysis-action="close" aria-label="关闭解析">✕</button></div>
+    <div class="deep-controls">
+      <label>学习水平<select id="deep-level"><option value="beginner">入门</option><option value="intermediate" selected>进阶</option><option value="advanced">深入</option></select></label>
+      <label id="deep-paragraph-label">段落<select id="deep-paragraph"></select></label>
+      <label id="deep-sentence-label">选择原句<select id="deep-sentence"></select></label>
+      <label id="deep-scope-label" hidden>解析范围<select id="deep-scope"><option value="full">整篇文章</option><option value="paragraph">当前段落</option></select></label>
+      <label id="deep-compare-label" hidden>对比文章（可多选，最多 3 篇）<select id="deep-compare" multiple size="4"></select></label>
+    </div>
+    <p class="deep-source-label">原文预览</p><blockquote id="deep-source"></blockquote>
+    <p class="reader-setting-note">点击生成后，将所选原文、标题和相关语境发送给配置的 AI 服务；全文对比会发送所选文章全文，可能产生费用。AI 结果需要结合原文核对。</p>
+    <p id="deep-status" class="deep-status" role="status" aria-live="polite"></p>
+    <div class="deep-actions"><button class="button primary" data-analysis-action="generate" id="deep-generate">生成解析</button><button class="button" data-analysis-action="close">关闭，继续阅读</button></div>
+    <div id="deep-results" aria-live="polite"></div>
   </dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
