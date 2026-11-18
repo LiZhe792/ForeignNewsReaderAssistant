@@ -15,6 +15,7 @@ from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
 from newsreader.reading_flow import reading_flow
+from newsreader.dictionary import normalize_term
 
 ROOT = Path(__file__).resolve().parent
 
@@ -183,7 +184,8 @@ def create_app(test_config=None):
 
     @app.get("/api/dictionary")
     def dictionary():
-        return jsonify(lookup_word(request.args.get("word", "")))
+        provider = request.args.get("provider", read_preferences(get_db())["dictionary_provider"])
+        return jsonify(lookup_word(request.args.get("word", ""), provider))
 
     @app.get("/api/vocabulary")
     def vocabulary():
@@ -195,9 +197,7 @@ def create_app(test_config=None):
     @app.post("/api/vocabulary")
     def add_word():
         data = body()
-        word = text(data, "word", 60, required=True).lower().replace("’", "'")
-        if not re.fullmatch(r"[a-z]+(?:['-][a-z]+)*", word):
-            raise ValueError("生词必须是单个英文单词。")
+        word = normalize_term(text(data, "word", 60, required=True))
         meaning = text(data, "meaning", 3000, required=True)
         phonetic, part = text(data, "phonetic", 150), text(data, "part_of_speech", 100)
         context, note = text(data, "context", 5000), text(data, "note", 2000)

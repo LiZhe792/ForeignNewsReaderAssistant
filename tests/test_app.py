@@ -134,7 +134,7 @@ class ApplicationTests(unittest.TestCase):
             self.assertEqual(response.json["meaning"], "")
 
     def test_dictionary_validation(self):
-        for word in ("hello world", "<script>", "a" * 61, "", "123"):
+        for word in ("one two three four five six seven", "<script>", "a" * 61, "", "123"):
             response = self.client.get("/api/dictionary", query_string={"word": word})
             self.assertEqual(response.status_code, 400)
 
@@ -162,7 +162,7 @@ class ApplicationTests(unittest.TestCase):
         word_id = self.add_word()
         self.assertEqual(self.client.patch(f"/api/vocabulary/{word_id}", json={"note": "should rollback", "mastery": "invalid"}).status_code, 400)
         self.assertEqual(self.client.get("/api/vocabulary").json["words"][0]["note"], "")
-        for payload in ({"word": "two words", "meaning": "invalid"}, {"word": "read", "meaning": ""},
+        for payload in ({"word": "one two three four five six seven", "meaning": "invalid"}, {"word": "read", "meaning": ""},
                         {"word": "read", "meaning": "阅读", "article_id": 999}, {"word": "read", "meaning": "阅读", "article_id": True}):
             self.assertIn(self.client.post("/api/vocabulary", json=payload).status_code, (400, 404))
 

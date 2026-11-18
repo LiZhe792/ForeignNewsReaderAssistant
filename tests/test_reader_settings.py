@@ -27,6 +27,7 @@ class ReaderPreferenceTests(unittest.TestCase):
             "focus_mode": True, "shortcuts_enabled": False, "gestures_enabled": False,
             "reading_mode": "intensive", "definition_collapsed": False,
             "hint_density": "quiet", "suppress_mastered": False, "reminder_minutes": 20,
+            "dictionary_provider": "offline",
         }
         response = self.client.patch("/api/settings", json=preferences)
         self.assertEqual(response.status_code, 200)

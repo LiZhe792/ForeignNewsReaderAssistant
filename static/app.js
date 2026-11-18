@@ -119,6 +119,7 @@ function readerScroller() { return $('.reader-scroll'); }
 function renderReader(article) {
   state.article = article;
   state.lookup = null;
+  state.lookupRequest = null;
   state.lookupVersion++;
   const paragraphs = article.content.split(/\n\s*\n|\n/).filter(p => p.trim());
   app.classList.add('reader-page');
@@ -162,8 +163,8 @@ function renderReader(article) {
       </div>
     </article></div>
     <aside class="reader-margin"><div class="margin-heading">阅读的留白<span>THE MARGIN</span><button class="icon-button margin-close" data-action="close-margin" aria-label="关闭查词面板">${icon('close')}</button></div>
-      <form class="lookup-form" id="lookup-form"><input name="word" aria-label="输入英文单词查词" placeholder="输入单词，或直接点击正文" maxlength="60" required><button type="submit" class="icon-button" aria-label="查询单词">${icon('search')}</button></form>
-      <div id="learning-panel">${marginPlaceholder()}</div>
+      <form class="lookup-form" id="lookup-form"><input name="word" aria-label="输入英文单词或短语查词" placeholder="输入单词，或直接点击正文" maxlength="60" required><button type="submit" class="icon-button" aria-label="查询单词">${icon('search')}</button></form>
+      ${MarginDictionary.controls()}<div id="learning-panel">${marginPlaceholder()}</div>
     </aside><aside id="flow-reminder" class="flow-reminder" role="status" aria-live="polite" hidden><strong>给学习留一点空隙</strong><p></p><div><button class="button small primary" data-flow-action="queue">整理待查词</button><button class="button small" data-flow-action="reminder-later">5 分钟后提醒</button><button class="button small" data-flow-action="reminder-dismiss">继续阅读</button></div></aside></div>
     <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><div class="reader-step-controls"><button class="icon-button" data-reader-action="previous" aria-label="上一段" title="上一段（[）">${icon('chevron-left')}</button><span id="reader-position-label"></span><button class="icon-button" data-reader-action="next" aria-label="下一段" title="下一段（]）">${icon('chevron-right')}</button></div><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
   activeSession = readingSessions.get(article.id) || {id:article.id, seconds:0, position:article.position, progress:article.progress, saving:null, dirty:false};
@@ -188,7 +189,9 @@ let settingsQueue = Promise.resolve();
 let settingsRevision = 0;
 function saveSettings(patch) {
   const anchor = reader?.captureAnchor();
+  const previousLookup = state.lookup || state.lookupRequest;
   Object.assign(state.settings,patch); flow?.apply(state.settings); reader?.apply(state.settings,anchor);
+  if (Object.hasOwn(patch,'dictionary_provider') && previousLookup) lookup(previousLookup.word,previousLookup.context,{paragraphIndex:previousLookup.paragraphIndex,expanded:previousLookup.expanded,manualMeaning:previousLookup.manualMeaning});
   const snapshot = {...state.settings}, revision = ++settingsRevision;
   $('#reader-settings-status').textContent='正在保存设置…';
   $('#retry-reader-settings').hidden=true;
@@ -241,14 +244,16 @@ async function lookup(word, context='', options={}) {
   if(!$('#learning-panel')) return;
   const articleId=state.article.id, activeReader=reader;
   if(options.fullParagraph)context=currentContext(word,context);
+  state.lookupRequest={word,context,articleId,paragraphIndex:options.paragraphIndex??-1,
+    expanded:options.expanded??!state.settings.definition_collapsed,manualMeaning:options.manualMeaning||''};
   const anchor=reader.captureAnchor();
   revealMargin(); $('#learning-panel').innerHTML=`<div class="lookup-loading"><span class="spinner"></span>正在查找 ${escapeHTML(word)}…</div>`;
   reader.restoreAnchor(anchor);
   $$('.word.selected').forEach(n=>n.classList.remove('selected')); $$('.word').filter(n=>n.dataset.word.toLowerCase()===word.toLowerCase()).forEach(n=>n.classList.add('selected'));
   try {
-    const result=await api('/dictionary?word='+encodeURIComponent(word));
+    const result=await api('/dictionary?word='+encodeURIComponent(word)+'&provider='+encodeURIComponent(state.settings.dictionary_provider||'auto'));
     if(version!==state.lookupVersion||state.view!=='reader') return;
-    state.lookup={...result,context,articleId,paragraphIndex:options.paragraphIndex??-1,expanded:!state.settings.definition_collapsed}; renderLookup();
+    state.lookup={...state.lookupRequest,...result}; state.lookupRequest=null; renderLookup();
   } catch(error) {if(version===state.lookupVersion&&reader===activeReader&&$('#learning-panel')) $('#learning-panel').innerHTML=`<p class="error-note">${escapeHTML(error.message)}</p><button class="button small" data-action="return-reading">继续阅读</button>`;}
 }
 function renderLookup() {
@@ -258,11 +263,11 @@ function renderLookup() {
   $('#learning-panel').innerHTML = `<div class="lookup-result">
     <div class="lookup-title"><h2>${escapeHTML(entry.word)}</h2></div>
     <details class="lookup-definition" ${entry.expanded?'open':''}><summary>${entry.expanded?'收起释义':'展开释义'}</summary>
-    <div class="phonetic">${escapeHTML(entry.phonetic)}${entry.lemma!==entry.word?' · 原形 '+escapeHTML(entry.lemma):''}</div>
+    ${MarginDictionary.pronunciation(entry)}
     ${entry.found?`<div class="definition"><span class="part-of-speech">${escapeHTML(entry.part_of_speech)}</span>${escapeHTML(entry.meaning)}</div>`:`<p class="lookup-note">${escapeHTML(entry.message)}</p><label>手动填写释义<textarea id="manual-meaning" rows="3" maxlength="3000" placeholder="写下释义后即可收藏">${escapeHTML(entry.manualMeaning||'')}</textarea></label>`}
     <div class="source-caption">${escapeHTML(entry.source)}${entry.cached?' · 本地缓存':''}</div>
     ${entry.context?`<blockquote class="context-block"><span class="context-label">在这篇文章里</span>${escapeHTML(entry.context)}</blockquote>`:entry.example?`<blockquote class="context-block"><span class="context-label">词典例句</span>${escapeHTML(entry.example)}</blockquote>`:''}
-    <button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
+    ${MarginDictionary.knowledge(entry)}<button class="button small" data-action="retry-lookup">重新查询</button><button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
     </details><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
   </div>`;
 }
@@ -333,6 +338,7 @@ document.addEventListener('click',async event=> {
     if(button.dataset.monthOffset){const [year,month]=state.month.split('-').map(Number);const next=new Date(year,month-1+Number(button.dataset.monthOffset),1);await renderActivity(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);return;}
     if(button.dataset.calendarDay){const date=button.dataset.calendarDay,day=state.calendarStats.days.find(d=>d.date===date);$('#calendar-detail').textContent=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 ${day.reading_seconds%60} 秒 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录。`;return;}
     if(button.dataset.importTab){state.importMode=button.dataset.importTab;$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode!=='paste';$('#url-fields').hidden=state.importMode!=='url';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode!=='paste');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
+    if(button.dataset.dictionaryTerm){const entry=state.lookup;await lookup(button.dataset.dictionaryTerm,entry?.context||'',{paragraphIndex:entry?.paragraphIndex??-1,expanded:true});return;}
     const action=button.dataset.action;
     if(action==='import'){$('#import-error').textContent='';$('#import-dialog').showModal();}
     else if(action==='close-dialog')button.closest('dialog').close();
@@ -341,6 +347,7 @@ document.addEventListener('click',async event=> {
     else if(action==='reset-filters'){state.category=state.difficulty='全部';state.query='';renderLibrary();}
     else if(action==='checkin'){button.disabled=true;await api('/checkin',{method:'POST',body:{}});await refreshStats();if(state.view==='library')renderLibrary();else if(state.view==='activity')await renderActivity(state.month);toast('今天的学习，已留下足迹。');}
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
+    else if(action==='retry-lookup'&&state.lookup){const entry=state.lookup;await lookup(entry.word,entry.context,{paragraphIndex:entry.paragraphIndex,expanded:entry.expanded,manualMeaning:entry.manualMeaning});}
     else if(action==='save-lookup')await saveLookup();
     else if(action==='defer-lookup'&&state.lookup){const entry=state.lookup;await flow.deferWord(entry.word,entry.paragraphIndex);}
     else if(action==='return-reading'){const anchor=reader.captureAnchor();$('.reader-margin')?.classList.remove('mobile-open');reader.scroller.focus({preventScroll:true});reader.restoreAnchor(anchor);}
@@ -390,7 +397,8 @@ document.addEventListener('mouseup',event=> {
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {
-    if(/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected))flow?.selectWord(selected,event.target.closest('.paragraph'));
+    const paragraph=event.target.closest('.paragraph');
+    if(MarginDictionary.valid(selected)&&paragraph?.contains(selection.anchorNode)&&paragraph.contains(selection.focusNode))flow?.selectWord(selected,paragraph);
     return;
   }
   const target=event.target.closest('[data-word]');if(target)flow?.selectWord(target.dataset.word,target.closest('.paragraph'));

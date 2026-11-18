@@ -150,7 +150,7 @@ test('fluent reading defers words, restores them after refresh, and collects laz
 test('intensive mode folds definitions and an asynchronous response does not undo scrolling', async t => {
   const {page} = await readerPage(t, {reading_mode: 'intensive'});
   let release;
-  await page.route('**/api/dictionary?word=journey', async route => {
+  await page.route('**/api/dictionary?word=journey&provider=*', async route => {
     await new Promise(resolve => { release = resolve; });
     await route.continue();
   });
@@ -165,7 +165,7 @@ test('intensive mode folds definitions and an asynchronous response does not und
   await assertAnchor(page, before);
   assert.equal(await page.locator('.lookup-definition').getAttribute('open'), null);
   assert.equal(await page.locator('.lookup-definition .definition').isVisible(), false);
-  await page.locator('.lookup-definition summary').click();
+  await page.locator('.lookup-definition > summary').click();
   assert.equal(await page.locator('.lookup-definition .definition').isVisible(), true);
   await page.locator('[data-action="return-reading"]').click();
   await settleLayout(page);
@@ -220,7 +220,7 @@ test('failed staging and collection can be retried without losing a manually ent
   assert.equal((await api(`/articles/${articleId}/pending-words`)).words.length, 0);
   await page.locator('[data-flow-action="retry-save"]').click();
   await countPending(page, 1);
-  await page.route('**/api/dictionary?word=well-being', route => route.fulfill({
+  await page.route('**/api/dictionary?word=well-being&provider=*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({found: false, message: '请手动填写释义。'}),
   }));
   await queue(page);
@@ -260,7 +260,7 @@ test('stage reminders count active time, pause during dialogs and do not steal f
 
 test('an asynchronous queue update preserves the meaning being typed and its caret', async t => {
   const {page, dictionaryRequests} = await readerPage(t);
-  await page.route('**/api/dictionary?word=well-being', route => route.fulfill({
+  await page.route('**/api/dictionary?word=well-being&provider=*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({found: false, message: '请手动填写释义。'}),
   }));
   await word(page, 'well-being').click();
