@@ -41,6 +41,8 @@ function frontend() {
       return respond(url, options);
     },
   });
+  vm.runInContext(fs.readFileSync(path.join(root, 'static/dictionary.js'), 'utf8'), context);
+  context.MarginDictionary = window.MarginDictionary;
   vm.runInContext(flowSource, context);
   vm.runInContext(source, context);
   // The initial data load stays pending; each test controls subsequent responses.
@@ -176,17 +178,17 @@ for (const word of ['well-being', "reader's", 'reader’s']) {
     const node = {};
     const body = {contains: n => n === node};
     ui.window.getSelection = () => ({toString: () => word, anchorNode: node, focusNode: node});
-    const paragraph = {dataset: {plain: `We discussed ${word} in class.`}};
+    const paragraph = {contains: n => n === node, dataset: {plain: `We discussed ${word} in class.`}};
     await ui.emit('mouseup', {target: {closest: selector => selector === '#article-body'
       ? body : selector === '.paragraph' ? paragraph : null}});
-    assert.equal(ui.calls[0]?.url, '/api/dictionary?word=' + encodeURIComponent(word));
+    assert.equal(ui.calls[0]?.url, '/api/dictionary?word=' + encodeURIComponent(word) + '&provider=auto');
   });
 }
 
-test('selecting several words does not accidentally query one clicked word', async () => {
+test('selecting a sentence longer than six words does not query one clicked word', async () => {
   const ui = frontend();
   const node = {};
-  ui.window.getSelection = () => ({toString: () => 'two words', anchorNode: node, focusNode: node});
+  ui.window.getSelection = () => ({toString: () => 'one two three four five six seven', anchorNode: node, focusNode: node});
   await ui.emit('mouseup', {target: {closest: selector => selector === '#article-body'
     ? {contains: n => n === node} : selector === '[data-word]' ? {dataset: {word: 'two'}} : null}});
   assert.equal(ui.calls.length, 0);
@@ -196,6 +198,6 @@ test('the vocabulary form pattern compiles under modern browser validation rules
   const html = fs.readFileSync(path.join(root, 'templates/index.html'), 'utf8');
   const pattern = html.match(/name="word" pattern="([^"]+)"/)[1];
   const regex = new RegExp(`^(?:${pattern})$`, 'v');
-  for (const word of ['journey', 'well-being', "reader's", 'reader’s']) assert.equal(regex.test(word), true);
-  for (const word of ['two words', '123', '<script>', 'read-']) assert.equal(regex.test(word), false);
+  for (const word of ['journey', 'well-being', "reader's", 'reader’s', 'take into account']) assert.equal(regex.test(word), true);
+  for (const word of ['one two three four five six seven', '123', '<script>', 'read-']) assert.equal(regex.test(word), false);
 });

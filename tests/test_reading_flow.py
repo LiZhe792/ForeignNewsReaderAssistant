@@ -55,7 +55,7 @@ class ReadingFlowTests(unittest.TestCase):
         self.assertEqual(self.defer("Unknown", -1)["id"], entry["id"])
 
     def test_invalid_words_and_paragraphs_cannot_be_saved(self):
-        cases = [[], None, {"word": "two words"}, {"word": "<script>"}, {"word": True},
+        cases = [[], None, {"word": "one two three four five six seven"}, {"word": "<script>"}, {"word": True},
                  {"word": "x" * 61}, {"word": "missing", "paragraph_index": 0}]
         cases.extend({"word": "journey", "paragraph_index": index} for index in [True, -2, 99, "0", .5])
         for case in cases:
