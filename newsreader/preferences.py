@@ -20,6 +20,7 @@ READER_DEFAULTS = {
     "hint_density": "balanced",
     "suppress_mastered": True,
     "reminder_minutes": 10,
+    "dictionary_provider": "auto",
 }
 
 ENUMS = {
@@ -28,6 +29,7 @@ ENUMS = {
     "layout": ("single", "double"),
     "reading_mode": ("fluent", "intensive"),
     "hint_density": ("quiet", "balanced", "detailed"),
+    "dictionary_provider": ("auto", "offline", "free"),
 }
 RANGES = {
     "font_size": (16, 28, True, "字号"),
