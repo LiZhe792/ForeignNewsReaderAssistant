@@ -1,0 +1,58 @@
+/* Reading rhythm controls inherit all three reader themes. */
+.reading-flow-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 18px; flex-shrink:0; border-bottom:1px solid var(--reader-border); background:var(--reader-surface); }
+.reading-mode-label { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--reader-muted); white-space:nowrap; }
+.reading-mode-label select { width:auto; margin:0; padding:7px 24px 7px 10px; font-size:12px; }
+.reading-flow-bar .button { white-space:nowrap; padding:6px 10px; }
+.flow-mode-hint { font-size:11px; color:var(--reader-muted); margin-right:auto; }
+.flow-feedback { font-size:11px; color:var(--reader-muted); min-height:18px; }
+.pending-open span { min-width:18px; text-align:center; background:var(--reader-soft); color:var(--reader-text); border-radius:4px; padding:0 3px; }
+.flow-settings { padding:20px 0 0; border:0; border-top:1px solid var(--reader-border); margin:0; }
+.flow-settings legend { font-size:14px; font-weight:600; padding:0 12px 0 0; }
+.flow-settings .reader-setting-grid { margin-top:10px; }
+.flow-settings input[type="number"] { margin-top:8px; }
+.reader-active[data-reading-mode="fluent"] .reader-grid { grid-template-columns:minmax(0, 1fr); }
+.reader-active[data-reading-mode="fluent"] .reader-margin { display:none; position:absolute; right:18px; bottom:16px; width:330px; max-height:calc(100% - 32px); min-height:0; overflow-y:auto; z-index:6; border:1px solid var(--reader-border); border-radius:12px; box-shadow:0 12px 40px #0003; }
+.reader-active[data-reading-mode="fluent"] .reader-margin.mobile-open { display:block; }
+.reader-active[data-reading-mode="fluent"] .margin-close { display:inline-flex; }
+.reader-active .word.saved { text-decoration:none; }
+.reader-active .word.learning-cue { text-decoration:underline dotted var(--reader-accent); text-underline-offset:5px; }
+.reader-active .word.pending-cue { text-decoration:underline dashed var(--reader-accent); text-underline-offset:5px; }
+[data-hint-density="quiet"] .word.learning-cue, [data-hint-density="quiet"] .word.pending-cue { text-decoration:none; }
+[data-hint-density="quiet"] :is(.reader-hint, .margin-tip, .flow-mode-hint) { display:none; }
+[data-hint-density="balanced"] .margin-tip { display:none; }
+.paragraph-finish { display:block; margin:15px 0 0; padding:5px 9px; border:1px solid var(--reader-border); border-radius:6px; font:12px/1.6 var(--font); color:var(--reader-muted); background:var(--reader-surface); }
+.paragraph-finish:hover { color:var(--reader-accent); border-color:var(--reader-accent); }
+.lookup-definition { margin:12px 0; }
+.lookup-definition > summary, .pending-definition > summary { cursor:pointer; color:var(--reader-accent); font-size:13px; padding:10px 0; border-top:1px solid var(--reader-border); -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+.lookup-definition > summary:focus-visible, .pending-definition > summary:focus-visible { outline:2px solid var(--reader-accent); outline-offset:3px; }
+.lookup-definition .phonetic { margin-top:8px; }
+.lookup-flow-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.pending-words-modal { width:min(660px, calc(100vw - 32px)); }
+.pending-filter-label { display:flex; align-items:center; gap:14px; }
+.pending-filter-label select { width:auto; max-width:75%; margin:0; }
+.pending-word { padding:17px; border:1px solid var(--reader-border); border-radius:10px; background:var(--reader-bg); margin-bottom:14px; }
+.pending-heading { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.pending-heading strong { font:600 22px Georgia,serif; color:var(--reader-text); overflow-wrap:anywhere; }
+.pending-heading > span { font-size:11px; color:var(--reader-muted); margin-left:auto; }
+.pending-context { font:14px/1.8 Georgia,serif; color:var(--reader-muted); border-left:2px solid var(--reader-border); margin:12px 0; padding-left:12px; overflow-wrap:anywhere; }
+.pending-definition .definition { margin:8px 0; font-size:14px; }
+.pending-definition .source-caption { font-size:11px; color:var(--reader-muted); }
+.pending-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.flow-empty { padding:30px 16px; color:var(--reader-muted); text-align:center; background:var(--reader-bg); border:1px dashed var(--reader-border); border-radius:8px; line-height:1.9; }
+.pending-words-modal .error-note { color:var(--reader-text); background:var(--reader-soft); padding:12px; border-radius:6px; }
+.flow-reminder { position:absolute; left:16px; right:16px; bottom:16px; max-width:440px; padding:18px; border:1px solid var(--reader-border); border-radius:12px; background:var(--reader-surface); color:var(--reader-text); box-shadow:0 8px 35px #0003; z-index:7; }
+.flow-reminder p { font-size:12px; margin:8px 0 14px; color:var(--reader-muted); }
+.flow-reminder > div { display:flex; flex-wrap:wrap; gap:8px; }
+@media (max-width:760px) {
+  .reading-flow-bar { padding:7px 9px; gap:6px; }
+  .reading-mode-label { gap:4px; font-size:10px; margin-right:auto; }
+  .reading-mode-label select { padding:7px 4px; font-size:11px; max-width:112px; }
+  .reading-flow-bar .button { padding:5px 7px; font-size:10px; min-height:34px; }
+  .flow-mode-hint { display:none; }
+  .flow-feedback { flex-basis:100%; font-size:10px; min-height:16px; }
+  [data-hint-density="quiet"] .flow-feedback { display:none; }
+  .reader-active[data-reading-mode="fluent"] .reader-margin { left:0; right:0; bottom:0; width:auto; max-height:75%; border-radius:14px 14px 0 0; }
+  .pending-word { padding:13px; }
+  .pending-context { font-size:13px; }
+  .flow-reminder { left:10px; right:10px; bottom:10px; padding:14px; }
+}

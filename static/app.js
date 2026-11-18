@@ -24,6 +24,7 @@ const icons = {
   leaf:'<path d="M20 3C9 3 3 8 4 15c2 9 14 7 16-12ZM4 21 16 9"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
   minus:'<path d="M5 12h14"/>',
+  fullscreen:'<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
   edit:'<path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14v6Z"/>',
   trash:'<path d="M3 6h18M9 3h6m-10 3 1 15h12l1-15M10 10v7m4-7v7"/>',
   flame:'<path d="M12 2c2 6 7 6 7 12a7 7 0 0 1-14 0c0-3 2-5 3-7 0 4 3 4 4-5Zm0 11c-5 5-2 8 0 8s5-3 0-8Z"/>',
@@ -50,6 +51,8 @@ async function api(path, options = {}) {
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
   category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
+let reader = null;
+let flow = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -122,18 +125,28 @@ function renderReader(article) {
   app.innerHTML = `
     <div class="reader-toolbar">
       <a class="reader-back" href="#library">${icon('arrow-left')}返回文章库</a>
-      <div class="reader-controls">
+      <div class="reader-controls" aria-label="阅读工具栏">
         <div class="control-group"><span class="control-label">字号</span>
           <button class="icon-button" data-action="font-down" aria-label="减小字号">${icon('minus')}</button>
           <span class="font-label" id="font-label">${state.settings.font_size}</span>
           <button class="icon-button" data-action="font-up" aria-label="增大字号">${icon('plus')}</button>
         </div>
-        <div class="control-group"><label for="line-height" class="control-label">行距</label>
-          <select id="line-height" class="line-select" aria-label="行距">${[1.4,1.6,1.8,1.9,2,2.2,2.4].map(n => `<option value="${n}" ${n===state.settings.line_height?'selected':''}>${n.toFixed(1)} 倍</option>`).join('')}</select>
-        </div>
+        <button class="reader-tool-button" data-reader-action="toc" aria-haspopup="dialog" title="段落目录（T）">${icon('book')}<span>目录</span></button>
+        <button class="reader-tool-button" data-reader-action="settings" aria-haspopup="dialog" title="阅读设置（S）">${icon('settings')}<span>阅读设置</span></button>
+        <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
+        <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
+        <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
+        <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
     </div>
-    <div class="reader-grid"><div class="reader-scroll"><article class="reader-paper">
+    <div class="reading-flow-bar" aria-label="阅读与学习节奏">
+      <label class="reading-mode-label">模式<select data-reader-setting="reading_mode" aria-label="阅读模式"><option value="fluent">流畅阅读</option><option value="intensive">精读模式</option></select></label>
+      <span id="flow-mode-hint" class="flow-mode-hint"></span>
+      <button class="button small" data-flow-action="current-paragraph">本段生词</button>
+      <button class="button small pending-open" data-flow-action="queue" aria-haspopup="dialog">待查词 <span id="pending-word-count">…</span></button>
+      <span id="flow-feedback" class="flow-feedback" role="status"></span><button class="button small" data-flow-action="retry-save" hidden>重试暂存</button>
+    </div>
+    <div class="reader-grid"><div class="reader-scroll" tabindex="0" role="region" aria-label="文章阅读区域"><article class="reader-paper">
       <div class="reader-label"><span>${escapeHTML(article.category)}</span><span> / </span>${levelTag(article.level)}<span title="${escapeHTML(article.difficulty.method)}">易读度 ${article.difficulty_score}</span></div>
       <h1 class="reader-title">${escapeHTML(article.title)}</h1>
       ${article.subtitle?`<p class="reader-subtitle">${escapeHTML(article.subtitle)}</p>`:''}
@@ -142,7 +155,8 @@ function renderReader(article) {
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
       </div>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
-      <div class="article-body" id="article-body">${paragraphs.map(p => `<p class="paragraph">${tokenizeParagraph(p.trim())}</p>`).join('')}</div>
+      <p id="reader-layout-note" class="reader-layout-note" hidden></p>
+      <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
       <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p>又多了解了一点世界，也离目标近了一点。</p>
         <button class="button primary" data-action="complete-reading" id="complete-reading">${icon('check')}${article.progress>=100?'已完成阅读':'标记为已读 · 完成打卡'}</button>
       </div>
@@ -150,37 +164,48 @@ function renderReader(article) {
     <aside class="reader-margin"><div class="margin-heading">阅读的留白<span>THE MARGIN</span><button class="icon-button margin-close" data-action="close-margin" aria-label="关闭查词面板">${icon('close')}</button></div>
       <form class="lookup-form" id="lookup-form"><input name="word" aria-label="输入英文单词查词" placeholder="输入单词，或直接点击正文" maxlength="60" required><button type="submit" class="icon-button" aria-label="查询单词">${icon('search')}</button></form>
       <div id="learning-panel">${marginPlaceholder()}</div>
-    </aside></div>
-    <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
-  applyReaderSettings();
+    </aside><aside id="flow-reminder" class="flow-reminder" role="status" aria-live="polite" hidden><strong>给学习留一点空隙</strong><p></p><div><button class="button small primary" data-flow-action="queue">整理待查词</button><button class="button small" data-flow-action="reminder-later">5 分钟后提醒</button><button class="button small" data-flow-action="reminder-dismiss">继续阅读</button></div></aside></div>
+    <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><div class="reader-step-controls"><button class="icon-button" data-reader-action="previous" aria-label="上一段" title="上一段（[）">${icon('chevron-left')}</button><span id="reader-position-label"></span><button class="icon-button" data-reader-action="next" aria-label="下一段" title="下一段（]）">${icon('chevron-right')}</button></div><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
   activeSession = readingSessions.get(article.id) || {id:article.id, seconds:0, position:article.position, progress:article.progress, saving:null, dirty:false};
   readingSessions.set(article.id, activeSession);
   lastActive = lastTick = performance.now();
   $$('.paragraph').forEach((p, i) => { p.dataset.plain = paragraphs[i].trim(); });
+  reader = new MarginReader({root:app, settings:state.settings, onChange:saveSettings,
+    onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
+  flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
+    getWords:()=>state.words, onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
-    if (!scroller) return;
+    if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
     const limit = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     scroller.scrollTop = limit * activeSession.position / 100;
+    reader.remember();
     scroller.addEventListener('scroll', onReaderScroll, {passive:true});
   });
 }
-function marginPlaceholder() { return `<div class="margin-placeholder"><div class="margin-symbol">${icon('book')}</div><h3>好奇心，值得停留</h3><p>点击一个单词，发现它的意思。<br>把想记住的词，收藏到生词本。</p></div><div class="margin-tip"><span class="eyebrow">A SMALL READING TIP</span><p>不必查清每一个生词。先理解文章的大意，再回头关注那些让你好奇的表达。</p></div>`; }
-function applyReaderSettings() {
-  if (!$('.reader-paper')) return;
-  $('.reader-paper').style.setProperty('--reader-font',state.settings.font_size+'px'); $('.reader-paper').style.setProperty('--reader-line',state.settings.line_height);
-  $('#font-label').textContent=state.settings.font_size;
-}
+function marginPlaceholder() { return `<div class="margin-placeholder"><div class="margin-symbol">${icon('book')}</div><h3>好奇心，值得停留</h3><p>在上方输入单词，主动查询。<br>释义默认折叠，可以按需展开。</p></div><div class="margin-tip"><span class="eyebrow">A SMALL READING TIP</span><p>流畅模式点词先暂存，精读模式点词打开查词卡片。读完一段，再整理遇见的词。</p></div>`; }
 let settingsQueue = Promise.resolve();
+let settingsRevision = 0;
 function saveSettings(patch) {
-  Object.assign(state.settings,patch); applyReaderSettings();
-  settingsQueue = settingsQueue.catch(()=>{}).then(()=>api('/settings',{method:'PATCH',body:patch})).catch(error=>toast(error.message,true));
+  const anchor = reader?.captureAnchor();
+  Object.assign(state.settings,patch); flow?.apply(state.settings); reader?.apply(state.settings,anchor);
+  const snapshot = {...state.settings}, revision = ++settingsRevision;
+  $('#reader-settings-status').textContent='正在保存设置…';
+  $('#retry-reader-settings').hidden=true;
+  settingsQueue = settingsQueue.catch(()=>{}).then(()=>api('/settings',{method:'PATCH',body:snapshot})).then(()=>{
+    if(revision===settingsRevision)$('#reader-settings-status').textContent='阅读设置已保存';
+  }).catch(error=>{
+    if(revision===settingsRevision){$('#reader-settings-status').textContent='设置尚未保存，请重试';$('#retry-reader-settings').hidden=false;}
+    toast(error.message,true);
+  });
 }
-function onReaderScroll() {
-  if (!activeSession) return;
+function onReaderScroll(event = {}) {
+  if (!activeSession || reader?.restoring) return;
   const scroller=readerScroller(); const contentHeight = scroller.scrollHeight;
   const limit=Math.max(0,contentHeight-scroller.clientHeight);
-  if (limit>0) { activeSession.position=Math.max(0,Math.min(100,scroller.scrollTop/limit*100)); activeSession.progress=Math.max(activeSession.progress,Math.min(99,activeSession.position)); activeSession.dirty=true; }
+  activeSession.position=limit>0?Math.max(0,Math.min(100,scroller.scrollTop/limit*100)):0;
+  if (!event.layoutOnly) activeSession.progress=Math.max(activeSession.progress,Math.min(99,activeSession.position));
+  activeSession.dirty=true;
   updateReaderStatus();
 }
 function updateReaderStatus() {
@@ -209,18 +234,22 @@ function currentContext(word, paragraph) {
   return (sentences.find(s=>s.toLowerCase().includes(word.toLowerCase()))||paragraph).trim().slice(0,5000);
 }
 function revealMargin() {
-  if(matchMedia('(max-width:760px)').matches) $('.reader-margin')?.classList.add('mobile-open');
+  if(reader?.overlayMargin()) $('.reader-margin')?.classList.add('mobile-open');
 }
-async function lookup(word, context='') {
+async function lookup(word, context='', options={}) {
   const version=++state.lookupVersion; state.lookup=null;
   if(!$('#learning-panel')) return;
+  const articleId=state.article.id, activeReader=reader;
+  if(options.fullParagraph)context=currentContext(word,context);
+  const anchor=reader.captureAnchor();
   revealMargin(); $('#learning-panel').innerHTML=`<div class="lookup-loading"><span class="spinner"></span>正在查找 ${escapeHTML(word)}…</div>`;
+  reader.restoreAnchor(anchor);
   $$('.word.selected').forEach(n=>n.classList.remove('selected')); $$('.word').filter(n=>n.dataset.word.toLowerCase()===word.toLowerCase()).forEach(n=>n.classList.add('selected'));
   try {
     const result=await api('/dictionary?word='+encodeURIComponent(word));
     if(version!==state.lookupVersion||state.view!=='reader') return;
-    state.lookup={...result,context}; renderLookup();
-  } catch(error) {if(version===state.lookupVersion&&$('#learning-panel')) $('#learning-panel').innerHTML=`<p class="error-note">${escapeHTML(error.message)}</p>`;}
+    state.lookup={...result,context,articleId,paragraphIndex:options.paragraphIndex??-1,expanded:!state.settings.definition_collapsed}; renderLookup();
+  } catch(error) {if(version===state.lookupVersion&&reader===activeReader&&$('#learning-panel')) $('#learning-panel').innerHTML=`<p class="error-note">${escapeHTML(error.message)}</p><button class="button small" data-action="return-reading">继续阅读</button>`;}
 }
 function renderLookup() {
   const entry = state.lookup;
@@ -228,20 +257,22 @@ function renderLookup() {
   const saved = state.words.some(w => w.word.toLowerCase() === entry.word.toLowerCase());
   $('#learning-panel').innerHTML = `<div class="lookup-result">
     <div class="lookup-title"><h2>${escapeHTML(entry.word)}</h2></div>
+    <details class="lookup-definition" ${entry.expanded?'open':''}><summary>${entry.expanded?'收起释义':'展开释义'}</summary>
     <div class="phonetic">${escapeHTML(entry.phonetic)}${entry.lemma!==entry.word?' · 原形 '+escapeHTML(entry.lemma):''}</div>
-    ${entry.found?`<div class="definition"><span class="part-of-speech">${escapeHTML(entry.part_of_speech)}</span>${escapeHTML(entry.meaning)}</div>`:`<p class="lookup-note">${escapeHTML(entry.message)}</p><label>手动填写释义<textarea id="manual-meaning" rows="3" maxlength="3000" placeholder="写下释义后即可收藏"></textarea></label>`}
+    ${entry.found?`<div class="definition"><span class="part-of-speech">${escapeHTML(entry.part_of_speech)}</span>${escapeHTML(entry.meaning)}</div>`:`<p class="lookup-note">${escapeHTML(entry.message)}</p><label>手动填写释义<textarea id="manual-meaning" rows="3" maxlength="3000" placeholder="写下释义后即可收藏">${escapeHTML(entry.manualMeaning||'')}</textarea></label>`}
     <div class="source-caption">${escapeHTML(entry.source)}${entry.cached?' · 本地缓存':''}</div>
     ${entry.context?`<blockquote class="context-block"><span class="context-label">在这篇文章里</span>${escapeHTML(entry.context)}</blockquote>`:entry.example?`<blockquote class="context-block"><span class="context-label">词典例句</span>${escapeHTML(entry.example)}</blockquote>`:''}
     <button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
+    </details><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
   </div>`;
 }
 async function saveLookup() {
   const entry=state.lookup;if(!entry)return;
   const meaning=entry.meaning||$('#manual-meaning')?.value.trim();if(!meaning){toast('先写下这个单词的释义。',true);return;}
   const button=$('[data-action="save-lookup"]');button.disabled=true;
-  try {const result=await api('/vocabulary',{method:'POST',body:{word:entry.word,phonetic:entry.phonetic,part_of_speech:entry.part_of_speech,meaning,context:entry.context,article_id:state.article.id}});
+  try {const result=await api('/vocabulary',{method:'POST',body:{word:entry.word,phonetic:entry.phonetic,part_of_speech:entry.part_of_speech,meaning,context:entry.context,article_id:entry.articleId}});
     const vocabulary=await api('/vocabulary');state.words=vocabulary.words;await refreshStats();
-    if(state.lookup===entry&&$('#learning-panel')) renderLookup(); $$('.word').filter(n=>n.dataset.word.toLowerCase()===entry.word.toLowerCase()).forEach(n=>n.classList.add('saved'));
+    if(state.lookup===entry&&$('#learning-panel')) renderLookup(); flow?.refreshMarks();
     toast(result.duplicate?'这个单词已经在生词本里了。':'已加入生词本，并保存了原文语境。');
   }catch(error){toast(error.message,true);button.disabled=false;}
 }
@@ -278,6 +309,7 @@ async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
+  flow?.destroy();flow=null;reader?.destroy();reader=null;
   const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
@@ -310,6 +342,8 @@ document.addEventListener('click',async event=> {
     else if(action==='checkin'){button.disabled=true;await api('/checkin',{method:'POST',body:{}});await refreshStats();if(state.view==='library')renderLibrary();else if(state.view==='activity')await renderActivity(state.month);toast('今天的学习，已留下足迹。');}
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
     else if(action==='save-lookup')await saveLookup();
+    else if(action==='defer-lookup'&&state.lookup){const entry=state.lookup;await flow.deferWord(entry.word,entry.paragraphIndex);}
+    else if(action==='return-reading'){const anchor=reader.captureAnchor();$('.reader-margin')?.classList.remove('mobile-open');reader.scroller.focus({preventScroll:true});reader.restoreAnchor(anchor);}
     else if(action==='complete-reading'){button.disabled=true;activeSession.progress=100;activeSession.dirty=true;await flushSession();updateReaderStatus();button.innerHTML=icon('check')+'已完成阅读';await refreshStats();toast('读完一篇，点亮一天。进度已保存。');}
     else if(action==='delete-article'){
       const article=state.article, session=activeSession;
@@ -330,11 +364,11 @@ document.addEventListener('click',async event=> {
   }catch(error){toast(error.message,true);button.disabled=false;}
 });
 
-document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;renderArticleCards();}else if(event.target.id==='word-search'){state.wordQuery=event.target.value;renderWordRows();}});
+document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;renderArticleCards();}else if(event.target.id==='word-search'){state.wordQuery=event.target.value;renderWordRows();}else if(event.target.id==='manual-meaning'&&state.lookup){state.lookup.manualMeaning=event.target.value;}});
+document.addEventListener('toggle',event=>{if(event.target.matches('.lookup-definition')&&state.lookup){state.lookup.expanded=event.target.open;event.target.querySelector('summary').textContent=event.target.open?'收起释义':'展开释义';}},{capture:true});
 document.addEventListener('change',async event=> {
   const input=event.target;
   try {if(input.id==='difficulty-filter'){state.difficulty=input.value;renderArticleCards();}
-    else if(input.id==='line-height')saveSettings({line_height:Number(input.value)});
     else if(input.dataset.wordMastery){const id=Number(input.dataset.wordMastery);input.disabled=true;const result=await api('/vocabulary/'+id,{method:'PATCH',body:{mastery:input.value}});const word=state.words.find(w=>w.id===id);Object.assign(word,result);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('掌握度已更新。');}
   }catch(error){input.disabled=false;toast(error.message,true);if(input.dataset.wordMastery)input.value=state.words.find(w=>w.id===Number(input.dataset.wordMastery)).mastery;}
 });
@@ -352,13 +386,14 @@ document.addEventListener('submit',async event=> {
 });
 
 document.addEventListener('mouseup',event=> {
+  if(reader?.ignoreWordTap())return;
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {
-    if(/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected))lookup(selected,currentContext(selected,event.target.closest('.paragraph')?.dataset.plain));
+    if(/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected))flow?.selectWord(selected,event.target.closest('.paragraph'));
     return;
   }
-  const target=event.target.closest('[data-word]');if(target)lookup(target.dataset.word,currentContext(target.dataset.word,target.closest('.paragraph')?.dataset.plain));
+  const target=event.target.closest('[data-word]');if(target)flow?.selectWord(target.dataset.word,target.closest('.paragraph'));
 });
 document.addEventListener('keydown', () => { lastActive = performance.now(); });
 $('#confirm-dialog').addEventListener('cancel',()=> {if(confirmResolve){confirmResolve(false);confirmResolve=null;}});
@@ -370,7 +405,7 @@ document.addEventListener('visibilitychange',()=> {lastTick=performance.now();if
 window.addEventListener('pagehide',()=> {flushSession(activeSession,true);});
 setInterval(()=> {
   const current=performance.now(),elapsed=Math.floor((current-lastTick)/1000);if(elapsed<1)return;lastTick=current;
-  if(state.view==='reader'&&activeSession&&!document.hidden&&!$('dialog[open]')&&current-lastActive<60000){activeSession.seconds+=Math.min(2,elapsed);}
+  if(state.view==='reader'&&activeSession&&!document.hidden&&!$('dialog[open]')&&current-lastActive<60000){const seconds=Math.min(2,elapsed);activeSession.seconds+=seconds;flow?.tick(seconds);}
   tickCount++;if(tickCount%15===0){for(const session of readingSessions.values())flushSession(session).catch(()=> {if($('#save-status'))$('#save-status').textContent='暂未保存，正在等待连接…';});}
 },1000);
 

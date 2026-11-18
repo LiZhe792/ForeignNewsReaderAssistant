@@ -13,6 +13,8 @@ from werkzeug.exceptions import HTTPException
 from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
+from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
+from newsreader.reading_flow import reading_flow
 
 ROOT = Path(__file__).resolve().parent
 
@@ -30,6 +32,7 @@ def create_app(test_config=None):
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
+    app.register_blueprint(reading_flow)
     with app.app_context():
         init_db()
 
@@ -91,7 +94,7 @@ def create_app(test_config=None):
 
     @app.get("/")
     def index():
-        return render_template("index.html")
+        return render_template("index.html", reader_defaults=READER_DEFAULTS)
 
     @app.get("/api/health")
     def health():
@@ -281,24 +284,14 @@ def create_app(test_config=None):
 
     @app.route("/api/settings", methods=["GET", "PATCH"])
     def settings():
-        defaults = {"font_size": 20, "line_height": 1.9}
         db = get_db()
         if request.method == "PATCH":
             data = body()
-            for key in data:
-                if key not in defaults:
-                    raise ValueError("不支持的阅读设置。")
-            if "font_size" in data and (type(data["font_size"]) is not int or not 16 <= data["font_size"] <= 28):
-                raise ValueError("字号范围为 16–28。")
-            if "line_height" in data and (type(data["line_height"]) not in (int, float) or not 1.4 <= data["line_height"] <= 2.4):
-                raise ValueError("行距范围为 1.4–2.4。")
+            validate_preferences(data)
             for key, value in data.items():
                 db.execute("INSERT OR REPLACE INTO settings VALUES (?, ?)", (key, json.dumps(value)))
             db.commit()
-        for row in db.execute("SELECT key, value FROM settings WHERE key!='seeded'"):
-            if row["key"] in defaults:
-                defaults[row["key"]] = json.loads(row["value"])
-        return jsonify(defaults)
+        return jsonify(read_preferences(db))
 
     return app
 
