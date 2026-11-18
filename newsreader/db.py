@@ -79,6 +79,21 @@ CREATE TABLE IF NOT EXISTS pending_words (
     context TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
     UNIQUE(article_id, paragraph_index, word)
 );
+CREATE TABLE IF NOT EXISTS study_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_key TEXT NOT NULL UNIQUE,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    article_hash TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('context','translation')),
+    scope TEXT NOT NULL, paragraph_index INTEGER NOT NULL,
+    start INTEGER NOT NULL, end INTEGER NOT NULL, source_text TEXT NOT NULL,
+    level TEXT NOT NULL, model TEXT NOT NULL, profile TEXT NOT NULL,
+    payload_json TEXT NOT NULL, original_json TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '', favorite INTEGER NOT NULL DEFAULT 0,
+    edited INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS study_results_article ON study_results(article_id, kind);
 """
 
 
