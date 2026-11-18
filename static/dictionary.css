@@ -1,0 +1,24 @@
+.dictionary-choice { display:block; font-size:12px; color:var(--reader-muted); padding:0 0 14px; }
+.dictionary-choice select { display:block; width:100%; margin-top:7px; font:inherit; font-size:12px; padding:9px 8px; }
+.dictionary-pronunciations { display:grid; gap:7px; margin:14px 0; overflow-wrap:anywhere; }
+.dictionary-pronunciations > div { display:flex; flex-wrap:wrap; gap:6px 10px; }
+.dictionary-pronunciations span { font-size:11px; color:var(--reader-muted); }
+.dictionary-pronunciations strong { font-size:14px; font-weight:500; }
+.dictionary-note { font-size:11px; color:var(--reader-muted); line-height:1.7; }
+.dictionary-knowledge { margin-top:18px; border-top:1px solid var(--reader-border); padding:14px 0 0; font-size:12px; line-height:1.85; overflow-wrap:anywhere; }
+.dictionary-knowledge > summary { font-weight:600; cursor:pointer; color:var(--reader-accent); padding:5px 0; }
+.dictionary-section { margin:15px 0; }
+.dictionary-section h4 { font-size:12px; margin:0 0 8px; color:var(--reader-text); }
+.dictionary-section ul { margin:0; padding-left:18px; }
+.dictionary-section p { white-space:normal; margin:7px 0; }
+.dictionary-section dl { display:grid; grid-template-columns:minmax(40px,auto) 1fr; gap:5px 10px; }
+.dictionary-section dt { font-weight:600; }
+.dictionary-section dd { margin:0; }
+.dictionary-term { display:inline-block; padding:3px 7px; margin:2px 4px 2px 0; border:1px solid var(--reader-border); background:var(--reader-soft); color:var(--reader-accent); border-radius:5px; font:inherit; max-width:100%; overflow-wrap:anywhere; }
+button.dictionary-term { cursor:pointer; }
+button.dictionary-term:hover { text-decoration:underline; }
+.lookup-title h2 { overflow-wrap:anywhere; }
+.dictionary-choice, .dictionary-section { min-width:0; }
+#pending-words-dialog .dictionary-choice { max-width:360px; }
+#pending-words-dialog .dictionary-knowledge { color:var(--reader-text); }
+@media (max-width:600px) { .dictionary-section { font-size:13px; } }
