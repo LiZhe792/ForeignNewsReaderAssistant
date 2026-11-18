@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/reader.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
+  <link rel="stylesheet" href="/static/dictionary.css">
+  <script src="/static/dictionary.js" defer></script>
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
   <script src="/static/app.js" defer></script>
@@ -56,7 +58,7 @@
 
   <dialog id="word-dialog" class="modal">
     <div class="modal-heading"><div><span class="eyebrow">A WORD WORTH KEEPING</span><h2 id="word-dialog-title">添加生词</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭生词编辑"><span data-icon="close"></span></button></div>
-    <form id="word-form"><label>英文单词<input name="word" pattern="[A-Za-z]+(['’\-][A-Za-z]+)*" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
+    <form id="word-form"><label>英文单词或短语<input name="word" pattern="[A-Za-z]+(['’\-][A-Za-z]+)*( [A-Za-z]+(['’\-][A-Za-z]+)*){0,5}" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
   </dialog>
 
   <dialog id="confirm-dialog" class="modal compact"><div class="modal-heading"><h2>删除这条记录？</h2><button class="icon-button" data-action="cancel-confirm" aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm">保留记录</button><button class="button danger" data-action="accept-confirm">确认删除</button></div></dialog>
@@ -97,6 +99,7 @@
   </dialog>
   <dialog id="pending-words-dialog" class="modal pending-words-modal" aria-labelledby="pending-words-title">
     <div class="modal-heading"><div><span class="eyebrow">READ FIRST, LEARN TOGETHER</span><h2 id="pending-words-title">集中处理待查词</h2></div><button class="icon-button" data-flow-action="close-queue" aria-label="关闭待查词">✕</button></div>
+    <label class="dictionary-choice">待查词词典<select data-reader-setting="dictionary_provider" aria-label="待查词词典"><option value="auto">自动 · 离线优先</option><option value="offline">离线英汉 · ECDICT / Margin</option><option value="free">在线英英 · Free Dictionary</option></select></label>
     <label class="pending-filter-label">处理范围<select id="pending-filter" aria-label="待查词段落范围"></select></label>
     <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
     <div id="pending-word-list"></div>
