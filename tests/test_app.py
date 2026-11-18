@@ -96,7 +96,9 @@ class ApplicationTests(unittest.TestCase):
 
     def test_progress_validation(self):
         for payload in ({"seconds": -1}, {"seconds": 61}, {"seconds": True}, {"progress": 101},
-                        {"progress": "30"}, {"position": -5}, {"position": None}):
+                        {"progress": "30"}, {"position": -5}, {"position": None},
+                        {"progress": 10 ** 400}, {"position": 10 ** 400},
+                        {"progress": float("nan")}, {"position": float("inf")}):
             self.assertEqual(self.client.patch("/api/articles/1/progress", json=payload).status_code, 400)
 
     def test_dictionary_offline_and_inflection(self):
@@ -121,6 +123,14 @@ class ApplicationTests(unittest.TestCase):
             result = self.client.get("/api/dictionary?word=unlistedword").json
         self.assertFalse(result["found"])
         self.assertEqual(result["meaning"], "")
+
+    def test_malformed_dictionary_response_allows_manual_entry(self):
+        for payload in (None, [None], [{"meanings": [None]}], [{"meanings": [{"definitions": [None]}]}]):
+            with self.subTest(payload=payload), patch("newsreader.content.fetch_public", return_value=(json.dumps(payload).encode(), "application/json", "")):
+                response = self.client.get("/api/dictionary?word=unlistedword")
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.json["found"])
+            self.assertEqual(response.json["meaning"], "")
 
     def test_dictionary_validation(self):
         for word in ("hello world", "<script>", "a" * 61, "", "123"):
