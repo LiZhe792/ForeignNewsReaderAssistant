@@ -39,13 +39,16 @@ function toast(message, error = false) {
 }
 async function api(path, options = {}) {
   const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener('abort', abort, {once:true});
   try {
-    const response = await fetch('/api' + path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
+    const response = await fetch('/api' + path, { ...options, signal: controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
-    if (!response.ok) throw new Error(payload.error || '操作失败，请稍后重试。');
+    if (!response.ok) { const error=new Error(payload.error || '操作失败，请稍后重试。');error.status=response.status;error.data=payload;throw error; }
     return payload;
   } catch (error) { if (error.name === 'AbortError') throw new Error('请求超时，请稍后重试。'); if (error instanceof TypeError) throw new Error('暂时无法连接本地服务，请确认 Python 程序正在运行。'); throw error; }
-  finally { clearTimeout(timeout); }
+  finally { clearTimeout(timeout); options.signal?.removeEventListener('abort',abort); }
 }
 
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
@@ -53,6 +56,7 @@ const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_heig
 const app = $('#app');
 let reader = null;
 let flow = null;
+let study = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -137,6 +141,8 @@ function renderReader(article) {
         <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
         <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
         <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
+        <button class="reader-tool-button" data-study-action="open-context" aria-haspopup="dialog">${icon('info')}<span>AI 语境</span></button>
+        <button class="reader-tool-button" data-study-action="open-translation" aria-haspopup="dialog">${icon('book')}<span>翻译</span></button>
         <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
     </div>
@@ -166,6 +172,7 @@ function renderReader(article) {
       <form class="lookup-form" id="lookup-form"><input name="word" aria-label="输入英文单词或短语查词" placeholder="输入单词，或直接点击正文" maxlength="60" required><button type="submit" class="icon-button" aria-label="查询单词">${icon('search')}</button></form>
       ${MarginDictionary.controls()}<div id="learning-panel">${marginPlaceholder()}</div>
     </aside><aside id="flow-reminder" class="flow-reminder" role="status" aria-live="polite" hidden><strong>给学习留一点空隙</strong><p></p><div><button class="button small primary" data-flow-action="queue">整理待查词</button><button class="button small" data-flow-action="reminder-later">5 分钟后提醒</button><button class="button small" data-flow-action="reminder-dismiss">继续阅读</button></div></aside></div>
+    <div id="study-selection-bar" class="study-selection-bar" hidden><span></span><button class="button small" data-study-action="explain-selection">AI 释义所选</button><button class="button small" data-study-action="translate-selection">翻译所选</button></div>
     <div class="reading-status"><span class="status-progress"><span class="mini-progress"><span id="reading-bar" style="width:${article.progress}%"></span></span><span id="reading-percent">${Math.round(article.progress)}% 已读</span></span><div class="reader-step-controls"><button class="icon-button" data-reader-action="previous" aria-label="上一段" title="上一段（[）">${icon('chevron-left')}</button><span id="reader-position-label"></span><button class="icon-button" data-reader-action="next" aria-label="下一段" title="下一段（]）">${icon('chevron-right')}</button></div><span class="status-saved" id="save-status">${icon('shield')}进度自动保存在本机</span></div>`;
   activeSession = readingSessions.get(article.id) || {id:article.id, seconds:0, position:article.position, progress:article.progress, saving:null, dirty:false};
   readingSessions.set(article.id, activeSession);
@@ -175,6 +182,7 @@ function renderReader(article) {
     onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
     getWords:()=>state.words, onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
+  study = new MarginStudy({root:app,article,reader,settings:state.settings,api,toast,onSettings:saveSettings,getLookup:()=>state.lookup});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
     if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
@@ -190,7 +198,7 @@ let settingsRevision = 0;
 function saveSettings(patch) {
   const anchor = reader?.captureAnchor();
   const previousLookup = state.lookup || state.lookupRequest;
-  Object.assign(state.settings,patch); flow?.apply(state.settings); reader?.apply(state.settings,anchor);
+  Object.assign(state.settings,patch); flow?.apply(state.settings); study?.apply(state.settings); reader?.apply(state.settings,anchor);
   if (Object.hasOwn(patch,'dictionary_provider') && previousLookup) lookup(previousLookup.word,previousLookup.context,{paragraphIndex:previousLookup.paragraphIndex,expanded:previousLookup.expanded,manualMeaning:previousLookup.manualMeaning});
   const snapshot = {...state.settings}, revision = ++settingsRevision;
   $('#reader-settings-status').textContent='正在保存设置…';
@@ -268,7 +276,7 @@ function renderLookup() {
     <div class="source-caption">${escapeHTML(entry.source)}${entry.cached?' · 本地缓存':''}</div>
     ${entry.context?`<blockquote class="context-block"><span class="context-label">在这篇文章里</span>${escapeHTML(entry.context)}</blockquote>`:entry.example?`<blockquote class="context-block"><span class="context-label">词典例句</span>${escapeHTML(entry.example)}</blockquote>`:''}
     ${MarginDictionary.knowledge(entry)}<button class="button small" data-action="retry-lookup">重新查询</button><button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
-    </details><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
+    </details><div class="lookup-study-actions"><button class="button small" data-study-action="lookup-context">结合原文释义</button><button class="button small" data-study-action="lookup-translation">翻译原文表达</button></div><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
   </div>`;
 }
 async function saveLookup() {
@@ -314,7 +322,7 @@ async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
-  flow?.destroy();flow=null;reader?.destroy();reader=null;
+  study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
@@ -354,7 +362,7 @@ document.addEventListener('click',async event=> {
     else if(action==='complete-reading'){button.disabled=true;activeSession.progress=100;activeSession.dirty=true;await flushSession();updateReaderStatus();button.innerHTML=icon('check')+'已完成阅读';await refreshStats();toast('读完一篇，点亮一天。进度已保存。');}
     else if(action==='delete-article'){
       const article=state.article, session=activeSession;
-      if(await confirmDelete(`删除文章「${article.title}」？已收藏的单词与历史学习记录会保留。`)){
+      if(await confirmDelete(`删除文章「${article.title}」？译文与 AI 释义会随文章删除；已收藏的单词与历史学习记录会保留。`)){
         await flushSession(session);
         await api('/articles/'+article.id,{method:'DELETE',body:{}});
         if(activeSession===session)activeSession=null;
