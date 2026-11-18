@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/static/reader.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
   <link rel="stylesheet" href="/static/dictionary.css">
+  <link rel="stylesheet" href="/static/assistance.css">
+  <script src="/static/assistance.js" defer></script>
   <script src="/static/dictionary.js" defer></script>
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
@@ -104,6 +106,19 @@
     <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
     <div id="pending-word-list"></div>
     <div class="modal-footer"><button class="button primary" data-flow-action="close-queue">完成，继续阅读</button></div>
+  </dialog>
+  <dialog id="study-dialog" class="modal study-modal" aria-labelledby="study-title">
+    <div class="modal-heading"><div><span class="eyebrow">READ WITH CONTEXT</span><h2 id="study-title">AI 语境释义与翻译辅助</h2></div><button class="icon-button" data-study-action="close" aria-label="关闭 AI 学习面板">✕</button></div>
+    <div class="study-tabs"><button class="button small" id="study-kind-context" data-study-action="kind" data-study-kind="context" aria-pressed="true">AI 语境释义</button><button class="button small" id="study-kind-translation" data-study-action="kind" data-study-kind="translation" aria-pressed="false">翻译辅助</button></div>
+    <p id="study-service" class="study-service"></p>
+    <details id="study-setup" class="study-setup" hidden><summary>配置 AI 服务</summary><p>在启动 Python 服务前设置服务器环境变量 <code>MARGIN_AI_API_KEY</code> 与 <code>MARGIN_AI_MODEL</code>，选择支持 Responses API 和结构化输出的模型。兼容服务可另设 <code>MARGIN_AI_BASE_URL</code>。完整示例见 README 与 <code>ai.env.example</code>。</p><p>密钥只在服务器使用。点击生成才会发送当前片段及附近上下文；全文按片段逐次处理。生成结果供学习参考。</p></details>
+    <div class="study-controls"><label>原文段落<select id="study-paragraph" aria-label="原文段落"></select></label><label>处理范围<select id="study-scope" aria-label="AI 处理范围"><option value="selection">当前划选 / 单词</option><option value="sentence">句子</option><option value="paragraph">整段</option><option value="full">全文逐段翻译</option></select></label><label>解释深度<select id="study-level" aria-label="解释深度"><option value="beginner">入门 · 简明解释</option><option value="intermediate">进阶 · 语法与语境</option><option value="advanced">深入 · 语义与修辞</option></select></label></div>
+    <label id="study-sentence-label" class="study-sentence-label">原文句子<select id="study-sentence" aria-label="原文句子"></select></label>
+    <blockquote id="study-source-preview" class="study-source-preview" lang="en"></blockquote>
+    <div class="study-actions"><button id="study-generate" class="button primary small" data-study-action="generate" disabled>生成语境释义</button><button id="study-stop" class="button small" data-study-action="stop" hidden>停止后续生成</button><button id="study-reload" class="button small" data-study-action="reload" hidden>重新读取</button><label class="study-favorites"><input type="checkbox" id="study-favorites">仅看收藏译文</label></div>
+    <p id="study-message" class="study-message" role="status" aria-live="polite"></p>
+    <div id="study-results"></div>
+    <div class="modal-footer"><span>译文按需展开，原文始终保留。</span><button class="button primary small" data-study-action="close">完成，继续阅读</button></div>
   </dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
