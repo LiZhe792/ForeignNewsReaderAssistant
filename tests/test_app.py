@@ -15,6 +15,7 @@ from newsreader.content import extract_article
 from newsreader.db import get_db
 from newsreader.learning import assess_difficulty
 from newsreader.network import FetchError, fetch_public, public_address
+from newsreader.preferences import READER_DEFAULTS
 
 
 class ApplicationTests(unittest.TestCase):
@@ -37,7 +38,7 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertIn("Margin 知刊", home.get_data(as_text=True))
         self.assertIn("frame-ancestors 'none'", home.headers["Content-Security-Policy"])
-        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg"):
+        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg", "/static/reader.js", "/static/reader.css", "/static/reading-flow.js", "/static/reading-flow.css"):
             with self.client.get(asset) as response:
                 self.assertEqual(response.status_code, 200)
 
@@ -195,9 +196,9 @@ class ApplicationTests(unittest.TestCase):
 
     def test_settings_persist_and_validate(self):
         response = self.client.patch("/api/settings", json={"font_size": 25, "line_height": 2.2})
-        self.assertEqual(response.json, {"font_size": 25, "line_height": 2.2})
+        self.assertEqual(response.json, {**READER_DEFAULTS, "font_size": 25, "line_height": 2.2})
         self.assertEqual(self.client.get("/api/settings").json, response.json)
-        for payload in ({"font_size": 100}, {"font_size": True}, {"theme": "dark"}, {"line_height": 0}, {"AI_API_KEY": "secret"}):
+        for payload in ({"font_size": 100}, {"font_size": True}, {"theme": "unknown"}, {"line_height": 0}, {"AI_API_KEY": "secret"}):
             self.assertEqual(self.client.patch("/api/settings", json=payload).status_code, 400)
 
 
@@ -269,7 +270,7 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(client.get("/api/articles/1").json["progress"], 65)
         self.assertEqual(client.get("/api/articles/1").json["position"], 55)
         self.assertEqual(client.get("/api/stats").json["total_seconds"], 120)
-        self.assertEqual(client.get("/api/settings").json, {"font_size": 25, "line_height": 2.2})
+        self.assertEqual(client.get("/api/settings").json, {**READER_DEFAULTS, "font_size": 25, "line_height": 2.2, "theme": "dark"})
         self.assertEqual(client.post("/api/vocabulary", json={"word": "city", "meaning": "城市"}).status_code, 201)
         with restarted.app_context():
             db = get_db()
