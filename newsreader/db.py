@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from flask import current_app, g
+from .preferences import READER_DEFAULTS
 
 CHINA_TZ = timezone(timedelta(hours=8))
 
@@ -70,6 +71,14 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS pending_words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    paragraph_index INTEGER NOT NULL CHECK(paragraph_index >= -1),
+    word TEXT NOT NULL COLLATE NOCASE,
+    context TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+    UNIQUE(article_id, paragraph_index, word)
+);
 """
 
 
@@ -98,7 +107,9 @@ def migrate_to_basic_schema(db):
             db.execute(f"INSERT INTO vocabulary_basic ({retained}) SELECT {retained} FROM vocabulary")
             db.execute("DROP TABLE vocabulary")
             db.execute("ALTER TABLE vocabulary_basic RENAME TO vocabulary")
-        db.execute("DELETE FROM settings WHERE key NOT IN ('seeded', 'font_size', 'line_height')")
+        retained_settings = ["seeded", *READER_DEFAULTS]
+        placeholders = ",".join("?" for _ in retained_settings)
+        db.execute(f"DELETE FROM settings WHERE key NOT IN ({placeholders})", retained_settings)
         db.commit()
     except Exception:
         db.rollback()
