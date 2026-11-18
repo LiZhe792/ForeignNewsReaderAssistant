@@ -5,9 +5,14 @@ import re
 from flask import Blueprint, abort, jsonify, request
 
 from .db import get_db, now
+from .dictionary import normalize_term
 
 reading_flow = Blueprint("reading_flow", __name__, url_prefix="/api/articles")
-WORD = re.compile(r"[a-z]+(?:['-][a-z]+)*")
+
+
+def contains_term(paragraph, term):
+    paragraph = re.sub(r"\s+", " ", paragraph.lower().replace("’", "'"))
+    return re.search(r"(?<![a-z'-])" + re.escape(term) + r"(?![a-z'-])", paragraph) is not None
 
 
 def payload():
@@ -56,9 +61,7 @@ def pending_words(article_id):
         return jsonify(words=[dict(row) for row in rows])
 
     data = payload()
-    word = field(data, "word", 60, required=True).lower().replace("’", "'")
-    if not WORD.fullmatch(word):
-        raise ValueError("待查词必须是单个英文单词。")
+    word = normalize_term(field(data, "word", 60, required=True))
     index = data.get("paragraph_index", -1)
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n|\n", source["content"]) if p.strip()]
     if type(index) is not int or not -1 <= index < len(paragraphs):
@@ -66,10 +69,10 @@ def pending_words(article_id):
     context = ""
     if index >= 0:
         paragraph = paragraphs[index]
-        if word not in WORD.findall(paragraph.lower().replace("’", "'")):
-            raise ValueError("该单词不在指定段落中。")
+        if not contains_term(paragraph, word):
+            raise ValueError("该单词或短语不在指定段落中。")
         sentences = re.findall(r"[^.!?]+[.!?]+|[^.!?]+$", paragraph)
-        context = next((s.strip() for s in sentences if word in WORD.findall(s.lower().replace("’", "'"))), paragraph)[:5000]
+        context = next((s.strip() for s in sentences if contains_term(s, word)), paragraph)[:5000]
     cursor = db.execute(
         """INSERT INTO pending_words (article_id, paragraph_index, word, context, created_at)
         VALUES (?, ?, ?, ?, ?) ON CONFLICT(article_id, paragraph_index, word) DO NOTHING""",

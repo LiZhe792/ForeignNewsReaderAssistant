@@ -1,16 +1,11 @@
 """Readable article extraction and a dictionary with a bundled offline base."""
 
-import json
 import re
-from pathlib import Path
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from .db import get_db, now
 from .network import FetchError, fetch_public
-
-LEXICON = json.loads((Path(__file__).resolve().parent.parent / "data" / "dictionary.json").read_text(encoding="utf-8"))
 
 
 def extract_article(html, url):
@@ -47,57 +42,6 @@ def import_url(url):
     return extract_article(raw, final_url)
 
 
-def base_forms(word):
-    candidates = [word]
-    irregular = {"grew": "grow", "grown": "grow", "built": "build", "better": "good", "children": "child", "cities": "city", "people": "person"}
-    if word in irregular:
-        candidates.append(irregular[word])
-    if word.endswith("ies"):
-        candidates.append(word[:-3] + "y")
-    if word.endswith("s"):
-        candidates += [word[:-1], word[:-2]]
-    for ending in ("ing", "ed"):
-        if word.endswith(ending):
-            stem = word[:-len(ending)]
-            candidates += [stem, stem + "e"]
-            if len(stem) > 2 and stem[-1] == stem[-2]:
-                candidates.append(stem[:-1])
-    return [c for c in candidates if c]
-
-
-def lookup_word(word):
-    word = word.lower().strip().replace("’", "'")
-    if not re.fullmatch(r"[a-z]+(?:['-][a-z]+)*", word) or len(word) > 60:
-        raise ValueError("请输入一个英文单词（可含连字符或撇号）。")
-    for candidate in base_forms(word):
-        if candidate in LEXICON:
-            entry = LEXICON[candidate]
-            return {"word": word, "lemma": candidate, "phonetic": entry[0], "part_of_speech": entry[1],
-                    "meaning": entry[2], "example": entry[3] if len(entry) > 3 else "",
-                    "source": "内置英汉词库", "found": True}
-    db = get_db()
-    cached = db.execute("SELECT result FROM dictionary_cache WHERE word=?", (word,)).fetchone()
-    if cached:
-        return {**json.loads(cached["result"]), "cached": True}
-    try:
-        raw, _, _ = fetch_public("https://api.dictionaryapi.dev/api/v2/entries/en/" + quote(word), max_bytes=300000)
-        entries = json.loads(raw)
-        entry = entries[0]
-        meanings = entry.get("meanings", [])
-        definitions = [d.get("definition", "") for m in meanings for d in m.get("definitions", [])][:3]
-        if not definitions:
-            raise ValueError("No definitions")
-        phonetic = entry.get("phonetic") or next((p.get("text", "") for p in entry.get("phonetics", []) if p.get("text")), "")
-        result = {
-            "word": word, "lemma": entry.get("word", word), "phonetic": phonetic,
-            "part_of_speech": meanings[0].get("partOfSpeech", "") if meanings else "",
-            "meaning": "\n".join(definitions), "example": next((d["example"] for m in meanings for d in m.get("definitions", []) if d.get("example")), ""),
-            "source": "Free Dictionary API · 英英释义", "found": True,
-        }
-        db.execute("INSERT OR REPLACE INTO dictionary_cache VALUES (?, ?, ?)", (word, json.dumps(result, ensure_ascii=False), now()))
-        db.commit()
-        return result
-    except (FetchError, ValueError, KeyError, IndexError, TypeError, AttributeError):
-        return {"word": word, "lemma": word, "phonetic": "", "part_of_speech": "", "meaning": "", "example": "",
-                "source": "未找到释义或网络不可用", "found": False,
-                "message": "内置词库未收录，在线词典暂未返回结果。你可以填写释义并加入生词本。"}
+def lookup_word(word, provider="auto"):
+    from .dictionary import lookup
+    return lookup(word, provider, fetch_public)
