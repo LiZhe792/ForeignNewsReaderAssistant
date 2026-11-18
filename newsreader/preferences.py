@@ -21,6 +21,7 @@ READER_DEFAULTS = {
     "suppress_mastered": True,
     "reminder_minutes": 10,
     "dictionary_provider": "auto",
+    "ai_level": "intermediate",
 }
 
 ENUMS = {
@@ -30,6 +31,7 @@ ENUMS = {
     "reading_mode": ("fluent", "intensive"),
     "hint_density": ("quiet", "balanced", "detailed"),
     "dictionary_provider": ("auto", "offline", "free"),
+    "ai_level": ("beginner", "intermediate", "advanced"),
 }
 RANGES = {
     "font_size": (16, 28, True, "字号"),
