@@ -97,7 +97,7 @@ def lookup_word(word):
         db.execute("INSERT OR REPLACE INTO dictionary_cache VALUES (?, ?, ?)", (word, json.dumps(result, ensure_ascii=False), now()))
         db.commit()
         return result
-    except (FetchError, ValueError, KeyError, IndexError, TypeError):
+    except (FetchError, ValueError, KeyError, IndexError, TypeError, AttributeError):
         return {"word": word, "lemma": word, "phonetic": "", "part_of_speech": "", "meaning": "", "example": "",
                 "source": "未找到释义或网络不可用", "found": False,
                 "message": "内置词库未收录，在线词典暂未返回结果。你可以填写释义并加入生词本。"}

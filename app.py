@@ -2,7 +2,6 @@
 
 import calendar
 import json
-import math
 import os
 import re
 import sqlite3
@@ -155,7 +154,7 @@ def create_app(test_config=None):
         data = body()
         progress, position, seconds = data.get("progress", 0), data.get("position", 0), data.get("seconds", 0)
         for value in (progress, position):
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 100:
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
                 raise ValueError("阅读进度必须介于 0 与 100 之间。")
         if isinstance(seconds, bool) or not isinstance(seconds, int) or not 0 <= seconds <= 60:
             raise ValueError("每次阅读计时必须为 0–60 秒。")

@@ -188,16 +188,20 @@ function updateReaderStatus() {
   $('#reading-bar').style.width=activeSession.progress+'%'; $('#reading-percent').textContent=Math.round(activeSession.progress)+'% 已读';
 }
 async function flushSession(session=activeSession, keepalive=false) {
-  if(!session||(!session.dirty&&!session.seconds)) return;
+  if(!session) return;
   if(session.saving) { await session.saving; if(session.dirty||session.seconds) return flushSession(session,keepalive); return; }
+  if(!session.dirty&&!session.seconds) return;
   const seconds=Math.min(60,session.seconds), progress=session.progress, position=session.position;
   session.dirty=false;
   session.saving=api(`/articles/${session.id}/progress`,{method:'PATCH',body:{seconds,progress,position},keepalive}).then(()=> {
     session.seconds=Math.max(0,session.seconds-seconds);
     const article=state.articles.find(a=>a.id===session.id); if(article) {article.progress=progress;article.last_read_at=new Date().toISOString();}
     if(state.view==='reader'&&activeSession===session&&$('#save-status')) $('#save-status').innerHTML=icon('check')+' 进度已保存';
-  }).catch(error=> {session.dirty=true; if(!keepalive) throw error;}).finally(()=> {session.saving=null;});
-  return session.saving;
+    return true;
+  }).catch(error=> {session.dirty=true; if(!keepalive) throw error; return false;}).finally(()=> {session.saving=null;});
+  const saved=await session.saving;
+  // Reconnection can leave more than one 60-second batch, or newer scroll data.
+  if(saved&&(session.dirty||session.seconds)) return flushSession(session,keepalive);
 }
 function currentContext(word, paragraph) {
   if(!paragraph) return '';
@@ -307,7 +311,19 @@ document.addEventListener('click',async event=> {
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
     else if(action==='save-lookup')await saveLookup();
     else if(action==='complete-reading'){button.disabled=true;activeSession.progress=100;activeSession.dirty=true;await flushSession();updateReaderStatus();button.innerHTML=icon('check')+'已完成阅读';await refreshStats();toast('读完一篇，点亮一天。进度已保存。');}
-    else if(action==='delete-article'){const article=state.article;if(await confirmDelete(`删除文章「${article.title}」？已收藏的单词与历史学习记录会保留。`)){await flushSession();activeSession=null;readingSessions.delete(article.id);await api('/articles/'+article.id,{method:'DELETE',body:{}});location.hash='library';toast('文章已删除，生词仍然保留。');}}
+    else if(action==='delete-article'){
+      const article=state.article, session=activeSession;
+      if(await confirmDelete(`删除文章「${article.title}」？已收藏的单词与历史学习记录会保留。`)){
+        await flushSession(session);
+        await api('/articles/'+article.id,{method:'DELETE',body:{}});
+        if(activeSession===session)activeSession=null;
+        readingSessions.delete(article.id);
+        state.articles=state.articles.filter(item=>item.id!==article.id);
+        if(state.view==='reader'&&state.article?.id===article.id)location.hash='library';
+        else if(state.view==='library')renderLibrary();
+        toast('文章已删除，生词仍然保留。');
+      }
+    }
     else if(action==='add-word')showWordDialog();
     else if(action==='cancel-confirm')resolveConfirm(false);
     else if(action==='accept-confirm')resolveConfirm(true);
@@ -339,9 +355,8 @@ document.addEventListener('mouseup',event=> {
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {
-    const tokens=selected.match(/[A-Za-z]+/g)||[];
-    if(tokens.length>1)return;
-    if(tokens.length===1&&/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected)){lookup(selected,currentContext(selected,event.target.closest('.paragraph')?.dataset.plain));return;}
+    if(/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected))lookup(selected,currentContext(selected,event.target.closest('.paragraph')?.dataset.plain));
+    return;
   }
   const target=event.target.closest('[data-word]');if(target)lookup(target.dataset.word,currentContext(target.dataset.word,target.closest('.paragraph')?.dataset.plain));
 });
