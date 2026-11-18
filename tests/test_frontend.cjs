@@ -7,6 +7,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'static/app.js'), 'utf8');
+const flowSource = fs.readFileSync(path.join(root, 'static/reading-flow.js'), 'utf8');
 
 function frontend() {
   const listeners = new Map();
@@ -40,6 +41,7 @@ function frontend() {
       return respond(url, options);
     },
   });
+  vm.runInContext(flowSource, context);
   vm.runInContext(source, context);
   // The initial data load stays pending; each test controls subsequent responses.
   calls.length = 0;
@@ -168,6 +170,9 @@ test('scroll and time changes made during a save are included before it finishes
 for (const word of ['well-being', "reader's", 'reader’s']) {
   test(`selecting ${word} queries the entire word`, async () => {
     const ui = frontend();
+    ui.run(`state.view='reader'; state.article={id:1};
+      reader={paragraphs:[],captureAnchor(){return {};},restoreAnchor(){},overlayMargin(){return false;},ignoreWordTap(){return false;}};
+      flow=Object.assign(Object.create(window.MarginFlow.prototype),{mode:'intensive',reader,lookup});`);
     const node = {};
     const body = {contains: n => n === node};
     ui.window.getSelection = () => ({toString: () => word, anchorNode: node, focusNode: node});
