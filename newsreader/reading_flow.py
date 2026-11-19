@@ -6,6 +6,7 @@ from flask import Blueprint, abort, jsonify, request
 
 from .db import get_db, now
 from .dictionary import normalize_term
+from .wordbook import ensure_word, attach_context
 
 reading_flow = Blueprint("reading_flow", __name__, url_prefix="/api/articles")
 
@@ -117,6 +118,9 @@ def collect_pending(article_id, pending_id):
             (entry["word"], meaning, phonetic, part, entry["context"], article_id, now()),
         )
         word_id = cursor.lastrowid
+    ensure_word(db,word_id)
+    attach_context(db,word_id,entry['context'],article_id)
+    db.execute('UPDATE word_meta SET version=version+1 WHERE word_id=?',(word_id,))
     db.execute("DELETE FROM pending_words WHERE id=? AND article_id=?", (pending_id, article_id))
     db.commit()
     return jsonify(id=word_id, duplicate=bool(existing), ok=True)
