@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="/static/reading-flow.css">
   <link rel="stylesheet" href="/static/dictionary.css">
   <link rel="stylesheet" href="/static/assistance.css">
+  <link rel="stylesheet" href="/static/vocabulary.css">
+  <script src="/static/wordbook.js" defer></script>
+  <script src="/static/srs.js" defer></script>
   <script src="/static/assistance.js" defer></script>
   <script src="/static/dictionary.js" defer></script>
   <script src="/static/reader.js" defer></script>
@@ -26,6 +29,7 @@
       <nav class="nav-list">
         <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
         <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
+        <a href="#review" data-nav="review" aria-label="间隔复习" title="间隔复习"><span data-icon="clock"></span><span>间隔复习</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
       </nav>
       <div class="sidebar-bottom">
@@ -54,7 +58,7 @@
 
   <dialog id="settings-dialog" class="modal">
     <div class="modal-heading"><div><span class="eyebrow">YOUR READING COMPANION</span><h2>让阅读成为日常</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭使用说明"><span data-icon="close"></span></button></div>
-    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li>流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li>在「我的生词」中增删词条并手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
+    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li>流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li>在「我的生词」中整理词书、义项、原句和媒体卡片，批量导入导出；在「间隔复习」中进行卡片、挖空、听音和拼写练习，按记忆表现评分，也可手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
     <div class="help-section"><h3>关于这个阅读空间</h3><p>所有学习记录保存在本机 <code>instance/margin.sqlite3</code>。阅读时自动保存进度；页面隐藏或停止操作一段时间后暂停计时。打卡日期采用北京时间。</p><p>内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。</p></div>
   </dialog>
 
@@ -120,6 +124,7 @@
     <div id="study-results"></div>
     <div class="modal-footer"><span>译文按需展开，原文始终保留。</span><button class="button primary small" data-study-action="close">完成，继续阅读</button></div>
   </dialog>
+  <dialog id="wordbook-dialog" class="modal wb-modal" aria-label="词条与词书管理"></dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
 </html>
