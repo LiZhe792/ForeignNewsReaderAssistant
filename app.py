@@ -17,6 +17,8 @@ from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_p
 from newsreader.reading_flow import reading_flow
 from newsreader.dictionary import normalize_term
 from newsreader.assistance import assistance
+from newsreader.wordbook import wordbook, ensure_word, attach_context
+from newsreader.srs import review
 
 ROOT = Path(__file__).resolve().parent
 
@@ -39,6 +41,8 @@ def create_app(test_config=None):
     app.teardown_appcontext(close_db)
     app.register_blueprint(reading_flow)
     app.register_blueprint(assistance)
+    app.register_blueprint(wordbook)
+    app.register_blueprint(review)
     with app.app_context():
         init_db()
 
@@ -214,12 +218,17 @@ def create_app(test_config=None):
         db = get_db()
         existing = db.execute("SELECT id FROM vocabulary WHERE word=?", (word,)).fetchone()
         if existing:
+            ensure_word(db,existing['id'])
+            attach_context(db,existing['id'],context,article_id)
+            db.execute('UPDATE word_meta SET version=version+1 WHERE word_id=?',(existing['id'],))
+            db.commit()
             return jsonify(id=existing["id"], duplicate=True), 200
         cursor = db.execute(
             """INSERT INTO vocabulary (word, phonetic, meaning, part_of_speech, context, note, article_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (word, phonetic, meaning, part, context, note, article_id, now()),
         )
+        ensure_word(db,cursor.lastrowid)
         db.commit()
         return jsonify(id=cursor.lastrowid, duplicate=False), 201
 
@@ -239,8 +248,12 @@ def create_app(test_config=None):
             db.execute(
                 "UPDATE vocabulary SET mastery=? WHERE id=?", (mastery, word_id),
             )
+        ensure_word(db,word_id)
+        base=record('vocabulary',word_id)
+        db.execute('UPDATE word_senses SET meaning=?,part_of_speech=? WHERE word_id=? AND is_primary=1',(base['meaning'],base['part_of_speech'],word_id))
+        db.execute('UPDATE word_meta SET version=version+1 WHERE word_id=?',(word_id,))
         db.commit()
-        return jsonify(record("vocabulary", word_id))
+        return jsonify(base)
 
     @app.delete("/api/vocabulary/<int:word_id>")
     def delete_word(word_id):
