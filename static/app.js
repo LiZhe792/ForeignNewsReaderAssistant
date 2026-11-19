@@ -38,9 +38,10 @@ function toast(message, error = false) {
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
 async function api(path, options = {}) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const {timeoutMs=55000, ...requestOptions} = options;
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/api' + path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
+    const response = await fetch('/api' + path, { ...requestOptions, signal: requestOptions.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...requestOptions.headers }, body: requestOptions.body === undefined ? undefined : JSON.stringify(requestOptions.body) });
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
     if (!response.ok) throw new Error(payload.error || '操作失败，请稍后重试。');
     return payload;
@@ -53,6 +54,7 @@ const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_heig
 const app = $('#app');
 let reader = null;
 let flow = null;
+let articleQA = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -136,6 +138,8 @@ function renderReader(article) {
         <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
         <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
         <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
+        <button class="reader-tool-button" data-qa-action="open" aria-haspopup="dialog">${icon('book')}<span>文章问答</span></button>
+        <button class="reader-tool-button qa-selection-button" data-qa-action="open-selection" aria-haspopup="dialog" hidden>问选中内容</button>
         <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
     </div>
@@ -174,6 +178,7 @@ function renderReader(article) {
     onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
     getWords:()=>state.words, onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
+  articleQA = new MarginArticleQA({root:app, article, reader, api, toast});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
     if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
@@ -309,7 +314,7 @@ async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
-  flow?.destroy();flow=null;reader?.destroy();reader=null;
+  articleQA?.destroy();articleQA=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
@@ -347,7 +352,7 @@ document.addEventListener('click',async event=> {
     else if(action==='complete-reading'){button.disabled=true;activeSession.progress=100;activeSession.dirty=true;await flushSession();updateReaderStatus();button.innerHTML=icon('check')+'已完成阅读';await refreshStats();toast('读完一篇，点亮一天。进度已保存。');}
     else if(action==='delete-article'){
       const article=state.article, session=activeSession;
-      if(await confirmDelete(`删除文章「${article.title}」？已收藏的单词与历史学习记录会保留。`)){
+      if(await confirmDelete(`删除文章「${article.title}」？该文章的待查词、问答历史及问答收藏会删除；已收藏的生词和学习统计保留。`)){
         await flushSession(session);
         await api('/articles/'+article.id,{method:'DELETE',body:{}});
         if(activeSession===session)activeSession=null;
@@ -374,6 +379,7 @@ document.addEventListener('change',async event=> {
 });
 document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
+  if(form.closest('#article-qa-dialog'))return;
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {

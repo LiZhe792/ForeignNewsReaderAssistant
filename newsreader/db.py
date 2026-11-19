@@ -79,6 +79,25 @@ CREATE TABLE IF NOT EXISTS pending_words (
     context TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
     UNIQUE(article_id, paragraph_index, word)
 );
+CREATE TABLE IF NOT EXISTS qa_threads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS qa_threads_article ON qa_threads(article_id, id DESC);
+CREATE TABLE IF NOT EXISTS qa_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id INTEGER NOT NULL REFERENCES qa_threads(id) ON DELETE CASCADE,
+    request_id TEXT NOT NULL UNIQUE,
+    question TEXT NOT NULL, mode TEXT NOT NULL, scope TEXT NOT NULL,
+    selected_text TEXT NOT NULL DEFAULT '', selection_paragraphs TEXT NOT NULL DEFAULT '[]',
+    answer TEXT NOT NULL DEFAULT '', citations TEXT NOT NULL DEFAULT '[]',
+    questions TEXT NOT NULL DEFAULT '[]', warning TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK(status IN ('pending','complete','failed')),
+    error TEXT NOT NULL DEFAULT '', favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN (0,1)),
+    model TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS qa_turns_thread ON qa_turns(thread_id, id);
 """
 
 

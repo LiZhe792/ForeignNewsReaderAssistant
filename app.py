@@ -15,6 +15,7 @@ from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
 from newsreader.reading_flow import reading_flow
+from newsreader.article_qa import article_qa, expire_pending
 
 ROOT = Path(__file__).resolve().parent
 
@@ -33,6 +34,7 @@ def create_app(test_config=None):
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
     app.register_blueprint(reading_flow)
+    app.register_blueprint(article_qa)
     with app.app_context():
         init_db()
 
@@ -146,8 +148,15 @@ def create_app(test_config=None):
 
     @app.delete("/api/articles/<int:article_id>")
     def delete_article(article_id):
-        record("articles", article_id)
+        expire_pending()
         db = get_db()
+        db.execute("BEGIN IMMEDIATE")
+        record("articles", article_id)
+        pending = db.execute("""SELECT 1 FROM qa_turns q JOIN qa_threads t ON q.thread_id=t.id
+                                WHERE t.article_id=? AND q.status='pending' LIMIT 1""", (article_id,)).fetchone()
+        if pending:
+            db.rollback()
+            return jsonify(error="这篇文章的 AI 回答仍在生成，请等返回后再删除文章。"), 409
         db.execute("DELETE FROM articles WHERE id=?", (article_id,))
         db.commit()
         return jsonify(ok=True)

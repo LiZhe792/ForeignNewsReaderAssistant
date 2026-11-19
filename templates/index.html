@@ -10,8 +10,10 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/reader.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
+  <link rel="stylesheet" href="/static/article-qa.css">
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
+  <script src="/static/article-qa.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
@@ -101,6 +103,29 @@
     <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
     <div id="pending-word-list"></div>
     <div class="modal-footer"><button class="button primary" data-flow-action="close-queue">完成，继续阅读</button></div>
+  </dialog>
+  <dialog id="article-qa-dialog" class="modal qa-modal" aria-labelledby="qa-title">
+    <div class="modal-heading"><div><span class="eyebrow">READ, QUESTION, UNDERSTAND</span><h2 id="qa-title">围绕文章提问</h2><p id="qa-article-title" class="qa-article-title"></p></div><button class="icon-button" data-qa-action="close" aria-label="关闭文章问答">✕</button></div>
+    <details id="qa-configuration" class="qa-configuration"><summary>DeepSeek 连接配置 <span id="qa-config-badge"></span></summary>
+      <form id="qa-config-form"><div class="qa-config-fields"><label>API 密钥<input id="qa-api-key" type="password" autocomplete="new-password" maxlength="512" placeholder="已保存时留空即可保留"></label><label>模型<select id="qa-model" aria-label="DeepSeek 模型"></select></label></div>
+        <p id="qa-key-source" class="qa-note"></p><div class="qa-config-actions"><button class="button small primary" type="submit">保存配置</button><button class="button small" type="button" data-qa-action="connection">检测连接</button><button class="button small" type="button" data-qa-action="clear-key">移除本机密钥</button><a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">获取密钥 ↗</a></div>
+      </form><p id="qa-config-status" class="qa-note" role="status"></p>
+    </details>
+    <div class="qa-layout">
+      <aside class="qa-history-pane" aria-label="本篇问答历史"><button class="button small" data-qa-action="new">＋ 新建对话</button><div class="qa-history-tabs"><button data-qa-tab="history" aria-pressed="true">历史</button><button data-qa-tab="favorites" aria-pressed="false">收藏</button></div><div id="qa-history-list"></div><button class="button small" data-qa-action="more-history" hidden>加载更多</button></aside>
+      <section class="qa-chat" aria-label="问答内容">
+        <div class="qa-thread-heading"><strong id="qa-thread-title">新的文章问答</strong><button class="button small" data-qa-action="refresh">刷新状态</button><button class="icon-button" data-qa-action="delete" aria-label="删除当前对话">⌫</button></div>
+        <div id="qa-delete-confirm" class="qa-delete-confirm" hidden><span>删除这段对话及其中的收藏？</span><button class="button small danger" data-qa-action="confirm-delete">删除</button><button class="button small" data-qa-action="cancel-delete">取消</button></div>
+        <div id="qa-messages" class="qa-messages" aria-label="问答记录" tabindex="0"></div>
+        <form id="qa-question-form" class="qa-composer">
+          <div class="qa-question-options"><label>方式<select id="qa-mode"><option value="ask">文章问答</option><option value="meaning">追问词义</option><option value="syntax">追问句法</option><option value="socratic">引导我思考</option><option value="preread">阅读前引导</option><option value="quiz">阅读后理解检查</option><option value="feedback">提交理解检查作答</option></select></label><label>范围<select id="qa-scope"><option value="article">全文</option><option value="selection">选中内容</option></select></label></div>
+          <details id="qa-selection-preview" class="qa-selection-preview" hidden><summary>已选原文 <span id="qa-selection-label"></span></summary><blockquote id="qa-selection-text"></blockquote></details>
+          <label class="qa-question-label" for="qa-question">你的问题或作答</label><textarea id="qa-question" rows="3" maxlength="2000" required placeholder="例如：作者为什么认为慢旅行仍有价值？"></textarea>
+          <div class="qa-send-row"><span id="qa-request-status" role="status" aria-live="polite"></span><button class="button primary small" type="submit" id="qa-send">发送问题</button></div>
+        </form>
+      </section>
+    </div>
+    <p class="qa-note qa-disclosure">发送时将全文、选中内容及最近 6 轮对话交给 DeepSeek，按用量计费。AI 回答可能有误，请结合原文核对；历史与收藏保存在本机。</p>
   </dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
