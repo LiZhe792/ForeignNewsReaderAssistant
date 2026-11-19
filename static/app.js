@@ -57,6 +57,8 @@ const app = $('#app');
 let reader = null;
 let flow = null;
 let study = null;
+let wordbookUI = null;
+let reviewUI = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -84,7 +86,7 @@ function updateSidebar() {
   $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
   $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -275,7 +277,7 @@ function renderLookup() {
     ${entry.found?`<div class="definition"><span class="part-of-speech">${escapeHTML(entry.part_of_speech)}</span>${escapeHTML(entry.meaning)}</div>`:`<p class="lookup-note">${escapeHTML(entry.message)}</p><label>手动填写释义<textarea id="manual-meaning" rows="3" maxlength="3000" placeholder="写下释义后即可收藏">${escapeHTML(entry.manualMeaning||'')}</textarea></label>`}
     <div class="source-caption">${escapeHTML(entry.source)}${entry.cached?' · 本地缓存':''}</div>
     ${entry.context?`<blockquote class="context-block"><span class="context-label">在这篇文章里</span>${escapeHTML(entry.context)}</blockquote>`:entry.example?`<blockquote class="context-block"><span class="context-label">词典例句</span>${escapeHTML(entry.example)}</blockquote>`:''}
-    ${MarginDictionary.knowledge(entry)}<button class="button small" data-action="retry-lookup">重新查询</button><button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
+    ${MarginDictionary.knowledge(entry)}<button class="button small" data-action="retry-lookup">重新查询</button><button class="button primary" data-action="save-lookup" ${saved&&!entry.context?'disabled':''}>${icon(saved?'check':'plus')}${saved?(entry.context?'已加入生词本 · 追加此原句':'已加入生词本'):'加入生词本'}</button>
     </details><div class="lookup-study-actions"><button class="button small" data-study-action="lookup-context">结合原文释义</button><button class="button small" data-study-action="lookup-translation">翻译原文表达</button></div><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
   </div>`;
 }
@@ -286,19 +288,20 @@ async function saveLookup() {
   try {const result=await api('/vocabulary',{method:'POST',body:{word:entry.word,phonetic:entry.phonetic,part_of_speech:entry.part_of_speech,meaning,context:entry.context,article_id:entry.articleId}});
     const vocabulary=await api('/vocabulary');state.words=vocabulary.words;await refreshStats();
     if(state.lookup===entry&&$('#learning-panel')) renderLookup(); flow?.refreshMarks();
-    toast(result.duplicate?'这个单词已经在生词本里了。':'已加入生词本，并保存了原文语境。');
+    toast(result.duplicate?'原句已追加到已有词条；相同原句不会重复保存。':'已加入生词本，并保存了原文语境。');
   }catch(error){toast(error.message,true);button.disabled=false;}
 }
 function summaryTiles() {
   const stats=state.stats;return `<div class="summary-strip"><div class="summary-tile"><span>读过的文章${icon('book')}</span><strong>${stats.completed_articles}<small>篇</small></strong></div><div class="summary-tile"><span>收集的生词${icon('bookmark')}</span><strong>${stats.total_words}<small>个</small></strong></div><div class="summary-tile"><span>累计阅读${icon('clock')}</span><strong>${minutes(stats.total_seconds)}<small>分钟</small></strong></div><div class="summary-tile"><span>连续学习${icon('flame')}</span><strong>${stats.streak}<small>天</small></strong></div></div>`;
 }
-function renderVocabulary() {
-  app.innerHTML=`<div class="page-wrap">${intro('WORDS BECOME YOUR WORLD','让遇见的词，成为自己的词。','每一个收藏，都保留着你与它初次相遇的语境。',`<button class="button primary" data-action="add-word">${icon('plus')}添加生词</button>`)}<div class="summary-strip"><div class="summary-tile"><span>我的词汇${icon('bookmark')}</span><strong>${state.words.length}<small>个</small></strong></div><div class="summary-tile"><span>正在学习${icon('plant')}</span><strong>${state.words.filter(w=>w.mastery==='learning').length}<small>个</small></strong></div><div class="summary-tile"><span>已经掌握${icon('check')}</span><strong>${state.stats.mastered_words}<small>个</small></strong></div><div class="summary-tile"><span>初次遇见${icon('plant')}</span><strong>${state.words.filter(w=>w.mastery==='new').length}<small>个</small></strong></div></div><div class="table-toolbar"><div class="filters">${[['all','全部生词'],['new','初次遇见'],['learning','正在学习'],['mastered','已掌握']].map(([key,label])=>`<button class="filter ${state.mastery===key?'active':''}" data-mastery-filter="${key}">${label}</button>`).join('')}</div><div class="search-box">${icon('search')}<input id="word-search" aria-label="搜索生词" placeholder="搜索单词或释义…" value="${escapeHTML(state.wordQuery)}"></div></div><div id="vocabulary-table"></div><div class="page-footnote">${icon('info')}按实际学习情况标记掌握程度，随时可以修改。</div></div>`;renderWordRows();
+async function renderVocabulary() {
+  wordbookUI?.destroy();
+  wordbookUI=new MarginWordbook({root:app,api,toast,confirm:confirmDelete,onChange:async()=>{
+    state.words=(await api('/vocabulary')).words;await refreshStats();
+  }});
+  await wordbookUI.render();
 }
-function renderWordRows() {
-  const list=state.words.filter(w=>(state.mastery==='all'||w.mastery===state.mastery)&&`${w.word} ${w.meaning}`.toLowerCase().includes(state.wordQuery.toLowerCase()));
-  $('#vocabulary-table').innerHTML=list.length?`<div class="vocab-list"><div class="vocab-head"><span>单词 / 发音</span><span>释义与阅读语境</span><span>掌握程度</span><span>管理</span></div>${list.map(w=>`<div class="vocab-row"><div class="vocab-word"><strong>${escapeHTML(w.word)}</strong><small>${escapeHTML(w.phonetic)}</small></div><div class="vocab-meaning">${escapeHTML(w.meaning)}${w.context?`<div class="vocab-context" title="${escapeHTML(w.context)}">${escapeHTML(w.context)}</div>`:''}${w.note?`<div class="vocab-context">笔记：${escapeHTML(w.note)}</div>`:''}</div><select class="mastery-select ${w.mastery}" data-word-mastery="${w.id}" aria-label="${escapeHTML(w.word)} 的掌握度">${[['new','初次遇见'],['learning','正在学习'],['mastered','已掌握']].map(([key,label])=>`<option value="${key}" ${w.mastery===key?'selected':''}>${label}</option>`).join('')}</select><div class="word-actions"><button class="icon-button" data-edit-word="${w.id}" aria-label="编辑 ${escapeHTML(w.word)}" title="编辑笔记">${icon('edit')}</button><button class="icon-button danger" data-delete-word="${w.id}" aria-label="删除 ${escapeHTML(w.word)}" title="删除生词">${icon('trash')}</button></div></div>`).join('')}</div>`:empty(state.words.length?'没有匹配的生词':'你的词汇花园，等待第一颗种子',state.words.length?'试试其他关键词或掌握程度。':'阅读时点击单词并收藏，或手动添加一个想记住的词。','<a class="button primary" href="#library">去读一篇文章 '+icon('arrow-right')+'</a>','plant');
-}
+function renderWordRows(){wordbookUI?.rows();}
 
 async function renderActivity(month='',version=state.routeVersion) {
   const stats=await api('/stats'+(month?'?month='+month:''));if(version!==state.routeVersion||state.view!=='activity')return;state.month=stats.month;
@@ -323,13 +326,15 @@ async function navigate() {
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
-  const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','activity'].includes(route)?route:'library';
+  wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
+  const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
     else {await refreshStats();if(version!==state.routeVersion)return;
       if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
-      else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)renderVocabulary();}
+      else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
+      else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
       else await renderActivity('',version);
     }
   }catch(error){if(version===state.routeVersion)app.innerHTML=empty('这页暂时没有翻开',escapeHTML(error.message),'<a class="button primary" href="#library">返回文章库</a>','info');}
