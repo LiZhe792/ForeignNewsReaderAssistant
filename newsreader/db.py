@@ -122,7 +122,7 @@ def migrate_to_basic_schema(db):
             db.execute(f"INSERT INTO vocabulary_basic ({retained}) SELECT {retained} FROM vocabulary")
             db.execute("DROP TABLE vocabulary")
             db.execute("ALTER TABLE vocabulary_basic RENAME TO vocabulary")
-        retained_settings = ["seeded", *READER_DEFAULTS]
+        retained_settings = ["seeded", *READER_DEFAULTS, "srs.new_limit", "srs.review_limit"]
         placeholders = ",".join("?" for _ in retained_settings)
         db.execute(f"DELETE FROM settings WHERE key NOT IN ({placeholders})", retained_settings)
         db.commit()
@@ -137,6 +137,8 @@ def init_db():
     db = get_db()
     db.executescript(SCHEMA)
     migrate_to_basic_schema(db)
+    from .wordbook import initialize
+    initialize(db)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
