@@ -14,6 +14,8 @@ from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
+from newsreader.sentences import article_segments
+from newsreader.speech import speech
 from newsreader.reading_flow import reading_flow
 
 ROOT = Path(__file__).resolve().parent
@@ -32,6 +34,7 @@ def create_app(test_config=None):
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
+    app.register_blueprint(speech)
     app.register_blueprint(reading_flow)
     with app.app_context():
         init_db()
@@ -51,7 +54,7 @@ def create_app(test_config=None):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            "img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
         if request.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
@@ -113,6 +116,7 @@ def create_app(test_config=None):
     def article_detail(article_id):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
+        article["tts_segments"] = article_segments(article["content"])
         return jsonify(article)
 
     @app.post("/api/articles")
