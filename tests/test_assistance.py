@@ -157,7 +157,8 @@ class AssistanceTests(unittest.TestCase):
 
     def test_results_cannot_be_edited_through_another_article(self):
         row, _ = self.create('translation')
-        other = self.client.get('/api/articles').json['articles'][0]['id']
+        # Import time may cross a one-second timestamp boundary; choose by identity.
+        other = next(article['id'] for article in self.client.get('/api/articles').json['articles'] if article['id'] != self.id)
         self.assertNotEqual(other, self.id)
         self.assertEqual(self.client.patch(f'/api/articles/{other}/assistance/{row["id"]}', json={'version': 1, 'favorite': True}).status_code, 404)
 
