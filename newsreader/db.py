@@ -139,6 +139,9 @@ def init_db():
     migrate_to_basic_schema(db)
     from .wordbook import initialize
     initialize(db)
+    from .training import SCHEMA as TRAINING_SCHEMA
+    from .exercises import SCHEMA as EXERCISE_SCHEMA
+    db.executescript(TRAINING_SCHEMA + EXERCISE_SCHEMA)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
