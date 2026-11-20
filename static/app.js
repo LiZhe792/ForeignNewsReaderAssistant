@@ -59,6 +59,7 @@ let flow = null;
 let study = null;
 let wordbookUI = null;
 let reviewUI = null;
+let practiceUI = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -86,7 +87,7 @@ function updateSidebar() {
   $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
   $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -163,6 +164,7 @@ function renderReader(article) {
         ${article.source_url?`<a href="${escapeHTML(article.source_url)}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>`:(article.is_demo?'<span>原创学习示例</span>':'<span>个人导入</span>')}
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
       </div>
+      <div class="reader-practice-links"><a class="button small" href="#listening/${article.id}">听力与口语训练</a><a class="button small" href="#exercises/${article.id}">阅读练习与测验</a></div>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
       <p id="reader-layout-note" class="reader-layout-note" hidden></p>
       <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
@@ -323,11 +325,12 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
+  practiceUI?.destroy();practiceUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
-  const [route,id]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','activity'].includes(route)?route:'library';
+  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
@@ -335,6 +338,8 @@ async function navigate() {
       if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
+      else if(state.view==='listening'){practiceUI=new MarginListening({root:app,api,toast,articleId:id});await practiceUI.render();}
+      else if(state.view==='exercises'){practiceUI=new MarginExercises({root:app,api,toast,articleId:id==='session'?null:id,sessionId:id==='session'?sessionId:null});await practiceUI.render();}
       else await renderActivity('',version);
     }
   }catch(error){if(version===state.routeVersion)app.innerHTML=empty('这页暂时没有翻开',escapeHTML(error.message),'<a class="button primary" href="#library">返回文章库</a>','info');}
