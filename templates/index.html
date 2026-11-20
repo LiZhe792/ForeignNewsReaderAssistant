@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="/static/dictionary.css">
   <link rel="stylesheet" href="/static/assistance.css">
   <link rel="stylesheet" href="/static/vocabulary.css">
+  <link rel="stylesheet" href="/static/practice.css">
+  <script src="/static/listening.js" defer></script>
+  <script src="/static/exercises.js" defer></script>
   <script src="/static/wordbook.js" defer></script>
   <script src="/static/srs.js" defer></script>
   <script src="/static/assistance.js" defer></script>
@@ -30,6 +33,8 @@
         <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
         <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
         <a href="#review" data-nav="review" aria-label="间隔复习" title="间隔复习"><span data-icon="clock"></span><span>间隔复习</span></a>
+        <a href="#listening" data-nav="listening" aria-label="听说训练" title="听说训练"><span data-icon="sun"></span><span>听说训练</span></a>
+        <a href="#exercises" data-nav="exercises" aria-label="阅读测验" title="阅读测验"><span data-icon="pen"></span><span>阅读测验</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
       </nav>
       <div class="sidebar-bottom">
@@ -125,6 +130,7 @@
     <div class="modal-footer"><span>译文按需展开，原文始终保留。</span><button class="button primary small" data-study-action="close">完成，继续阅读</button></div>
   </dialog>
   <dialog id="wordbook-dialog" class="modal wb-modal" aria-label="词条与词书管理"></dialog>
+  <dialog id="exercise-author-dialog" class="modal exercise-author-modal" aria-label="手动添加阅读题目"></dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
 </html>
