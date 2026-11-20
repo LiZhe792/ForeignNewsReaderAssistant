@@ -19,6 +19,8 @@ from newsreader.dictionary import normalize_term
 from newsreader.assistance import assistance
 from newsreader.wordbook import wordbook, ensure_word, attach_context
 from newsreader.srs import review
+from newsreader.training import training
+from newsreader.exercises import exercises
 
 ROOT = Path(__file__).resolve().parent
 
@@ -43,6 +45,8 @@ def create_app(test_config=None):
     app.register_blueprint(assistance)
     app.register_blueprint(wordbook)
     app.register_blueprint(review)
+    app.register_blueprint(training)
+    app.register_blueprint(exercises)
     with app.app_context():
         init_db()
 
@@ -61,7 +65,7 @@ def create_app(test_config=None):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            "img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
         if request.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
