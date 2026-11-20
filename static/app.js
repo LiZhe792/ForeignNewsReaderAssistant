@@ -38,9 +38,10 @@ function toast(message, error = false) {
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
 async function api(path, options = {}) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const {timeoutMs=55000, ...requestOptions} = options;
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/api' + path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
+    const response = await fetch('/api' + path, { ...requestOptions, signal: requestOptions.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...requestOptions.headers }, body: requestOptions.body === undefined ? undefined : JSON.stringify(requestOptions.body) });
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
     if (!response.ok) throw new Error(payload.error || '操作失败，请稍后重试。');
     return payload;
@@ -51,6 +52,7 @@ async function api(path, options = {}) {
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
   category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
+let speechPlayer = null;
 let reader = null;
 let flow = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
@@ -135,6 +137,7 @@ function renderReader(article) {
         <button class="reader-tool-button" data-reader-action="settings" aria-haspopup="dialog" title="阅读设置（S）">${icon('settings')}<span>阅读设置</span></button>
         <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
         <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
+        <button class="reader-tool-button" data-tts-action="toggle" aria-controls="speech-player" aria-expanded="false">${icon('book')}<span>朗读</span></button>
         <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
         <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
@@ -152,11 +155,11 @@ function renderReader(article) {
       ${article.subtitle?`<p class="reader-subtitle">${escapeHTML(article.subtitle)}</p>`:''}
       <div class="reader-byline"><span>${escapeHTML(article.source)}</span><span>${icon('clock')} ${article.reading_minutes} 分钟</span><span>${article.word_count} 词</span>
         ${article.source_url?`<a href="${escapeHTML(article.source_url)}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>`:(article.is_demo?'<span>原创学习示例</span>':'<span>个人导入</span>')}
-        <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
+        <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章及其朗读列表项" aria-label="删除文章及其朗读列表项">${icon('trash')}</button></div>
       </div>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
       <p id="reader-layout-note" class="reader-layout-note" hidden></p>
-      <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
+      <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${article.tts_segments ? article.tts_segments.filter(s=>s.paragraph===i).map(s=>`<span class="tts-sentence" data-sentence-index="${s.index}">${tokenizeParagraph(s.text)}</span>`).join('') : tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
       <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p>又多了解了一点世界，也离目标近了一点。</p>
         <button class="button primary" data-action="complete-reading" id="complete-reading">${icon('check')}${article.progress>=100?'已完成阅读':'标记为已读 · 完成打卡'}</button>
       </div>
@@ -182,6 +185,8 @@ function renderReader(article) {
     reader.remember();
     scroller.addEventListener('scroll', onReaderScroll, {passive:true});
   });
+  if (!speechPlayer) speechPlayer = new MarginSpeech({api, toast});
+  speechPlayer.mount({root:app, article, reader});
 }
 function marginPlaceholder() { return `<div class="margin-placeholder"><div class="margin-symbol">${icon('book')}</div><h3>好奇心，值得停留</h3><p>在上方输入单词，主动查询。<br>释义默认折叠，可以按需展开。</p></div><div class="margin-tip"><span class="eyebrow">A SMALL READING TIP</span><p>流畅模式点词先暂存，精读模式点词打开查词卡片。读完一段，再整理遇见的词。</p></div>`; }
 let settingsQueue = Promise.resolve();
@@ -263,7 +268,7 @@ function renderLookup() {
     <div class="source-caption">${escapeHTML(entry.source)}${entry.cached?' · 本地缓存':''}</div>
     ${entry.context?`<blockquote class="context-block"><span class="context-label">在这篇文章里</span>${escapeHTML(entry.context)}</blockquote>`:entry.example?`<blockquote class="context-block"><span class="context-label">词典例句</span>${escapeHTML(entry.example)}</blockquote>`:''}
     <button class="button primary" data-action="save-lookup" ${saved?'disabled':''}>${icon(saved?'check':'plus')}${saved?'已加入生词本':'加入生词本'}</button>
-    </details><div class="lookup-flow-actions"><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
+    </details><div class="lookup-flow-actions"><button class="button small" data-tts-word="${escapeHTML(entry.word)}">朗读单词</button><button class="button small" data-action="defer-lookup">暂存，稍后处理</button><button class="button small" data-action="return-reading">继续阅读</button></div>
   </div>`;
 }
 async function saveLookup() {
@@ -307,6 +312,7 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
+  speechPlayer?.unmount();
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   flow?.destroy();flow=null;reader?.destroy();reader=null;
@@ -389,6 +395,7 @@ document.addEventListener('mouseup',event=> {
   if(reader?.ignoreWordTap())return;
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
+  if(speechPlayer?.clickToPlay && !selected)return;
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {
     if(/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected))flow?.selectWord(selected,event.target.closest('.paragraph'));
     return;
