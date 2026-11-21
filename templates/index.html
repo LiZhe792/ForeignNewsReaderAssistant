@@ -8,8 +8,10 @@
   <title>Margin 知刊 · 外刊学习助手</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/writing.css">
   <link rel="stylesheet" href="/static/reader.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
+  <script src="/static/writing.js" defer></script>
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
   <script src="/static/app.js" defer></script>
@@ -88,6 +90,65 @@
   <dialog id="reader-toc-dialog" class="modal reader-toc-modal" aria-labelledby="reader-toc-title">
     <div class="modal-heading"><div><span class="eyebrow">FIND YOUR PLACE</span><h2 id="reader-toc-title">段落目录</h2></div><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭目录">✕</button></div>
     <p class="reader-setting-note">按原文段落定位，当前阅读的段落会高亮显示。</p><nav id="reader-toc-list" aria-label="文章段落目录"></nav>
+  </dialog>
+  <dialog id="writing-dialog" class="modal writing-modal" aria-labelledby="writing-title">
+    <div class="modal-heading">
+      <div><h2 id="writing-title">表达与写作训练</h2><p id="writing-article-title" class="writing-note"></p></div>
+      <button class="icon-button" data-writing-action="close" aria-label="关闭写作训练">✕</button>
+    </div>
+    <details id="writing-configuration" class="writing-configuration">
+      <summary>AI 配置 <span id="writing-config-state" class="writing-note"></span></summary>
+      <form id="writing-config-form">
+        <div class="writing-config-fields">
+          <label>DeepSeek API 密钥<input id="writing-api-key" type="password" autocomplete="off" maxlength="512" placeholder="已配置时可留空"></label>
+          <label>模型<select id="writing-model"></select></label>
+        </div>
+        <p id="writing-key-source" class="writing-note"></p>
+        <div class="writing-actions"><button id="writing-config-save" type="submit" class="button small" disabled>保存 AI 配置</button><span id="writing-config-status" class="writing-note" role="status"></span></div>
+      </form>
+    </details>
+    <div class="writing-layout">
+      <aside class="writing-history">
+        <button class="button primary" data-writing-action="new">新建练习</button>
+        <div class="writing-row"><strong>本篇练习</strong><button class="button small" data-writing-action="refresh">刷新</button></div>
+        <div id="writing-history-list"></div>
+        <button class="button small" data-writing-action="more" hidden>加载更多</button>
+      </aside>
+      <main class="writing-workspace">
+        <form id="writing-setup">
+          <label>练习类型<select id="writing-mode" required></select></label>
+          <p id="writing-instruction" class="writing-instruction"></p>
+          <div class="writing-source-fields">
+            <label>练习素材<select id="writing-source-choice"></select></label>
+            <label id="writing-source-label">素材内容<textarea id="writing-source" rows="5" maxlength="6000" placeholder="输入句子、段落或要翻译的中文"></textarea></label>
+            <p id="writing-source-note" class="writing-note"></p>
+          </div>
+          <label id="writing-targets-label" hidden>目标词或短语<input id="writing-targets" maxlength="310" placeholder="journey, pay attention to"><small class="writing-note">用逗号分隔，最多 5 个。</small></label>
+          <div id="writing-wordbank" class="writing-wordbank" hidden><label>从生词本选词<select id="writing-word-choice"><option value="">选择单词</option></select></label><button type="button" class="button small" data-writing-action="add-word">加入目标词</button></div>
+          <label>重点练习的方向（可选）<input id="writing-focus" maxlength="500" placeholder="例如：减少重复用词，语气更正式"></label>
+          <button type="submit" class="button primary" id="writing-create">开始练习</button>
+        </form>
+        <section id="writing-editor" hidden>
+          <div class="writing-row"><h3 id="writing-exercise-title"></h3><button class="button small" data-writing-action="delete">删除练习</button></div>
+          <p id="writing-task" class="writing-instruction"></p>
+          <details id="writing-material"><summary>查看练习素材</summary><div id="writing-material-text" class="writing-text"></div></details>
+          <p id="writing-target-summary" class="writing-note"></p>
+          <label for="writing-draft">我的作答</label>
+          <textarea id="writing-draft" rows="7" maxlength="4000" spellcheck="true" placeholder="先写下自己的表达，再获取反馈。"></textarea>
+          <div class="writing-row"><span id="writing-count" class="writing-note"></span><span id="writing-save-status" class="writing-note" role="status"></span></div>
+          <div id="writing-conflict" class="writing-conflict" hidden>
+            <p>另一标签页已修改草稿。你的文字已保留，请比较后选择要继续使用的版本。</p>
+            <details><summary>查看服务器上的草稿</summary><div id="writing-server-draft" class="writing-text"></div></details>
+            <div class="writing-actions"><button class="button small" data-writing-action="keep-local">保留当前作答并保存</button><button class="button small" data-writing-action="use-server">使用服务器草稿</button></div>
+          </div>
+          <div class="writing-actions"><button class="button" data-writing-action="save">保存草稿</button><button class="button primary" id="writing-submit" data-writing-action="submit">获取反馈</button></div>
+          <div id="writing-delete-confirm" class="writing-conflict" hidden>删除这项练习、草稿和全部反馈？<div class="writing-actions"><button class="button danger small" data-writing-action="confirm-delete">确认删除</button><button class="button small" data-writing-action="cancel-delete">取消</button></div></div>
+          <section id="writing-feedback" aria-label="写作反馈"></section>
+        </section>
+        <p id="writing-status" class="writing-note" role="status"></p>
+      </main>
+    </div>
+    <p class="writing-note writing-disclosure">草稿和练习记录保存在本机。获取反馈时，素材、作答和练习要求会发送给 DeepSeek，使用本机 AI 配置并按用量计费。AI 建议供学习参考。</p>
   </dialog>
   <dialog id="reader-help-dialog" class="modal" aria-labelledby="reader-help-title">
     <div class="modal-heading"><h2 id="reader-help-title">阅读操作帮助</h2><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭阅读操作帮助">✕</button></div>

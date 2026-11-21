@@ -38,11 +38,12 @@ function toast(message, error = false) {
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
 async function api(path, options = {}) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const {timeoutMs=55000, ...requestOptions} = options;
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/api' + path, { ...options, signal: options.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
+    const response = await fetch('/api' + path, { ...requestOptions, signal: requestOptions.signal || controller.signal, headers: { 'Content-Type': 'application/json', ...requestOptions.headers }, body: requestOptions.body === undefined ? undefined : JSON.stringify(requestOptions.body) });
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
-    if (!response.ok) throw new Error(payload.error || '操作失败，请稍后重试。');
+    if (!response.ok) { const error = new Error(payload.error || '操作失败，请稍后重试。'); error.status = response.status; throw error; }
     return payload;
   } catch (error) { if (error.name === 'AbortError') throw new Error('请求超时，请稍后重试。'); if (error instanceof TypeError) throw new Error('暂时无法连接本地服务，请确认 Python 程序正在运行。'); throw error; }
   finally { clearTimeout(timeout); }
@@ -55,6 +56,7 @@ let reader = null;
 let flow = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
+let writingTrainer = null;
 const minutes = seconds => Math.floor((seconds || 0) / 60);
 const levelTag = level => `<span class="tag level-${escapeHTML(level.toLowerCase())}" title="根据阅读易读度估算，并非正式 CEFR 测评">${escapeHTML(level)} · ${['A2','B1'].includes(level)?'轻松阅读':level==='B2'?'进阶阅读':'挑战阅读'}</span>`;
 const empty = (title, description, action = '', symbol = 'book') => `<div class="empty-state"><div class="empty-icon">${icon(symbol)}</div><h2>${title}</h2><p>${description}</p>${action}</div>`;
@@ -133,6 +135,8 @@ function renderReader(article) {
         </div>
         <button class="reader-tool-button" data-reader-action="toc" aria-haspopup="dialog" title="段落目录（T）">${icon('book')}<span>目录</span></button>
         <button class="reader-tool-button" data-reader-action="settings" aria-haspopup="dialog" title="阅读设置（S）">${icon('settings')}<span>阅读设置</span></button>
+        <button class="reader-tool-button" data-writing-action="open" aria-haspopup="dialog">${icon('pen')}<span>写作训练</span></button>
+        <button class="reader-tool-button" data-writing-action="selection" aria-haspopup="dialog" hidden>用选中内容练习</button>
         <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）">${icon('leaf')}<span>专注</span></button>
         <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）">${icon('fullscreen')}<span>全屏</span></button>
         <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板">${icon('search')}<span>查词</span></button>
@@ -172,6 +176,7 @@ function renderReader(article) {
   $$('.paragraph').forEach((p, i) => { p.dataset.plain = paragraphs[i].trim(); });
   reader = new MarginReader({root:app, settings:state.settings, onChange:saveSettings,
     onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
+  writingTrainer = new MarginWriting({root:app, article, reader, api, toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
     getWords:()=>state.words, onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
   requestAnimationFrame(() => {
@@ -303,9 +308,15 @@ function showWordDialog(id=null) {
   $('#word-dialog').showModal();
 }
 let confirmResolve=null;
-function confirmDelete(message) {$('#confirm-message').textContent=message;$('#confirm-dialog').showModal();return new Promise(resolve=> {confirmResolve=resolve;});}
+function confirmDelete(message) {
+  if(message.startsWith('删除文章「'))message += ' 本篇写作练习、草稿和反馈也会删除。';
+  $('#confirm-message').textContent=message;
+  $('#confirm-dialog').showModal();
+  return new Promise(resolve=> {confirmResolve=resolve;});
+}
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
+  writingTrainer?.destroy();writingTrainer=null;
   const version=++state.routeVersion;state.lookupVersion++;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
@@ -375,6 +386,7 @@ document.addEventListener('change',async event=> {
 document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
+  if(form.closest('#writing-dialog'))return;
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
     $('#import-error').textContent='';button.textContent=state.importMode==='url'?'正在提取正文…':'正在导入…';
