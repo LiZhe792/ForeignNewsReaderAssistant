@@ -15,6 +15,7 @@ from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
 from newsreader.reading_flow import reading_flow
+from newsreader.knowledge import knowledge
 
 ROOT = Path(__file__).resolve().parent
 
@@ -33,6 +34,7 @@ def create_app(test_config=None):
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
     app.register_blueprint(reading_flow)
+    app.register_blueprint(knowledge)
     with app.app_context():
         init_db()
 
