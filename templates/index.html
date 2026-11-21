@@ -10,8 +10,10 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/reader.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
+  <link rel="stylesheet" href="/static/knowledge.css">
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
+  <script src="/static/knowledge.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
@@ -23,6 +25,7 @@
         <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
         <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
+        <a href="#knowledge" data-nav="knowledge" aria-label="知识整理" title="知识整理"><span data-icon="pen"></span><span>知识整理</span></a>
       </nav>
       <div class="sidebar-bottom">
         <div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title">每天留一点时间给世界<span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span>今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div></div>

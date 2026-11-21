@@ -79,6 +79,22 @@ CREATE TABLE IF NOT EXISTS pending_words (
     context TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
     UNIQUE(article_id, paragraph_index, word)
 );
+CREATE TABLE IF NOT EXISTS knowledge_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL UNIQUE,
+    source_key TEXT UNIQUE, kind TEXT NOT NULL,
+    article_id INTEGER REFERENCES articles(id) ON DELETE SET NULL,
+    article_title TEXT NOT NULL DEFAULT '', anchors TEXT NOT NULL DEFAULT '[]',
+    title TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', example TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT 'yellow', tags TEXT NOT NULL DEFAULT '[]',
+    version INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS knowledge_items_article ON knowledge_items(article_id, id);
+CREATE INDEX IF NOT EXISTS knowledge_items_kind ON knowledge_items(kind, id DESC);
+CREATE TABLE IF NOT EXISTS knowledge_maps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL, nodes TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 """
 
 
