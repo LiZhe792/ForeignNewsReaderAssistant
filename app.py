@@ -22,6 +22,7 @@ from newsreader.srs import review
 from newsreader.training import training
 from newsreader.exercises import exercises
 from newsreader.personalization import personalization
+from newsreader.data_management import management, initialize as initialize_management
 from newsreader.analytics import analytics, record_reading, token as analytics_token, fingerprint as analytics_fingerprint
 from newsreader.personalization import digest as article_digest
 
@@ -52,8 +53,10 @@ def create_app(test_config=None):
     app.register_blueprint(exercises)
     app.register_blueprint(personalization)
     app.register_blueprint(analytics)
+    app.register_blueprint(management)
     with app.app_context():
         init_db()
+        initialize_management(app)
 
     @app.before_request
     def protect_local_writes():
@@ -61,7 +64,8 @@ def create_app(test_config=None):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
                 return jsonify(error="不允许跨站修改本地学习数据。"), 403
-            if not request.is_json:
+            multipart = request.endpoint in ('management.restore_preview','management.articles_preview') and request.mimetype == 'multipart/form-data'
+            if not request.is_json and not multipart:
                 return jsonify(error="请使用 JSON 格式提交数据。"), 415
 
     @app.after_request
