@@ -18,6 +18,8 @@
   <script src="/static/personalization.js" defer></script>
   <link rel="stylesheet" href="/static/analytics.css">
   <script src="/static/analytics.js" defer></script>
+  <link rel="stylesheet" href="/static/data-management.css">
+  <script src="/static/data-management.js" defer></script>
   <script src="/static/listening.js" defer></script>
   <script src="/static/exercises.js" defer></script>
   <script src="/static/wordbook.js" defer></script>
@@ -41,6 +43,7 @@
         <a href="#exercises" data-nav="exercises" aria-label="阅读测验" title="阅读测验"><span data-icon="pen"></span><span>阅读测验</span></a>
         <a href="#personalization" data-nav="personalization" aria-label="难度与推荐" title="难度与推荐"><span data-icon="plant"></span><span>难度与推荐</span></a>
         <a href="#analytics" data-nav="analytics" aria-label="学习数据分析" title="学习数据分析"><span data-icon="chart"></span><span>学习数据分析</span></a>
+        <a href="#data" data-nav="data" aria-label="离线与数据管理" title="离线与数据管理"><span data-icon="shield"></span><span>离线与数据管理</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
       </nav>
       <div class="sidebar-bottom">
@@ -50,7 +53,8 @@
       </div>
     </aside>
     <main class="main-shell">
-      <header class="topbar"><div class="breadcrumb"><span>我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><span class="local-badge"><i></i>本地学习空间</span><button class="button primary small" data-action="import"><span data-icon="plus"></span>导入文章</button></div></header>
+      <header class="topbar"><div class="breadcrumb"><span>我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><span class="local-badge"><i></i><span id="network-status-text">本地学习空间</span></span><button class="button primary small" data-action="import"><span data-icon="plus"></span>导入文章</button></div></header>
+      <div id="data-changed-banner" class="data-changed-banner" role="alert" hidden><span>学习数据已在另一页面还原，本页旧操作已暂停。重新载入后继续使用。</span><button class="button small" data-action="reload-data">重新载入</button></div>
       <div id="app" class="page-content" aria-live="polite"><div class="loading-screen"><span class="spinner"></span><p>正在翻开你的阅读空间…</p></div></div>
     </main>
   </div>
