@@ -2,8 +2,8 @@
 'use strict';
 
 window.MarginFlow = class MarginFlow {
-  constructor({root, article, reader, settings, api, toast, getWords, onWords, lookup}) {
-    Object.assign(this, {root, article, reader, settings, api, toast, getWords, onWords, lookup});
+  constructor({root, article, reader, settings, api, toast, getWords, onWords, lookup, onLookup}) {
+    Object.assign(this, {root, article, reader, settings, api, toast, getWords, onWords, lookup, onLookup});
     this.pending = [];
     this.definitions = new Map();
     this.expanded = new Set();
@@ -218,6 +218,7 @@ window.MarginFlow = class MarginFlow {
     this.definitions.set(id, {loading: true});
     this.updateDefinition(entry);
     const provider = this.provider;
+    this.onLookup?.(entry.word,this.article,entry.paragraph_index);
     try {
       const result = await this.api('/dictionary?word=' + encodeURIComponent(entry.word) + '&provider=' + encodeURIComponent(provider));
       if (!this.destroyed && provider === this.provider) this.definitions.set(id, result);
