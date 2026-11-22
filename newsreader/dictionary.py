@@ -140,6 +140,9 @@ def online_entry(term, fetch):
                 return {**result, 'cached': True}
         except (ValueError, TypeError):
             pass
+    from .data_management import offline
+    if offline():
+        return None
     try:
         raw, _, _ = fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + quote(term, safe=''), max_bytes=300000)
         entries = json.loads(raw)
@@ -221,6 +224,10 @@ def lookup(term, provider, fetch):
             for region in ('uk', 'us'):
                 result['phonetics'][region] = result['phonetics'][region] or {'uk': pronunciation[0], 'us': pronunciation[1]}[region]
             return result
+    from .data_management import offline
+    if offline():
+        result['message']='离线模式下，所选词典没有可用的本地词条或缓存。可切换离线英汉，或手动填写释义。'
+        return result
     result['message'] = ('离线词库未收录此词或短语，可切换自动或在线词典，或手动填写释义。'
                          if provider == 'offline' else '在线词典未返回释义或网络不可用，可切换离线词典、重试或手动填写释义。')
     return result

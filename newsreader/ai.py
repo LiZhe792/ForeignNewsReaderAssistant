@@ -42,7 +42,11 @@ def profile():
 
 
 def status():
+    from .data_management import offline
     config = configuration()
+    if offline():
+        return {'configured':False,'offline':True,'model':config['model'],'profile':profile(),
+                'message':'离线模式已暂停 AI 生成；已有解释、译文和练习仍可查看。'}
     return {'configured': config['configured'], 'model': config['model'], 'profile': profile(),
             'message': '生成时发送所选原文和邻近上下文；结果可收藏与修订。' if config['configured'] else
                        '尚未配置 AI 服务。请在启动 Python 前设置 MARGIN_AI_API_KEY 和 MARGIN_AI_MODEL；已有学习结果仍可查看和修订。'}
@@ -89,6 +93,9 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def request_json(payload, config):
+    from .data_management import offline
+    if offline():
+        raise AIError('离线模式已暂停 AI 生成；已有学习结果仍可查看。',409)
     request = Request(config['base'] + '/responses', data=json.dumps(payload, ensure_ascii=False).encode(),
                       headers={'Authorization': 'Bearer ' + config['key'], 'Content-Type': 'application/json'}, method='POST')
     try:
