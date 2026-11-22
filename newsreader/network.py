@@ -50,8 +50,15 @@ class PinnedHTTPS(PinnedHTTP):
 
 
 def fetch_public(url, max_bytes=2_000_000):
+    from flask import has_app_context
+    if has_app_context():
+        from .data_management import offline
+        if offline():
+            raise FetchError('当前为离线模式，网页导入和在线查询已暂停。可使用本地文章、离线词典或粘贴导入。')
     deadline = time.monotonic() + 25
     for _ in range(5):
+        if has_app_context() and offline():
+            raise FetchError('离线模式已暂停外部请求。')
         connection = None
         try:
             parsed = urlsplit(url)
