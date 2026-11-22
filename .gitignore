@@ -21,3 +21,6 @@ ai.env
 *.log
 .DS_Store
 Thumbs.db
+
+# Local backup archives and private restore previews
+*-data/
