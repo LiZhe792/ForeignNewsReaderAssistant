@@ -73,7 +73,7 @@ window.MarginStudy = class MarginStudy {
     q('#study-level').value=this.settings.ai_level||'intermediate';
     q('#study-favorites').checked=this.onlyFavorites;
     q('#study-service').textContent=this.service.message;
-    q('#study-setup').hidden=this.service.configured;
+    q('#study-setup').hidden=this.service.configured||this.service.offline;
     q('#study-generate').textContent=this.kind==='context'?'生成语境释义':'生成译文';
     q('#study-generate').disabled=!this.service.configured||this.busy;
     q('#study-reload').hidden=true;
