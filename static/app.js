@@ -29,6 +29,7 @@ const icons = {
   trash:'<path d="M3 6h18M9 3h6m-10 3 1 15h12l1-15M10 10v7m4-7v7"/>',
   flame:'<path d="M12 2c2 6 7 6 7 12a7 7 0 0 1-14 0c0-3 2-5 3-7 0 4 3 4 4-5Zm0 11c-5 5-2 8 0 8s5-3 0-8Z"/>',
   pen:'<path d="m4 20 4-1L20 7l-3-3L5 16l-1 4Zm10-13 3 3M4 22h16"/>',
+  chart:'<path d="M4 3v17h17M8 15V9m5 6V5m5 10v-4"/>',
   plant:'<path d="M12 21V10M12 15C5 15 3 11 3 5c7 0 9 4 9 10Zm0-3c0-6 3-9 9-9 0 6-3 9-9 9Z"/>',
 };
 const icon = (name, extra = '') => `<svg class="icon ${extra}" viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.book}</svg>`;
@@ -61,6 +62,8 @@ let wordbookUI = null;
 let reviewUI = null;
 let practiceUI = null;
 let personalUI = null;
+let analyticsUI = null;
+const learningEvents = typeof MarginLearningEvents === 'undefined' ? null : new MarginLearningEvents({api,toast});
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -88,7 +91,7 @@ function updateSidebar() {
   $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
   $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -188,7 +191,7 @@ function renderReader(article) {
   reader = new MarginReader({root:app, settings:state.settings, onChange:saveSettings,
     onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
-    getWords:()=>state.words, onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
+    getWords:()=>state.words, onLookup:(word,article,index)=>learningEvents?.observe(word,article,index), onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
   study = new MarginStudy({root:app,article,reader,settings:state.settings,api,toast,onSettings:saveSettings,getLookup:()=>state.lookup});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
@@ -234,9 +237,14 @@ async function flushSession(session=activeSession, keepalive=false) {
   if(!session) return;
   if(session.saving) { await session.saving; if(session.dirty||session.seconds) return flushSession(session,keepalive); return; }
   if(!session.dirty&&!session.seconds) return;
-  const seconds=Math.min(60,session.seconds), progress=session.progress, position=session.position;
+  const batch=session.pendingProgress || {seconds:Math.min(60,session.seconds),progress:session.progress,position:session.position,
+    request_id:window.crypto?.randomUUID?.() || Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};
+  session.pendingProgress=batch;
+  const {seconds,progress,position}=batch;
   session.dirty=false;
-  session.saving=api(`/articles/${session.id}/progress`,{method:'PATCH',body:{seconds,progress,position},keepalive}).then(()=> {
+  session.saving=api(`/articles/${session.id}/progress`,{method:'PATCH',body:batch,keepalive}).then(()=> {
+    session.pendingProgress=null;
+    if(session.progress!==progress || session.position!==position)session.dirty=true;
     session.seconds=Math.max(0,session.seconds-seconds);
     const article=state.articles.find(a=>a.id===session.id); if(article) {article.progress=progress;article.last_read_at=new Date().toISOString();}
     if(state.view==='reader'&&activeSession===session&&$('#save-status')) $('#save-status').innerHTML=icon('check')+' 进度已保存';
@@ -266,6 +274,7 @@ async function lookup(word, context='', options={}) {
   reader.restoreAnchor(anchor);
   $$('.word.selected').forEach(n=>n.classList.remove('selected')); $$('.word').filter(n=>n.dataset.word.toLowerCase()===word.toLowerCase()).forEach(n=>n.classList.add('selected'));
   try {
+    learningEvents?.observe(word,state.article,options.paragraphIndex??-1);
     const result=await api('/dictionary?word='+encodeURIComponent(word)+'&provider='+encodeURIComponent(state.settings.dictionary_provider||'auto'));
     if(version!==state.lookupVersion||state.view!=='reader') return;
     state.lookup={...state.lookupRequest,...result}; state.lookupRequest=null; renderLookup();
@@ -312,7 +321,7 @@ async function renderActivity(month='',version=state.routeVersion) {
   const stats=await api('/stats'+(month?'?month='+month:''));if(version!==state.routeVersion||state.view!=='activity')return;state.month=stats.month;
   const [year,monthNum]=stats.month.split('-').map(Number);const first=new Date(year,monthNum-1,1);const dayCount=new Date(year,monthNum,0).getDate();
   const blank=(first.getDay()+6)%7;const activity=new Map(stats.days.map(day=>[day.date,day]));
-  app.innerHTML=`<div class="page-wrap">${intro('SMALL STEPS, REAL GROWTH','每一次翻开，都算数。','你的学习足迹，正在把零散的时间变成看得见的积累。')}${summaryTiles()}<div class="calendar-layout"><section class="calendar-card"><div class="calendar-heading"><h2>${year} 年 ${monthNum} 月<span class="eyebrow">YOUR READING DAYS</span></h2><div class="calendar-actions"><button class="button small" data-action="checkin" ${stats.checked_in?'disabled':''}>${icon('check')}${stats.checked_in?'今日已打卡':'今日打卡'}</button><div class="month-nav"><button class="icon-button" data-month-offset="-1" aria-label="上个月">${icon('chevron-left')}</button><button class="icon-button" data-month-offset="1" aria-label="下个月">${icon('chevron-right')}</button></div></div></div><div class="calendar-grid">${['一','二','三','四','五','六','日'].map(d=>`<div class="calendar-weekday">${d}</div>`).join('')}${Array(blank).fill('<div class="calendar-day blank"></div>').join('')}${Array.from({length:dayCount},(_,index)=> {const key=stats.month+'-'+String(index+1).padStart(2,'0');const day=activity.get(key);return `<button class="calendar-day ${day?'active ':''}${key===stats.today?'today ':''}${key>stats.today?'future':''}" data-calendar-day="${key}" aria-label="${key}${day?' 已学习':' 暂无学习记录'}" title="${day?'阅读 '+minutes(day.reading_seconds)+' 分钟 · 完成 '+day.articles_completed+' 篇':'暂无学习记录'}">${index+1}${day?'<span class="dot"></span>':''}</button>`;}).join('')}</div><div class="calendar-legend"><span><i class="legend-square"></i>有学习记录</span><span>描边为今天</span><span>· 阅读或手动打卡均会点亮</span></div><div id="calendar-detail" class="calendar-detail">这个月，你已经在 ${stats.days.length} 天里留下一点进步。</div></section><aside class="insight-card"><h3>时间会看见你的坚持</h3><div class="big-number">${stats.active_days}<small>天</small></div><p>这是你与英语相遇的日子。<br>不必每次都很多，只要常常开始。</p><div class="insight-divider"></div><div class="insight-line"><span>今日阅读</span><strong>${minutes(stats.today_seconds)} 分钟</strong></div><div class="insight-line"><span>已掌握词汇</span><strong>${stats.mastered_words} 个</strong></div><div class="quote">“Little by little,<br>a little becomes a lot.”<small>KEEP YOUR CURIOSITY ALIVE</small></div></aside></div><div class="page-footnote">${icon('shield')}数据保存在本机 · 北京时间 · 阅读计时只统计前台活跃时间</div></div>`;
+  app.innerHTML=`<div class="page-wrap"><a class="button small analytics-entry" href="#analytics">查看学习数据分析 →</a>${intro('SMALL STEPS, REAL GROWTH','每一次翻开，都算数。','你的学习足迹，正在把零散的时间变成看得见的积累。')}${summaryTiles()}<div class="calendar-layout"><section class="calendar-card"><div class="calendar-heading"><h2>${year} 年 ${monthNum} 月<span class="eyebrow">YOUR READING DAYS</span></h2><div class="calendar-actions"><button class="button small" data-action="checkin" ${stats.checked_in?'disabled':''}>${icon('check')}${stats.checked_in?'今日已打卡':'今日打卡'}</button><div class="month-nav"><button class="icon-button" data-month-offset="-1" aria-label="上个月">${icon('chevron-left')}</button><button class="icon-button" data-month-offset="1" aria-label="下个月">${icon('chevron-right')}</button></div></div></div><div class="calendar-grid">${['一','二','三','四','五','六','日'].map(d=>`<div class="calendar-weekday">${d}</div>`).join('')}${Array(blank).fill('<div class="calendar-day blank"></div>').join('')}${Array.from({length:dayCount},(_,index)=> {const key=stats.month+'-'+String(index+1).padStart(2,'0');const day=activity.get(key);return `<button class="calendar-day ${day?'active ':''}${key===stats.today?'today ':''}${key>stats.today?'future':''}" data-calendar-day="${key}" aria-label="${key}${day?' 已学习':' 暂无学习记录'}" title="${day?'阅读 '+minutes(day.reading_seconds)+' 分钟 · 完成 '+day.articles_completed+' 篇':'暂无学习记录'}">${index+1}${day?'<span class="dot"></span>':''}</button>`;}).join('')}</div><div class="calendar-legend"><span><i class="legend-square"></i>有学习记录</span><span>描边为今天</span><span>· 阅读或手动打卡均会点亮</span></div><div id="calendar-detail" class="calendar-detail">这个月，你已经在 ${stats.days.length} 天里留下一点进步。</div></section><aside class="insight-card"><h3>时间会看见你的坚持</h3><div class="big-number">${stats.active_days}<small>天</small></div><p>这是你与英语相遇的日子。<br>不必每次都很多，只要常常开始。</p><div class="insight-divider"></div><div class="insight-line"><span>今日阅读</span><strong>${minutes(stats.today_seconds)} 分钟</strong></div><div class="insight-line"><span>已掌握词汇</span><strong>${stats.mastered_words} 个</strong></div><div class="quote">“Little by little,<br>a little becomes a lot.”<small>KEEP YOUR CURIOSITY ALIVE</small></div></aside></div><div class="page-footnote">${icon('shield')}数据保存在本机 · 北京时间 · 阅读计时只统计前台活跃时间</div></div>`;
   state.calendarStats=stats;
 }
 
@@ -328,12 +337,12 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
-  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;
+  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
-  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','activity'].includes(route)?route:'library';
+  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
@@ -341,6 +350,7 @@ async function navigate() {
       if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
+      else if(state.view==='analytics'){analyticsUI=new MarginAnalytics({root:app,api,toast,tracker:learningEvents});await analyticsUI.render();}
       else if(state.view==='personalization'){personalUI=new MarginPersonalization({root:app,api,toast,articleId:id==='article'?sessionId:null});await personalUI.render();}
       else if(state.view==='listening'){practiceUI=new MarginListening({root:app,api,toast,articleId:id});await practiceUI.render();}
       else if(state.view==='exercises'){practiceUI=new MarginExercises({root:app,api,toast,articleId:id==='session'?null:id,sessionId:id==='session'?sessionId:null});await practiceUI.render();}
