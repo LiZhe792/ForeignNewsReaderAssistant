@@ -34,7 +34,7 @@ def field(data, key, limit, required=False):
 
 
 def article(article_id):
-    row = get_db().execute("SELECT content FROM articles WHERE id=?", (article_id,)).fetchone()
+    row = get_db().execute("SELECT id,title,category,content FROM articles WHERE id=?", (article_id,)).fetchone()
     if row is None:
         abort(404)
     return row
@@ -80,6 +80,9 @@ def pending_words(article_id):
         (article_id, index, word, context, now()),
     )
     duplicate = cursor.rowcount == 0
+    if index >= 0:
+        from .analytics import record_lookup
+        record_lookup(db, word, "encounter", source, index)
     row = db.execute(
         "SELECT * FROM pending_words WHERE article_id=? AND paragraph_index=? AND word=?", (article_id, index, word)
     ).fetchone()

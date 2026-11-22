@@ -24,6 +24,7 @@ def get_db():
     if "db" not in g:
         db = sqlite3.connect(current_app.config["DATABASE"], timeout=15)
         db.row_factory = sqlite3.Row
+        db.create_function("margin_now", 0, lambda: now())
         db.execute("PRAGMA foreign_keys = ON")
         db.execute("PRAGMA journal_mode = WAL")
         g.db = db
@@ -143,6 +144,8 @@ def init_db():
     from .exercises import SCHEMA as EXERCISE_SCHEMA
     from .personalization import SCHEMA as PERSONALIZATION_SCHEMA
     db.executescript(TRAINING_SCHEMA + EXERCISE_SCHEMA + PERSONALIZATION_SCHEMA)
+    from .analytics import initialize as initialize_analytics
+    initialize_analytics(db)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
