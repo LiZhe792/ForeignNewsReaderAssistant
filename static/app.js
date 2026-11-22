@@ -60,6 +60,7 @@ let study = null;
 let wordbookUI = null;
 let reviewUI = null;
 let practiceUI = null;
+let personalUI = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -87,7 +88,7 @@ function updateSidebar() {
   $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
   $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -108,10 +109,12 @@ function renderLibrary() {
   app.innerHTML = `<div class="page-wrap">${intro('A WINDOW TO THE WORLD','把世界，读成自己的见识。','从一篇好文章开始，让每一次阅读都有所收获。',`<div class="date-label">${icon('calendar')}${dateLabel()}</div>`)}
     <div class="dashboard-top">${featured?`<section class="featured-card"><div class="feature-copy"><div class="feature-kicker">${icon('book')}${continuing?'PICK UP WHERE YOU LEFT OFF':'THE READING EDIT · 编辑精选'}</div><h2>${escapeHTML(featured.title)}</h2><p>${escapeHTML(featured.subtitle || '在字里行间，发现新的视角。')}</p><div class="feature-meta">${levelTag(featured.level)}<span>${featured.reading_minutes} 分钟</span><span>·</span><span>${escapeHTML(featured.category)}</span></div><button class="button primary" data-open="${featured.id}">${continuing?'继续阅读 · '+Math.round(featured.progress)+'%':'开始阅读'}${icon('arrow-right')}</button></div><div class="feature-art">${artwork(featured.category,true)}<span class="feature-caption">THE ART OF SLOW READING</span></div></section>`:empty('下一篇好文章，等你带来','导入一篇文章，开启你的阅读手记。','<button class="button primary" data-action="import">导入文章</button>')}
     <section class="daily-overview"><div class="section-label">一点一滴，正在发生<span>DAILY MOMENT</span></div><div class="streak-row"><div class="streak-icon">${icon('flame')}</div><div><div class="streak-number">${state.stats.streak}<span>天</span></div><small>连续学习的日子</small></div></div><div class="week-dots">${weekDots()}</div><button class="button" data-action="checkin" ${state.stats.checked_in?'disabled':''}>${icon(state.stats.checked_in?'check':'sun')}${state.stats.checked_in?'今日已打卡 · 继续保持':'今天，也来读一点'}</button></section></div>
+    <section id="personal-library" class="personal-compact" aria-label="为你选文"><a href="#personalization">查看个性化选文 →</a></section>
     <div class="library-toolbar"><h2 class="section-heading">发现好文章 <small>READ SOMETHING GOOD</small></h2><div class="filters">${['全部','科技','文化','科学','生活','环境','其他'].map(cat=>`<button class="filter ${state.category===cat?'active':''}" data-category="${cat}">${cat}</button>`).join('')}</div></div>
     <div class="library-controls"><div class="search-box">${icon('search')}<input id="article-search" aria-label="搜索文章" placeholder="寻找感兴趣的标题或主题…" value="${escapeHTML(state.query)}"></div><select id="difficulty-filter" class="difficulty-select" aria-label="筛选文章难度">${['全部','A2','B1','B2','C1','C2'].map(level=>`<option value="${level}" ${level===state.difficulty?'selected':''}>${level==='全部'?'所有阅读难度':level+' 难度'}</option>`).join('')}</select></div>
     <div id="article-grid" class="article-grid"></div><div class="page-footnote">${icon('leaf')}阅读不必匆忙，理解自有回响。<span>·</span>内置内容为原创学习示例</div></div>`;
   renderArticleCards();
+  if (typeof MarginPersonalization !== 'undefined') { personalUI?.destroy();personalUI=new MarginPersonalization({root:$('#personal-library'),api,toast,compact:true});personalUI.render(); }
 }
 function renderArticleCards() {
   const articles = state.articles.filter(a=>(state.category==='全部'||a.category===state.category)&&(state.difficulty==='全部'||a.level===state.difficulty)&&`${a.title} ${a.subtitle} ${a.source}`.toLowerCase().includes(state.query.toLowerCase()));
@@ -164,7 +167,7 @@ function renderReader(article) {
         ${article.source_url?`<a href="${escapeHTML(article.source_url)}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>`:(article.is_demo?'<span>原创学习示例</span>':'<span>个人导入</span>')}
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" aria-label="删除文章">${icon('trash')}</button></div>
       </div>
-      <div class="reader-practice-links"><a class="button small" href="#listening/${article.id}">听力与口语训练</a><a class="button small" href="#exercises/${article.id}">阅读练习与测验</a></div>
+      <div class="reader-practice-links"><a class="button small" href="#listening/${article.id}">听力与口语训练</a><a class="button small" href="#exercises/${article.id}">阅读练习与测验</a><a class="button small" href="#personalization/article/${article.id}">个人难度与读后反馈</a></div>
       <div class="reader-hint">${icon('pen')}单击或划选一个英文单词，查看释义并收藏</div>
       <p id="reader-layout-note" class="reader-layout-note" hidden></p>
       <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
@@ -325,12 +328,12 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
-  practiceUI?.destroy();practiceUI=null;
+  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
-  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','activity'].includes(route)?route:'library';
+  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
@@ -338,6 +341,7 @@ async function navigate() {
       if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
+      else if(state.view==='personalization'){personalUI=new MarginPersonalization({root:app,api,toast,articleId:id==='article'?sessionId:null});await personalUI.render();}
       else if(state.view==='listening'){practiceUI=new MarginListening({root:app,api,toast,articleId:id});await practiceUI.render();}
       else if(state.view==='exercises'){practiceUI=new MarginExercises({root:app,api,toast,articleId:id==='session'?null:id,sessionId:id==='session'?sessionId:null});await practiceUI.render();}
       else await renderActivity('',version);
