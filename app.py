@@ -21,6 +21,7 @@ from newsreader.wordbook import wordbook, ensure_word, attach_context
 from newsreader.srs import review
 from newsreader.training import training
 from newsreader.exercises import exercises
+from newsreader.personalization import personalization
 
 ROOT = Path(__file__).resolve().parent
 
@@ -47,6 +48,7 @@ def create_app(test_config=None):
     app.register_blueprint(review)
     app.register_blueprint(training)
     app.register_blueprint(exercises)
+    app.register_blueprint(personalization)
     with app.app_context():
         init_db()
 
