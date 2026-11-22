@@ -38,13 +38,19 @@ function toast(message, error = false) {
   const element = document.createElement('div'); element.className = 'toast' + (error ? ' error' : ''); element.textContent = message;
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
+let dataGeneration=null, dataStale=false;
+function dataChanged(){ dataStale=true; const banner=$('#data-changed-banner');if(banner)banner.hidden=false; }
 async function api(path, options = {}) {
   const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
   const abort = () => controller.abort();
   if (options.signal?.aborted) controller.abort();
   else options.signal?.addEventListener('abort', abort, {once:true});
   try {
-    const response = await fetch('/api' + path, { ...options, signal: controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
+    if(dataStale&&!options.allowDataChange){const error=new Error('学习数据已还原，请重新载入后继续。');error.status=409;throw error;}
+    const multipart=typeof FormData!=='undefined'&&options.body instanceof FormData;
+    const response = await fetch('/api' + path, { ...options, signal: controller.signal, headers: { ...(multipart?{}:{'Content-Type':'application/json'}), ...(dataGeneration?{'X-Margin-Generation':dataGeneration}:{}), ...options.headers }, body: options.body === undefined ? undefined : multipart?options.body:JSON.stringify(options.body) });
+    const generation=response.headers?.get?.('X-Margin-Generation');
+    if(generation&&dataGeneration&&generation!==dataGeneration&&!options.allowDataChange){dataChanged();const error=new Error('学习数据已在其他页面还原，请重新载入。');error.status=409;throw error;}
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
     if (!response.ok) { const error=new Error(payload.error || '操作失败，请稍后重试。');error.status=response.status;error.data=payload;throw error; }
     return payload;
@@ -63,7 +69,8 @@ let reviewUI = null;
 let practiceUI = null;
 let personalUI = null;
 let analyticsUI = null;
-const learningEvents = typeof MarginLearningEvents === 'undefined' ? null : new MarginLearningEvents({api,toast});
+let learningEvents = null;
+let dataUI = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -91,7 +98,7 @@ function updateSidebar() {
   $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
   $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -337,12 +344,12 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
-  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;
+  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
-  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','activity'].includes(route)?route:'library';
+  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','data','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
@@ -350,6 +357,7 @@ async function navigate() {
       if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
+      else if(state.view==='data'){dataUI=new MarginData({root:app,api,toast,confirm:confirmDelete});await dataUI.render();}
       else if(state.view==='analytics'){analyticsUI=new MarginAnalytics({root:app,api,toast,tracker:learningEvents});await analyticsUI.render();}
       else if(state.view==='personalization'){personalUI=new MarginPersonalization({root:app,api,toast,articleId:id==='article'?sessionId:null});await personalUI.render();}
       else if(state.view==='listening'){practiceUI=new MarginListening({root:app,api,toast,articleId:id});await practiceUI.render();}
@@ -450,5 +458,10 @@ setInterval(()=> {
 },1000);
 
 hydrateIcons();
-loadData().then(navigate).catch(error=> {app.innerHTML=empty('暂时无法打开阅读空间',escapeHTML(error.message),'<button class="button primary" data-action="retry-app">重试连接</button>','info');});
-document.addEventListener('click',event=> {if(event.target.closest('[data-action="retry-app"]'))location.reload();});
+async function boot(){
+  if(typeof MarginData!=='undefined'){const info=await api('/data/state');dataGeneration=info.generation;MarginData.prepare(info);}
+  if(typeof MarginLearningEvents!=='undefined')learningEvents=new MarginLearningEvents({api,toast});
+  await loadData();await navigate();
+}
+boot().catch(error=> {app.innerHTML=empty('暂时无法打开阅读空间',escapeHTML(error.message),'<button class="button primary" data-action="retry-app">重试连接</button>','info');});
+document.addEventListener('click',event=> {if(event.target.closest('[data-action="retry-app"], [data-action="reload-data"]'))location.reload();});
