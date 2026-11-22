@@ -22,6 +22,8 @@ from newsreader.srs import review
 from newsreader.training import training
 from newsreader.exercises import exercises
 from newsreader.personalization import personalization
+from newsreader.analytics import analytics, record_reading, token as analytics_token, fingerprint as analytics_fingerprint
+from newsreader.personalization import digest as article_digest
 
 ROOT = Path(__file__).resolve().parent
 
@@ -49,6 +51,7 @@ def create_app(test_config=None):
     app.register_blueprint(training)
     app.register_blueprint(exercises)
     app.register_blueprint(personalization)
+    app.register_blueprint(analytics)
     with app.app_context():
         init_db()
 
@@ -129,6 +132,7 @@ def create_app(test_config=None):
     def article_detail(article_id):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
+        article["content_hash"] = article_digest(article["content"])
         return jsonify(article)
 
     @app.post("/api/articles")
@@ -177,10 +181,20 @@ def create_app(test_config=None):
                 raise ValueError("阅读进度必须介于 0 与 100 之间。")
         if isinstance(seconds, bool) or not isinstance(seconds, int) or not 0 <= seconds <= 60:
             raise ValueError("每次阅读计时必须为 0–60 秒。")
+        request_id = data.get('request_id')
+        if request_id is not None: analytics_token(request_id)
         db = get_db()
         db.execute("BEGIN IMMEDIATE")
+        if request_id:
+            previous = db.execute('SELECT fingerprint,response_json FROM learning_reading_events WHERE request_id=?',(request_id,)).fetchone()
+            if previous:
+                db.rollback()
+                if previous['fingerprint'] != analytics_fingerprint([article_id,progress,position,seconds]):
+                    return jsonify(error='阅读记录编号已用于其他内容。'),409
+                return jsonify(**json.loads(previous['response_json']),duplicate=True)
         article = record("articles", article_id)
         progress = max(article["progress"], progress)
+        activity_day = today().isoformat()
         newly_completed = progress >= 100 and not article["completed_at"]
         completed_at = article["completed_at"] or (now() if newly_completed else None)
         db.execute(
@@ -192,10 +206,12 @@ def create_app(test_config=None):
                 """INSERT INTO checkins (date, reading_seconds, articles_completed) VALUES (?, ?, ?)
                 ON CONFLICT(date) DO UPDATE SET reading_seconds=reading_seconds+excluded.reading_seconds,
                 articles_completed=articles_completed+excluded.articles_completed""",
-                (today().isoformat(), seconds, int(newly_completed)),
+                (activity_day, seconds, int(newly_completed)),
             )
+        response = {'progress':progress,'completed':bool(completed_at)}
+        record_reading(db,article,data,response,activity_day)
         db.commit()
-        return jsonify(progress=progress, completed=bool(completed_at))
+        return jsonify(**response)
 
     @app.get("/api/dictionary")
     def dictionary():
