@@ -124,6 +124,22 @@ CREATE INDEX IF NOT EXISTS study_results_article ON study_results(article_id, ki
 """
 
 
+def migrate_article_columns(db):
+    """Add feed bookkeeping columns to article tables created by earlier builds."""
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(articles)")}
+    if "feed_id" not in columns:
+        db.execute("ALTER TABLE articles ADD COLUMN feed_id INTEGER")
+    if "guid" not in columns:
+        db.execute("ALTER TABLE articles ADD COLUMN guid TEXT")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_source_url ON articles(source_url)")
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_feed_guid ON articles(feed_id, guid) "
+        "WHERE guid IS NOT NULL AND guid != ''"
+    )
+    db.commit()
+
+
 def migrate_to_basic_schema(db):
     """Retain basic learning data when upgrading a database from the old build."""
     columns = {row["name"] for row in db.execute("PRAGMA table_info(vocabulary)")}
@@ -158,6 +174,16 @@ def migrate_to_basic_schema(db):
         raise
 
 
+def backfill_sources(db):
+    """Register every media source that already owns articles."""
+    db.execute(
+        """INSERT OR IGNORE INTO sources (name, domain, created_at)
+        SELECT DISTINCT source, '', ? FROM articles WHERE source != ''""",
+        (now(),),
+    )
+    db.commit()
+
+
 def init_db():
     from .learning import assess_difficulty
 
@@ -190,3 +216,5 @@ def init_db():
             )
         db.execute("INSERT INTO settings (key, value) VALUES ('seeded', 'true')")
         db.commit()
+
+    backfill_sources(db)

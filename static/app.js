@@ -37,6 +37,11 @@ const icons = {
   pen:'<path d="m4 20 4-1L20 7l-3-3L5 16l-1 4Zm10-13 3 3M4 22h16"/>',
   chart:'<path d="M4 3v17h17M8 15V9m5 6V5m5 10v-4"/>',
   plant:'<path d="M12 21V10M12 15C5 15 3 11 3 5c7 0 9 4 9 10Zm0-3c0-6 3-9 9-9 0 6-3 9-9 9Z"/>',
+  rss:'<path d="M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/>',
+  refresh:'<path d="M20 11a8 8 0 0 0-14-3.5M4 5v5h5M4 13a8 8 0 0 0 14 3.5M20 19v-5h-5"/>',
+  pause:'<path d="M9 5v14M15 5v14"/>',
+  play:'<path d="m8 5 11 7-11 7V5Z"/>',
+  copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
 };
 const icon = (name, extra = '') => `<svg class="icon ${extra}" viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.book}</svg>`;
 function hydrateIcons(root = document) { $$('[data-icon]', root).forEach(node => { node.innerHTML = icon(node.dataset.icon); }); }
@@ -358,6 +363,107 @@ async function renderActivity(month='',version=state.routeVersion) {
   state.calendarStats=stats;
 }
 
+
+async function loadFeeds() {
+  const [feeds, sources] = await Promise.all([api('/feeds'), api('/sources')]);
+  state.feeds = feeds.feeds; state.sources = sources.sources;
+}
+function timeAgo(value) {
+  if (!value) return '尚未更新';
+  const seconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000);
+  if (seconds < 90) return '刚刚更新';
+  if (seconds < 3600) return Math.floor(seconds / 60) + ' 分钟前更新';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + ' 小时前更新';
+  return Math.floor(seconds / 86400) + ' 天前更新';
+}
+function feedState(feed) {
+  if (!feed.enabled) return '已暂停';
+  return feed.last_status === 'error' ? '更新失败' : '正常';
+}
+function feedCard(feed) {
+  const keywords = (feed.keywords || '').split(',').filter(Boolean);
+  return `<article class="feed-card${feed.enabled ? '' : ' paused'}">
+    <div class="feed-head"><div><h3>${escapeHTML(feed.title)}</h3><p class="feed-origin">${escapeHTML(feed.source_name || '未命名来源')}<span>·</span>${escapeHTML(feed.category)}<span>·</span>${feed.article_count} 篇文章</p></div>
+      <span class="feed-state ${feed.enabled ? '' : 'paused'} ${feed.last_status === 'error' ? 'error' : ''}">${feedState(feed)}</span></div>
+    ${keywords.length ? `<div class="feed-keywords">${keywords.map(word => `<span class="keyword-pill">${escapeHTML(word)}</span>`).join('')}</div>` : ''}
+    <div class="feed-meta"><span>${icon('clock')}${timeAgo(feed.last_fetched_at)}</span><a href="${escapeHTML(feed.site_url || feed.url)}" target="_blank" rel="noopener noreferrer">访问来源 ↗</a></div>
+    ${feed.last_error ? `<p class="feed-error">${escapeHTML(feed.last_error)}</p>` : ''}
+    <div class="feed-actions">
+      <button class="button small" data-action="refresh-feed" data-feed="${feed.id}">${icon('refresh')}立即更新</button>
+      <button class="button small" data-action="toggle-feed" data-feed="${feed.id}" data-enabled="${feed.enabled ? 0 : 1}">${icon(feed.enabled ? 'pause' : 'play')}${feed.enabled ? '暂停' : '继续'}</button>
+      <button class="icon-button danger" data-action="delete-feed" data-feed="${feed.id}" title="移除订阅" aria-label="移除订阅">${icon('trash')}</button>
+    </div></article>`;
+}
+function sourceRow(source) {
+  return `<div class="source-row"><div class="source-main"><strong>${escapeHTML(source.name)}</strong><small>${escapeHTML(source.domain || '手动标记')} · ${source.feed_count} 个订阅 · ${source.article_count} 篇文章</small></div>
+    <button class="icon-button" data-action="edit-source" data-source="${source.id}" aria-label="编辑 ${escapeHTML(source.name)}" title="编辑来源">${icon('edit')}</button></div>`;
+}
+function bookmarkletCode() {
+  return `javascript:(()=>{location.href='${location.origin}/#import?url='+encodeURIComponent(location.href)})()`;
+}
+function renderFeeds() {
+  const feeds = state.feeds, sources = state.sources;
+  const active = feeds.filter(feed => feed.enabled).length;
+  app.innerHTML = `<div class="page-wrap">${intro('A WINDOW, DELIVERED','订阅你关心的世界。','把常读的栏目接进来，新文章会自动排进你的阅读库。',`<div class="intro-actions"><button class="button small" data-action="refresh-all">${icon('refresh')}更新全部</button><button class="button primary small" data-action="add-feed">${icon('plus')}添加订阅</button></div>`)}
+    <div class="summary-strip"><div class="summary-tile"><span>订阅源${icon('rss')}</span><strong>${feeds.length}<small>个</small></strong></div><div class="summary-tile"><span>正在更新${icon('refresh')}</span><strong>${active}<small>个</small></strong></div><div class="summary-tile"><span>媒体来源${icon('book')}</span><strong>${sources.length}<small>个</small></strong></div><div class="summary-tile"><span>订阅文章${icon('bookmark')}</span><strong>${feeds.reduce((total, feed) => total + feed.article_count, 0)}<small>篇</small></strong></div></div>
+    <div class="feeds-layout">
+      <section class="feed-column"><div class="section-label">我的订阅<span>SUBSCRIBED FEEDS</span></div>
+        ${feeds.length ? `<div class="feed-list">${feeds.map(feedCard).join('')}</div>` : empty('还没有订阅任何栏目', '添加一个 RSS / Atom 链接；也可以先用「导入文章」手动收藏。', '<button class="button primary" data-action="add-feed">添加订阅</button>', 'rss')}
+      </section>
+      <aside class="feed-side"><div class="section-label">媒体来源<span>SOURCES</span></div>
+        <div class="source-list">${sources.length ? sources.map(sourceRow).join('') : '<p class="feed-hint">导入文章或添加订阅后，这里会出现媒体来源。</p>'}</div>
+        <div class="bookmarklet-card"><span class="eyebrow">ONE CLICK COLLECT</span><h4>浏览器一键收藏</h4><p>把下面的按钮拖到书签栏，在任意文章页点击，即可导入当前网页。</p>
+          <button class="button small primary" data-action="copy-bookmarklet">${icon('copy')}复制收藏书签</button>
+          <code class="bookmarklet-code" id="bookmarklet-code" hidden>${escapeHTML(bookmarkletCode())}</code>
+          <a class="bookmarklet-link" href="${escapeHTML(bookmarkletCode())}" title="拖到书签栏">拖我到书签栏</a></div>
+      </aside>
+    </div></div>`;
+}
+function setImportMode(mode) {
+  state.importMode = ['paste', 'url', 'batch'].includes(mode) ? mode : 'paste';
+  $$('[data-import-tab]').forEach(button => button.classList.toggle('active', button.dataset.importTab === state.importMode));
+  $('#paste-fields').hidden = state.importMode !== 'paste';
+  $('#url-fields').hidden = state.importMode !== 'url';
+  $('#batch-fields').hidden = state.importMode !== 'batch';
+  $$('input,textarea', $('#paste-fields')).forEach(input => { input.disabled = state.importMode !== 'paste'; });
+  const urlInput = $('#url-fields input');
+  urlInput.disabled = state.importMode !== 'url'; urlInput.required = state.importMode === 'url';
+  const batchInput = $('#batch-fields textarea');
+  batchInput.disabled = state.importMode !== 'batch'; batchInput.required = state.importMode === 'batch';
+  $('#import-error').textContent = '';
+}
+function openImport(url = '') {
+  const form = $('#import-form');
+  form.reset();
+  setImportMode(url ? 'url' : 'paste');
+  if (url) form.elements.url.value = url;
+  $('#batch-results').innerHTML = '';
+  $('#import-dialog').showModal();
+}
+async function pasteClipboard(target) {
+  let text = '';
+  try { text = (await navigator.clipboard.readText()).trim(); }
+  catch (error) { toast('浏览器没有允许读取剪贴板，请手动粘贴。', true); return; }
+  if (!text) { toast('剪贴板里没有文字。', true); return; }
+  const form = $('#import-form');
+  if (target === 'content') { form.elements.content.value = text; toast('已从剪贴板粘贴正文。'); return; }
+  const urls = text.split(/\s+/).filter(item => /^https?:\/\//i.test(item));
+  if (target === 'url') {
+    form.elements.url.value = urls[0] || text;
+    toast(urls.length ? '已读取剪贴板中的链接。' : '已粘贴剪贴板内容，请确认是完整链接。');
+    return;
+  }
+  form.elements.urls.value = (urls.length ? urls : [text]).join('\n');
+  toast(`已读取 ${urls.length || 1} 个链接。`);
+}
+function showSourceDialog(id) {
+  state.editSource = id;
+  const form = $('#source-form'), source = state.sources.find(item => item.id === id);
+  form.reset(); $('#source-error').textContent = '';
+  if (source) { form.elements.name.value = source.name; form.elements.note.value = source.note || ''; }
+  $('#source-dialog').showModal();
+}
+
 function openSettings() { $('#settings-dialog').showModal(); }
 function showWordDialog(id=null) {
   state.editWord=id;const form=$('#word-form');form.reset();$('#word-error').textContent='';
@@ -430,7 +536,7 @@ document.addEventListener('click',async event=> {
     if(button.dataset.importTab){state.importMode=button.dataset.importTab;$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode!=='paste';$('#url-fields').hidden=state.importMode!=='url';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode!=='paste');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
     if(button.dataset.dictionaryTerm){const entry=state.lookup;await lookup(button.dataset.dictionaryTerm,entry?.context||'',{paragraphIndex:entry?.paragraphIndex??-1,expanded:true});return;}
     const action=button.dataset.action;
-    if(action==='import'){$('#import-error').textContent='';$('#import-dialog').showModal();}
+    if(action==='import')openImport();
     else if(action==='close-dialog')button.closest('dialog').close();
     else if(action==='close-margin'){
       $('.reader-margin')?.classList.remove('mobile-open');
@@ -488,6 +594,15 @@ document.addEventListener('submit',async event=> {
   try {if(form.id==='import-form') {
     $('#import-error').textContent='';button.textContent=ui(state.importMode==='url'?'正在提取正文…':'正在导入…');
     const payload=Object.fromEntries(new FormData(form));const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
+  }else if(form.id==='feed-form') {
+    $('#feed-error').textContent='';button.textContent='正在抓取订阅源…';
+    const payload=Object.fromEntries(new FormData(form));const result=await api('/feeds',{method:'POST',body:payload});
+    $('#feed-dialog').close();form.reset();await loadFeeds();if(state.view==='feeds')renderFeeds();
+    toast(result.added?`已订阅「${result.title}」，导入 ${result.added} 篇文章。`:`已订阅「${result.title}」，暂时没有新文章。`);
+  }else if(form.id==='source-form') {
+    $('#source-error').textContent='';const payload=Object.fromEntries(new FormData(form));
+    await api('/sources/'+state.editSource,{method:'PATCH',body:payload});
+    $('#source-dialog').close();await loadFeeds();if(state.view==='feeds')renderFeeds();toast('媒体来源已更新。');
   }else if(form.id==='word-form') {
     $('#word-error').textContent='';const payload=Object.fromEntries(new FormData(form));const result=await api('/vocabulary'+(state.editWord?'/'+state.editWord:''),{method:state.editWord?'PATCH':'POST',body:payload});$('#word-dialog').close();state.words=(await api('/vocabulary')).words;await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast(result.duplicate?'这个单词已经收藏过了。':'生词已保存。');
   }}catch(error){const target=form.id==='import-form'?$('#import-error'):$('#word-error');if(target)target.textContent=error.message;else toast(error.message,true);}
