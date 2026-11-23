@@ -49,4 +49,5 @@
 @media(max-width:700px){.plan-columns{grid-template-columns:1fr;gap:0}.plan-panel{padding:16px}.plan-page input,.plan-page select{padding:8px}.plan-gauge{flex-basis:122px}}
 @media(max-width:440px){.plan-fields{grid-template-columns:1fr}}
 
-@media(max-height:790px){.sidebar .nav-list{min-height:0;overflow-y:auto;overscroll-behavior:contain}.sidebar .nav-list a{flex-shrink:0}}
+.sidebar .nav-list{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.sidebar .nav-list a{flex-shrink:0}
