@@ -11,7 +11,7 @@ import urllib.request
 from pathlib import Path
 from threading import Lock
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 MODELS = ("deepseek-flash", "deepseek-v4-pro")
 API_ROOT = "https://api.deepseek.com"
@@ -95,6 +95,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def request_json(path, key, payload=None):
     """Only contact the fixed official API, once; never log credentials/provider bodies."""
+    from .data_management import offline
+    if has_app_context() and offline():
+        raise AIError("离线模式已暂停 AI 请求；已保存的学习记录仍可查看。", 409)
     encoded = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(API_ROOT + path, data=encoded, headers={
         "Authorization": "Bearer " + key, "Content-Type": "application/json", "Accept": "application/json",

@@ -112,6 +112,9 @@ def get_audio(text, voice):
                 path.touch()
                 return {"key": key, "cached": True, "bytes": path.stat().st_size}
             epoch = CACHE_EPOCH
+        from .data_management import offline
+        if offline():
+            raise SpeechError("离线模式下只能播放已缓存的音频。", 409)
         if not PROVIDER_SLOTS.acquire(timeout=5):
             raise SpeechError("正在准备其他音频，请稍后重试。", 429)
         try:

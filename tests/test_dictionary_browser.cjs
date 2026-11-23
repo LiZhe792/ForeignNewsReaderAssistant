@@ -63,7 +63,7 @@ async function pageFor(t, settings = {}, viewport = {width:1440,height:960}){
   };
   for(const word of (await api('/vocabulary')).words) await api('/vocabulary/'+word.id,'DELETE',{});
   await api('/settings','PATCH',{...defaults,reading_mode:'intensive',dictionary_provider:'offline',...settings});
-  const article = await api('/articles','POST',{title:'Dictionary knowledge browser test',content});
+  const article = await api('/articles','POST',{title:'Dictionary knowledge browser test '+t.name,content});
   const page=await context.newPage(), errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   t.after(()=>assert.deepEqual(errors,[]));

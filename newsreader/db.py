@@ -135,6 +135,87 @@ CREATE INDEX IF NOT EXISTS study_results_article ON study_results(article_id, ki
 """
 
 
+SCHEMA += """
+CREATE TABLE IF NOT EXISTS qa_threads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS qa_threads_article ON qa_threads(article_id, id DESC);
+CREATE TABLE IF NOT EXISTS qa_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id INTEGER NOT NULL REFERENCES qa_threads(id) ON DELETE CASCADE,
+    request_id TEXT NOT NULL UNIQUE,
+    question TEXT NOT NULL, mode TEXT NOT NULL, scope TEXT NOT NULL,
+    selected_text TEXT NOT NULL DEFAULT '', selection_paragraphs TEXT NOT NULL DEFAULT '[]',
+    answer TEXT NOT NULL DEFAULT '', citations TEXT NOT NULL DEFAULT '[]',
+    questions TEXT NOT NULL DEFAULT '[]', warning TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK(status IN ('pending','complete','failed')),
+    error TEXT NOT NULL DEFAULT '', favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN (0,1)),
+    model TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS qa_turns_thread ON qa_turns(thread_id, id);
+CREATE TABLE IF NOT EXISTS knowledge_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL UNIQUE,
+    source_key TEXT UNIQUE, kind TEXT NOT NULL,
+    article_id INTEGER REFERENCES articles(id) ON DELETE SET NULL,
+    article_title TEXT NOT NULL DEFAULT '', anchors TEXT NOT NULL DEFAULT '[]',
+    title TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', example TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT 'yellow', tags TEXT NOT NULL DEFAULT '[]',
+    version INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS knowledge_items_article ON knowledge_items(article_id, id);
+CREATE INDEX IF NOT EXISTS knowledge_items_kind ON knowledge_items(kind, id DESC);
+CREATE TABLE IF NOT EXISTS knowledge_maps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL, nodes TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS article_embeddings (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL, digest TEXT NOT NULL, model TEXT NOT NULL,
+    vector TEXT NOT NULL, PRIMARY KEY(article_id, chunk_index)
+);
+CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    domain TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS feed_seen (
+    feed_id INTEGER NOT NULL, guid TEXT NOT NULL, first_seen TEXT NOT NULL,
+    PRIMARY KEY (feed_id, guid)
+);
+CREATE TABLE IF NOT EXISTS feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER REFERENCES sources(id) ON DELETE CASCADE,
+    title TEXT NOT NULL, url TEXT NOT NULL UNIQUE, site_url TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '其他', keywords TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    etag TEXT NOT NULL DEFAULT '', last_modified TEXT NOT NULL DEFAULT '',
+    last_fetched_at TEXT, last_status TEXT NOT NULL DEFAULT '', last_error TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS article_tags (
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (article_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS article_tags_tag ON article_tags(tag_id);
+"""
+
+
 def migrate_article_columns(db):
     """Add feed bookkeeping columns to article tables created by earlier builds."""
     columns = {row["name"] for row in db.execute("PRAGMA table_info(articles)")}
@@ -201,6 +282,9 @@ def init_db():
     db = get_db()
     db.executescript(SCHEMA)
     migrate_to_basic_schema(db)
+    migrate_library_columns(db)
+    migrate_article_columns(db)
+    seed_categories(db)
     from .wordbook import initialize
     initialize(db)
     from .training import SCHEMA as TRAINING_SCHEMA
@@ -229,3 +313,33 @@ def init_db():
         db.commit()
 
     backfill_sources(db)
+
+
+def migrate_library_columns(db):
+    """Add library-management columns to article tables from earlier builds."""
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(articles)")}
+    additions = {
+        "favorite": "INTEGER NOT NULL DEFAULT 0",
+        "read_later": "INTEGER NOT NULL DEFAULT 0",
+        "priority": "INTEGER NOT NULL DEFAULT 0",
+        "status": "TEXT NOT NULL DEFAULT 'active'",
+        "published_at": "TEXT NOT NULL DEFAULT ''",
+        "title_norm": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, ddl in additions.items():
+        if name not in columns:
+            db.execute(f"ALTER TABLE articles ADD COLUMN {name} {ddl}")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_title_norm ON articles(title_norm)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category)")
+    for row in db.execute("SELECT id, title FROM articles WHERE title_norm=''"):
+        db.execute("UPDATE articles SET title_norm=? WHERE id=?", (normalize_title(row["title"]), row["id"]))
+    db.commit()
+
+
+def seed_categories(db):
+    existing = {row["name"] for row in db.execute("SELECT name FROM categories")}
+    for name in DEFAULT_CATEGORIES:
+        if name not in existing:
+            db.execute("INSERT INTO categories (name, created_at) VALUES (?, ?)", (name, now()))
+    db.commit()

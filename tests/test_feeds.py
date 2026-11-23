@@ -124,7 +124,7 @@ class SubscriptionApiTests(unittest.TestCase):
         self.subscribe()
         article = next(item for item in self.client.get("/api/articles").json["articles"]
                        if item["title"] == "Urban trees")
-        self.assertEqual(self.client.delete(f"/api/articles/{article['id']}").status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/articles/{article['id']}", json={}).status_code, 200)
         with patch("newsreader.feeds.fetch_document",
                    return_value=(200, rss_feed(), {"etag": "v2"}, "application/rss+xml", "https://example.com/feed")):
             refreshed = self.client.post("/api/feeds/1/refresh", json={})
@@ -137,7 +137,7 @@ class SubscriptionApiTests(unittest.TestCase):
         paused = self.client.patch("/api/feeds/1", json={"enabled": False})
         self.assertEqual(paused.status_code, 200)
         self.assertEqual(paused.json["enabled"], 0)
-        self.assertEqual(self.client.delete("/api/feeds/1").status_code, 200)
+        self.assertEqual(self.client.delete("/api/feeds/1", json={}).status_code, 200)
         self.assertEqual(self.client.get("/api/feeds").json["feeds"], [])
         titles = [item["title"] for item in self.client.get("/api/articles").json["articles"]]
         self.assertIn("Night trains return", titles)

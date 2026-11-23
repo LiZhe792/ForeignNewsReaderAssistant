@@ -31,6 +31,28 @@ from newsreader.analytics import analytics, record_reading, token as analytics_t
 from newsreader.personalization import digest as article_digest
 from newsreader.writing_workspace import default_database as writing_database, install as install_writing
 
+from newsreader.article_qa import article_qa, expire_pending
+
+from newsreader.sentences import article_segments
+
+from newsreader.speech import speech
+
+from newsreader.knowledge import knowledge
+
+from newsreader.exports import exports
+
+from newsreader.deep_analysis import deep_analysis
+
+from newsreader.file_import import extract_file
+
+from newsreader.search import filtered_articles, similar_articles
+
+from newsreader.db import close_db, get_db, init_db, normalize_title, now, today
+
+from newsreader.library import (
+    PRIORITIES, STATUSES, ensure_tag, find_duplicate, set_article_tags, tags_for_articles,
+)
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -64,6 +86,11 @@ def create_app(test_config=None):
     if not app.config.get("WRITING_DATABASE"):
         app.config["WRITING_DATABASE"] = os.getenv("MARGIN_WRITING_DATABASE") or writing_database(app.config["DATABASE"])
     install_writing(app)
+    app.register_blueprint(article_qa)
+    app.register_blueprint(speech)
+    app.register_blueprint(knowledge)
+    app.register_blueprint(exports)
+    app.register_blueprint(deep_analysis)
     with app.app_context():
         init_db()
         initialize_management(app)
@@ -76,11 +103,9 @@ def create_app(test_config=None):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
                 return jsonify(error="不允许跨站修改本地学习数据。"), 403
-            multipart = request.endpoint in ('management.restore_preview','management.articles_preview') and request.mimetype == 'multipart/form-data'
+            multipart = request.endpoint in ('management.restore_preview','management.articles_preview','preview_file') and request.mimetype == 'multipart/form-data'
             if not request.is_json and not multipart:
                 return jsonify(error="请使用 JSON 格式提交数据。"), 415
-            elif request.content_length and request.content_length > 512 * 1024:
-                return jsonify(error="提交内容过大。"), 413
 
     @app.after_request
     def security_headers(response):
@@ -179,6 +204,8 @@ def create_app(test_config=None):
 
     @app.post("/api/import/preview")
     def preview_file():
+        if request.mimetype != "multipart/form-data":
+            return jsonify(error="请使用文件上传表单。"), 415
         upload = request.files.get("file")
         if not upload or not upload.filename:
             raise ValueError("请选择一个文件。")
@@ -192,6 +219,8 @@ def create_app(test_config=None):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
         article["content_hash"] = article_digest(article["content"])
+        article["tts_segments"] = article_segments(article["content"])
+        article["tags"] = tags_for_articles(get_db()).get(article_id, [])
         return jsonify(article)
 
     @app.get("/api/articles/search")
@@ -202,7 +231,7 @@ def create_app(test_config=None):
     def search_options():
         db = get_db()
         return jsonify(sources=[r[0] for r in db.execute("SELECT DISTINCT source FROM articles ORDER BY source COLLATE NOCASE")],
-                       tags=[r[0] for r in db.execute("SELECT DISTINCT tag FROM article_tags ORDER BY tag COLLATE NOCASE")])
+                       tags=[r[0] for r in db.execute("SELECT DISTINCT t.name FROM tags t JOIN article_tags at ON at.tag_id=t.id ORDER BY t.name COLLATE NOCASE")])
 
     @app.patch("/api/articles/<int:article_id>/tags")
     def update_article_tags(article_id):
@@ -216,8 +245,7 @@ def create_app(test_config=None):
             cleaned = tag.strip()
             unique.setdefault(cleaned.casefold(), cleaned)
         db = get_db()
-        db.execute("DELETE FROM article_tags WHERE article_id=?", (article_id,))
-        db.executemany("INSERT INTO article_tags (article_id, tag) VALUES (?, ?)", [(article_id, tag) for tag in unique.values()])
+        set_article_tags(db, article_id, list(unique.values()))
         db.commit()
         return jsonify(tags=list(unique.values()))
 
@@ -245,6 +273,9 @@ def create_app(test_config=None):
         if not category_exists(category):
             raise ValueError("请选择有效的文章分类。")
         db = get_db()
+        duplicate = db.execute("SELECT id FROM articles WHERE title_norm=? OR (source_url!='' AND source_url=?)", (normalize_title(article["title"]), article["source_url"])).fetchone()
+        if duplicate:
+            return jsonify(id=duplicate["id"], duplicate=True)
         article_id = insert_article(
             db, title=article["title"], content=article["content"], source=article["source"],
             source_url=article["source_url"], category=category,
@@ -256,12 +287,15 @@ def create_app(test_config=None):
     @app.delete("/api/articles/<int:article_id>")
     def delete_article(article_id):
         expire_pending()
+        expire_pending_writing()
         db = get_db()
         db.execute("BEGIN IMMEDIATE")
         record("articles", article_id)
         pending = db.execute("""SELECT 1 FROM qa_turns q JOIN qa_threads t ON q.thread_id=t.id
                                 WHERE t.article_id=? AND q.status='pending' LIMIT 1""", (article_id,)).fetchone()
-        if pending:
+        pending_writing = db.execute("""SELECT 1 FROM writing_attempts a JOIN writing_exercises e ON a.exercise_id=e.id
+                                        WHERE e.article_id=? AND a.status='pending' LIMIT 1""", (article_id,)).fetchone()
+        if pending or pending_writing:
             db.rollback()
             return jsonify(error="这篇文章的 AI 回答仍在生成，请等返回后再删除文章。"), 409
         db.execute("DELETE FROM articles WHERE id=?", (article_id,))
@@ -432,7 +466,6 @@ def create_app(test_config=None):
         return jsonify(read_preferences(db))
 
 
-    @app.post("/api/articles/batch")
     def batch_articles():
         data = body()
         urls = data.get("urls")
@@ -609,8 +642,10 @@ def create_app(test_config=None):
         return jsonify(result)
 
     @app.post("/api/articles/batch")
-    def batch_articles():
+    def manage_articles():
         data = body()
+        if "urls" in data:
+            return batch_articles()
         ids = data.get("ids")
         if not isinstance(ids, list) or not ids or len(ids) > 200:
             raise ValueError("请选择 1 到 200 篇文章。")

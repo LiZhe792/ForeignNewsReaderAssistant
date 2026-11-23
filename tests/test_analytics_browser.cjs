@@ -36,7 +36,7 @@ server=make_server('127.0.0.1',0,app,threaded=True);print('PORT:'+str(server.ser
 });
 after(async()=>{if(server&&server.exitCode===null){const exit=new Promise(r=>server.once('exit',r));server.kill();await exit;}if(directory)fs.rmSync(directory,{recursive:true,force:true});});
 async function seed(api){
-  const article=await api('/articles','POST',{title:'A park for every season',category:'生活',content:('The city has a small park. '.repeat(50)+'\n\n').repeat(2)});
+  const article=await api('/articles','POST',{title:'A park for every season '+t.name,category:'生活',content:('The city has a small park. '.repeat(50)+'\n\n').repeat(2)});
   for(const [progress,seconds] of [[20,30],[40,60],[100,0]])await api('/articles/'+article.id+'/progress','PATCH',{progress,position:progress,seconds,request_id:'browser_reading_'+progress});
   const entry=(await api('/wordbook','POST',{word:'city',meaning:'城市'})).entry;const park=await api('/vocabulary','POST',{word:'park',meaning:'公园'});await api('/vocabulary/'+park.id,'PATCH',{mastery:'mastered'});
   await api('/review/answer','POST',{word_id:entry.id,version:entry.schedule.version,content_version:entry.version,grade:4,mode:'spelling',attempt:'wrong',request_id:'analytics_spelling_seed'});

@@ -19,7 +19,7 @@ function frontend() {
     classList: {add() {}, remove() {}, toggle() {}},
     append() {}, remove() {}, addEventListener() {},
   });
-  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel']) {
+  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel', '#file-drop', '#import-file', '#import-dialog']) {
     elements.set(selector, element());
   }
   const document = {
