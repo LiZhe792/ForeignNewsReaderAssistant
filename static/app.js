@@ -231,6 +231,8 @@ function renderReader(article) {
     reader.remember();
     scroller.addEventListener('scroll', onReaderScroll, {passive:true});
   });
+  if (!speechPlayer) speechPlayer = new MarginSpeech({api, toast});
+  speechPlayer.mount({root:app, article, reader});
 }
 function marginPlaceholder() { return `<div class="margin-placeholder"><div class="margin-symbol">${icon('book')}</div><h3>${ui("好奇心，值得停留", "Look up a word")}</h3><p>${ui("在上方输入单词，主动查询。释义默认折叠，可以按需展开。", "Enter a word above. Expand the definition when you need it.")}</p></div><div class="margin-tip"><span class="eyebrow">A SMALL READING TIP</span><p>${ui("流畅模式点词先暂存，精读模式点词打开查词卡片。读完一段，再整理遇见的词。", "Queue words in fluent mode or look them up as you read in close-reading mode.")}</p></div>`; }
 let settingsQueue = Promise.resolve();
@@ -489,6 +491,7 @@ document.addEventListener('mouseup',event=> {
   if(reader?.ignoreWordTap())return;
   const body=event.target.closest('#article-body');if(!body||event.target.closest('button'))return;
   const selection=window.getSelection(),selected=selection?.toString().trim();
+  if(speechPlayer?.clickToPlay && !selected)return;
   if(selected&&selection.anchorNode&&body.contains(selection.anchorNode)&&selection.focusNode&&body.contains(selection.focusNode)) {
     const paragraph=event.target.closest('.paragraph');
     if(MarginDictionary.valid(selected)&&paragraph?.contains(selection.anchorNode)&&paragraph.contains(selection.focusNode))flow?.selectWord(selected,paragraph);

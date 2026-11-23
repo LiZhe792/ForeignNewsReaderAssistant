@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/writing.css">
   <link rel="stylesheet" href="/static/reader.css">
+  <link rel="stylesheet" href="/static/speech.css">
   <link rel="stylesheet" href="/static/reading-flow.css">
   <link rel="stylesheet" href="/static/dictionary.css">
   <link rel="stylesheet" href="/static/assistance.css">
@@ -28,6 +29,7 @@
   <script src="/static/assistance.js" defer></script>
   <script src="/static/dictionary.js" defer></script>
   <script src="/static/reader.js" defer></script>
+  <script src="/static/speech.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
   <link rel="stylesheet" href="/static/study-plans.css">
   <script src="/static/study-plans.js" defer></script>
@@ -211,5 +213,37 @@
   <dialog id="exercise-author-dialog" class="modal exercise-author-modal" aria-label="手动添加阅读题目"></dialog>
   <aside id="study-reminders" aria-label="学习提醒" data-i18n-aria-label="学习提醒" aria-live="polite" hidden><ul></ul></aside>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+  <template id="speech-player-template">
+    <section id="speech-player" class="tts-player" aria-label="朗读播放器" hidden>
+      <div class="tts-transport">
+        <strong>听读 <span id="tts-position"></span></strong>
+        <div class="tts-buttons"><button class="button small" data-tts-action="previous" aria-label="上一句">上一句</button><button class="button small primary" data-tts-action="play" id="tts-play">播放</button><button class="button small" data-tts-action="next" aria-label="下一句">下一句</button><button class="button small" data-tts-action="stop">停止</button></div>
+        <button class="icon-button" data-tts-action="hide" aria-label="收起朗读播放器">✕</button>
+      </div>
+      <div class="tts-content">
+        <p id="tts-current-text" class="tts-current-text">选择朗读范围，或开启点句起播。</p>
+        <div class="tts-progress"><input id="tts-progress" type="range" min="0" max="1000" value="0" aria-label="当前句子音频进度" disabled><span id="tts-time">0:00 / 0:00</span></div>
+        <div class="tts-scope-row"><label>范围<select id="tts-scope"><option value="article">全文</option><option value="paragraph">当前段落</option><option value="sentence">当前句子</option><option value="word">单词</option></select></label><input id="tts-word" maxlength="60" placeholder="输入或划选英文单词" aria-label="要朗读的英文单词" hidden><button class="button small" data-tts-action="start">按范围朗读</button><button class="button small" data-tts-action="add">加入列表</button><button class="button small" data-tts-action="locate">定位当前句</button></div>
+        <p id="tts-status" class="tts-note" role="status">首次生成需联网，已缓存音频可离线播放。</p>
+        <details class="tts-settings"><summary>音色与跟读设置</summary>
+          <div class="tts-settings-grid"><label>口音<select id="tts-accent"><option value="en-US">美式英语</option><option value="en-GB">英式英语</option></select></label><label>音色<select id="tts-voice" aria-label="朗读音色"></select></label><label>语速 <output id="tts-rate-label">1.0×</output><input id="tts-rate" type="range" min="0.5" max="2" step="0.1" value="1" aria-label="朗读语速"></label><label>循环<select id="tts-loop"><option value="none">顺序播放</option><option value="sentence">单句循环</option><option value="paragraph">当前段落循环</option></select></label></div>
+          <div class="tts-switches"><label><input id="tts-follow" type="checkbox" checked>自动跟随滚动</label><label><input id="tts-click" type="checkbox">点击句子起播</label></div>
+          <p class="tts-note">点句起播开启时，点击正文从该句向后朗读；关闭后恢复点词操作。手动滚动会暂缓跟随，可点「定位当前句」恢复。</p>
+          <p id="tts-settings-status" class="tts-note" role="status"></p>
+        </details>
+        <details class="tts-playlist"><summary>播放列表 <span id="tts-list-count">0</span></summary>
+          <div class="tts-list-actions"><button class="button small" data-tts-action="playlist">播放列表</button><button class="button small" data-tts-action="refresh-list">刷新列表</button><button class="button small" data-tts-action="clear-list">清空列表</button></div>
+          <div id="tts-clear-list-confirm" class="tts-confirm" hidden>清空保存的播放列表？<button class="button small danger" data-tts-action="confirm-clear-list">清空</button><button class="button small" data-tts-action="cancel-clear-list">取消</button></div>
+          <ol id="tts-playlist-items"></ol>
+        </details>
+        <details class="tts-cache"><summary>音频缓存 <span id="tts-cache-size"></span></summary>
+          <div class="tts-list-actions"><button class="button small" data-tts-action="cache-article">缓存本文音频</button><button class="button small" data-tts-action="cancel-cache" hidden>取消缓存</button><button class="button small" data-tts-action="clear-cache">清理缓存</button></div>
+          <p id="tts-cache-status" class="tts-note" role="status"></p>
+          <div id="tts-clear-cache-confirm" class="tts-confirm" hidden>清理后，未缓冲的音频需要重新联网生成。<button class="button small danger" data-tts-action="confirm-clear-cache">清理</button><button class="button small" data-tts-action="cancel-clear-cache">取消</button></div>
+        </details>
+        <p class="tts-note tts-disclosure">由 Edge 在线语音生成，所读文字会发送给语音服务，无需 API 密钥。音频与播放列表保存在本机。</p>
+      </div>
+    </section>
+  </template>
 </body>
 </html>

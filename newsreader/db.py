@@ -91,6 +91,13 @@ CREATE INDEX IF NOT EXISTS writing_attempts_exercise ON writing_attempts(exercis
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tts_playlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, item_key TEXT NOT NULL UNIQUE,
+    article_id INTEGER REFERENCES articles(id) ON DELETE CASCADE,
+    scope TEXT NOT NULL CHECK(scope IN ('word','sentence','paragraph','article')),
+    unit_index INTEGER NOT NULL DEFAULT 0, word TEXT NOT NULL DEFAULT '',
+    label TEXT NOT NULL, position INTEGER NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS pending_words (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
