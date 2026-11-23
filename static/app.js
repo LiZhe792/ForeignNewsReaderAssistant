@@ -464,6 +464,7 @@ document.addEventListener('change',async event=> {
 });
 document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
+  if(form.closest('#article-qa-dialog'))return;
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
