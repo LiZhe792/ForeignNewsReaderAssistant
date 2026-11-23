@@ -1,0 +1,58 @@
+.export-page { --ex-bg:#fff; --ex-surface:#f5f7f1; --ex-border:#dce4d7; --ex-text:#293c30; --ex-muted:#637466; color:var(--ex-text); font-size:13px; line-height:1.7; }
+.export-page .page-intro { align-items:center; }
+.export-local-label { color:var(--ex-muted); font-size:12px; white-space:nowrap; }
+.export-tabs { display:flex; gap:10px; margin:22px 0; flex-wrap:wrap; }
+.export-tabs button { background:var(--ex-bg); color:var(--ex-text); border:1px solid var(--ex-border); padding:12px 20px; border-radius:8px; font:inherit; cursor:pointer; }
+.export-tabs button[aria-pressed="true"] { background:#254b3e; border-color:#254b3e; color:#fff; }
+.export-tabs small { margin-left:10px; opacity:.75; }
+.export-layout { display:grid; grid-template-columns:320px minmax(0,1fr); gap:24px; align-items:start; }
+.export-settings,.export-preview,.export-integrations { background:var(--ex-bg); border:1px solid var(--ex-border); border-radius:12px; padding:24px; min-width:0; }
+.export-page h2 { font-size:18px; margin:0 0 18px; }
+.export-page h3 { font-size:15px; margin:18px 0 10px; }
+.export-page label { margin:0 0 16px; font-size:12px; }
+.export-page input,.export-page select,.export-page textarea { font-size:14px; }
+.export-date-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.export-date-row input { padding:8px; min-width:0; font-size:12px; }
+.export-note { font-size:12px; color:var(--ex-muted); line-height:1.8; margin:12px 0; overflow-wrap:anywhere; }
+.export-format-fields { padding-top:22px; margin-top:22px; border-top:1px solid var(--ex-border); }
+.export-format-fields label { margin-bottom:10px; }
+.export-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:14px 0 8px; }
+#export-scope { border:0; padding:0; margin:20px 0 10px; }
+#export-scope legend { font-weight:600; padding:0; margin-bottom:8px; }
+#export-scope label { display:flex; gap:8px; align-items:center; margin-bottom:10px; font-weight:400; }
+#export-scope input,.export-record>input { appearance:auto; width:16px; height:16px; min-width:16px; margin:0; padding:0; accent-color:#31533f; }
+.export-preview-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.export-preview-head>div { margin-right:auto; }
+.export-preview-head h2 { margin:4px 0 0; }
+#export-preview-content { max-height:720px; overflow-y:auto; overscroll-behavior:contain; }
+.export-record { display:flex; gap:13px; align-items:flex-start; border-top:1px solid var(--ex-border); padding:17px 0; cursor:pointer; }
+.export-record>input { margin-top:6px; }
+.export-record>span { min-width:0; }
+.export-record strong { display:block; font-size:16px; color:var(--ex-text); overflow-wrap:anywhere; }
+.export-record small { display:block; font-weight:400; color:var(--ex-muted); margin:4px 0; }
+.export-excerpt { display:block; font-size:13px; font-weight:400; line-height:1.8; overflow-wrap:anywhere; white-space:pre-wrap; }
+#export-more { margin-top:16px; }
+.export-report-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:18px 0; }
+.export-report-metrics>div { background:var(--ex-surface); padding:18px; border-radius:9px; }
+.export-report-metrics strong { display:block; font:32px/1.4 Georgia,serif; color:#254b3e; }
+.export-report-metrics span { color:var(--ex-muted); font-size:12px; }
+.export-report-summary { margin:16px 0; padding:14px 16px; border-left:2px solid #92ad87; background:var(--ex-surface); }
+.export-report-summary p { margin:4px 0; }
+.export-page details>summary { cursor:pointer; }
+.export-daily { max-height:330px; overflow:auto; margin-top:12px; }
+.export-page table { width:100%; border-collapse:collapse; text-align:left; font-size:12px; }
+.export-page th { background:var(--ex-surface); font-weight:600; }
+.export-page :is(th,td) { border-bottom:1px solid var(--ex-border); padding:10px; }
+.export-integrations { margin-top:24px; }
+.export-integrations>summary { display:flex; gap:12px; align-items:center; }
+.export-integrations>summary>span { font-size:17px; font-weight:600; }
+.export-integrations>summary small { color:var(--ex-muted); margin-left:auto; }
+.export-api-guide { margin-top:24px; }
+.export-api-guide pre { padding:16px; background:var(--ex-surface); border:1px solid var(--ex-border); border-radius:8px; white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.8 Consolas,monospace; }
+.export-api-table { overflow:auto; margin-top:20px; }
+#export-token-result { max-width:700px; padding-top:14px; }
+#export-api-token { font-family:Consolas,monospace; }
+.export-copy-fallback { width:100%; margin-top:18px; }
+@media(max-width:1100px) { .export-layout { grid-template-columns:290px minmax(0,1fr); gap:16px; }.export-settings,.export-preview { padding:20px; }.export-local-label { display:none; } }
+@media(max-width:800px) { .export-layout { grid-template-columns:1fr; }.export-tabs { gap:6px; }.export-tabs button { flex:1 1 40%; padding:10px; }.export-page .page-intro h1 { font-size:24px; }.export-preview-head .button { padding:7px 10px; }.export-integrations { padding:18px; }.export-integrations>summary { align-items:flex-start; flex-wrap:wrap; } }
+@media(max-width:480px) { .export-settings,.export-preview { padding:18px; }.export-date-row { grid-template-columns:1fr; gap:0; }.export-date-row input { font-size:14px; }.export-report-metrics { gap:8px; }.export-report-metrics>div { padding:12px; }.export-report-metrics strong { font-size:28px; }.export-tabs small { margin-left:5px; } }
