@@ -212,7 +212,7 @@ def initialize(app):
 
     @app.before_request
     def data_boundary():
-        if not request.path.startswith('/api/'):return
+        if request.blueprint == 'workspace' or not request.path.startswith('/api/'):return
         control=app.extensions['data_manager'];exclusive=request.endpoint=='management.restore_apply'
         with control.lock:
             if control.maintenance or (exclusive and control.active):return jsonify(error='当前有其他操作正在进行，请结束阅读、录音或 AI 生成后重试还原。'),409
@@ -226,7 +226,7 @@ def initialize(app):
 
     @app.after_request
     def data_headers(response):
-        if request.path.startswith('/api/'):
+        if request.blueprint != 'workspace' and request.path.startswith('/api/'):
             response.headers['X-Margin-Generation']=state()['generation']
         return response
 
