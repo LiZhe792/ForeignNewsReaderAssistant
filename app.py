@@ -180,8 +180,15 @@ def create_app(test_config=None):
 
     @app.delete("/api/articles/<int:article_id>")
     def delete_article(article_id):
-        record("articles", article_id)
+        expire_pending()
         db = get_db()
+        db.execute("BEGIN IMMEDIATE")
+        record("articles", article_id)
+        pending = db.execute("""SELECT 1 FROM qa_turns q JOIN qa_threads t ON q.thread_id=t.id
+                                WHERE t.article_id=? AND q.status='pending' LIMIT 1""", (article_id,)).fetchone()
+        if pending:
+            db.rollback()
+            return jsonify(error="这篇文章的 AI 回答仍在生成，请等返回后再删除文章。"), 409
         db.execute("DELETE FROM articles WHERE id=?", (article_id,))
         db.commit()
         return jsonify(ok=True)
