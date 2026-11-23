@@ -28,6 +28,8 @@
   <script src="/static/dictionary.js" defer></script>
   <script src="/static/reader.js" defer></script>
   <script src="/static/reading-flow.js" defer></script>
+  <link rel="stylesheet" href="/static/study-plans.css">
+  <script src="/static/study-plans.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
@@ -44,10 +46,11 @@
         <a href="#personalization" data-nav="personalization" aria-label="难度与推荐" title="难度与推荐"><span data-icon="plant"></span><span>难度与推荐</span></a>
         <a href="#analytics" data-nav="analytics" aria-label="学习数据分析" title="学习数据分析"><span data-icon="chart"></span><span>学习数据分析</span></a>
         <a href="#data" data-nav="data" aria-label="离线与数据管理" title="离线与数据管理"><span data-icon="shield"></span><span>离线与数据管理</span></a>
+        <a href="#plans" data-nav="plans" aria-label="学习计划" title="学习计划"><span data-icon="check"></span><span>学习计划</span></a>
         <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
       </nav>
       <div class="sidebar-bottom">
-        <div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title">每天留一点时间给世界<span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span>今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div></div>
+        <div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title">每天留一点时间给世界<span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span>今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div><a id="daily-vocabulary" class="daily-goal-link" href="#plans">词汇 0 / 5 条</a></div>
         <button class="settings-link" data-action="settings" aria-label="使用说明"><span data-icon="info"></span>使用说明<span class="status-dot"></span></button>
         <div class="local-profile"><span class="avatar">M</span><div><strong>我的阅读手记</strong><small>本地存储 · 点滴积累</small></div><span data-icon="shield"></span></div>
       </div>
@@ -141,6 +144,7 @@
   </dialog>
   <dialog id="wordbook-dialog" class="modal wb-modal" aria-label="词条与词书管理"></dialog>
   <dialog id="exercise-author-dialog" class="modal exercise-author-modal" aria-label="手动添加阅读题目"></dialog>
+  <aside id="study-reminders" aria-label="学习提醒" aria-live="polite" hidden><ul></ul></aside>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
 </html>
