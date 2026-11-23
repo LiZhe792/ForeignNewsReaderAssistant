@@ -19,6 +19,7 @@ import zlib
 from flask import Blueprint, Response, abort, current_app, g, jsonify, request, send_file
 from .db import CHINA_TZ, get_db, now
 from .learning import assess_difficulty, words
+from .study_plans import PLAN_TABLES, parse_day, validate_plan
 
 management=Blueprint('management',__name__,url_prefix='/api/data')
 FORMAT='margin-backup-v1'
@@ -29,8 +30,8 @@ MAX_ARTICLES=20*1024*1024
 TABLES=('articles','vocabulary','checkins','settings','dictionary_cache','pending_words','study_results',
         'word_meta','word_collections','word_memberships','word_contexts','word_senses','word_notes','word_aliases','word_cards',
         'srs_cards','srs_events','listening_audio','listening_attempts','reading_sets','reading_sessions','reading_mistakes',
-        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state')
-JSON_COLUMNS={'study_results':{'payload_json':dict,'original_json':dict},'srs_events':{'response_json':dict},
+        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state',*PLAN_TABLES)
+JSON_COLUMNS={'study_plans':{'steps_json':list},'study_results':{'payload_json':dict,'original_json':dict},'srs_events':{'response_json':dict},
  'listening_attempts':{'feedback_json':dict},'reading_sets':{'questions_json':list},
  'reading_sessions':{'snapshot_json':dict,'answers_json':dict,'result_json':dict},
  'reading_mistakes':{'material_json':dict,'question_json':dict,'last_answer_json':list},'learner_profile':{'preferences':dict}}
@@ -78,8 +79,9 @@ def schema(db):
     return [dict(row) for row in db.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY type,name")]
 
 
-def rows_into(source,destination):
+def rows_into(source,destination, missing=()):
     for table in TABLES:
+        if table in missing:continue
         columns=[r[1] for r in destination.execute('PRAGMA table_info("'+table+'")')]
         sql='INSERT INTO "'+table+'"('+','.join('"'+c+'"' for c in columns)+') VALUES('+','.join('?' for _ in columns)+')'
         count=0;cursor=source.execute('SELECT '+','.join('"'+c+'"' for c in columns)+' FROM "'+table+'"')
@@ -95,6 +97,13 @@ def rows_into(source,destination):
                     try:value=json.loads(raw)
                     except (ValueError,TypeError):raise ValueError('备份中有损坏的学习 JSON 记录。') from None
                     if not isinstance(value,kind):raise ValueError('备份中的学习记录结构无效。')
+                if table == 'study_plans':
+                    plan = dict(zip(columns,row))
+                    plan.pop('id')
+                    plan['steps'] = json.loads(plan.pop('steps_json'))
+                    validate_plan(plan)
+                elif table in ('study_makeups','study_reminder_days'):
+                    parse_day(row[columns.index('day')])
             destination.executemany(sql,[tuple(r) for r in batch])
     # Preserve deleted high IDs as well as live IDs, avoiding ID reuse after migration.
     if source.execute("SELECT 1 FROM sqlite_master WHERE name='sqlite_sequence'").fetchone():
@@ -326,13 +335,16 @@ def restore_preview():
         with closing(sqlite3.connect(raw.as_uri()+'?mode=ro&immutable=1',uri=True)) as source,closing(sqlite3.connect(clean)) as target:
             source.row_factory=sqlite3.Row;target.row_factory=sqlite3.Row;source.execute('PRAGMA trusted_schema=OFF');source.execute('PRAGMA query_only=ON')
             objects=source.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
-            if {r['name'] for r in objects if r['type']=='table'}!=set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
+            present={r['name'] for r in objects if r['type']=='table'}
+            missing=set(TABLES)-present
+            if (missing and missing!=set(PLAN_TABLES)) or present-set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
             for table in TABLES:
+                if table in missing:continue
                 if [tuple(r)[1:] for r in source.execute('PRAGMA table_info("'+table+'")')]!=[tuple(r)[1:] for r in get_db().execute('PRAGMA table_info("'+table+'")')]:raise ValueError('备份结构与当前版本不兼容。')
             if source.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('数据库完整性检查未通过。')
             for item in trusted:
                 if item['type']=='table':target.execute(item['sql'])
-            rows_into(source,target)
+            rows_into(source,target,missing)
             for item in trusted:
                 if item['type']=='index':target.execute(item['sql'])
             if target.execute('PRAGMA foreign_key_check').fetchone():raise ValueError('备份存在无效的数据关联。')

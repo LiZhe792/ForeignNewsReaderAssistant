@@ -146,6 +146,8 @@ def init_db():
     db.executescript(TRAINING_SCHEMA + EXERCISE_SCHEMA + PERSONALIZATION_SCHEMA)
     from .analytics import initialize as initialize_analytics
     initialize_analytics(db)
+    from .study_plans import SCHEMA as PLAN_SCHEMA
+    db.executescript(PLAN_SCHEMA)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
