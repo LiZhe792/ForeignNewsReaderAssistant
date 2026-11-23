@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="writing.page_title">多端写作 · Margin</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/writing-workspace.css">
+  <link rel="stylesheet" href="/static/accessibility.css">
+  <script src="/static/interface.js" defer></script>
+  <script src="/static/writing-workspace.js" defer></script>
+</head>
+<body class="writing-page" data-article-title="{{ article_title }}">
+  <a class="skip-link" data-skip="writing-main" href="#writing-main" data-i18n="skip">跳到主要内容</a>
+  <header class="writing-header">
+    {% if not writing_only %}<a href="/" data-i18n="发现文章">发现文章</a>{% else %}<span>Margin</span>{% endif %}
+    <button class="button small" data-display-settings data-i18n="display.settings">语言与显示</button>
+  </header>
+  <main id="writing-main" class="writing-main" tabindex="-1">
+    <h1 data-i18n="writing.title">多端写作</h1>
+    <p data-i18n="writing.intro">在连接同一写作服务的设备上登录同一账户，即可继续编辑草稿。</p>
+    <p id="writing-status" role="status"></p>
+
+    <section id="writing-auth" class="writing-panel writing-auth" aria-labelledby="writing-auth-title" hidden>
+      <h2 id="writing-auth-title" data-i18n="writing.sign_in">登录</h2>
+      <form id="writing-auth-form">
+        <label><span data-i18n="writing.username">用户名</span>
+          <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" pattern="[A-Za-z0-9_.\-]{3,32}" required>
+        </label>
+        <label><span data-i18n="writing.password">密码</span>
+          <input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required>
+        </label>
+        <label id="writing-invite" hidden><span data-i18n="writing.invite">注册邀请码</span>
+          <input name="invite" type="password" maxlength="128" autocomplete="off">
+        </label>
+        <p id="writing-registration-help" data-i18n="writing.registration_help" hidden>用户名可使用 3–32 位字母、数字、点、下划线和连字符。密码至少 8 位。</p>
+        <div class="writing-actions">
+          <button id="writing-auth-submit" class="button primary" type="submit" data-i18n="writing.sign_in">登录</button>
+          <button id="writing-auth-switch" class="button" type="button" data-i18n="writing.register">创建账户</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="writing-workspace" aria-labelledby="writing-editor-title" hidden>
+      <div class="writing-account">
+        <bdi id="writing-username"></bdi>
+        <div class="writing-actions">
+          <button class="button small" id="writing-logout" type="button" data-i18n="writing.sign_out">退出此设备</button>
+          <button class="button small" id="writing-logout-all" type="button" data-i18n="writing.sign_out_all">退出所有设备</button>
+        </div>
+      </div>
+      <div class="writing-layout">
+        <section class="writing-panel" aria-labelledby="writing-list-title">
+          <h2 id="writing-list-title" data-i18n="writing.drafts">草稿</h2>
+          <div class="writing-actions">
+            <button class="button primary small" type="button" id="writing-new" data-i18n="writing.new">新建草稿</button>
+            <button class="button small" type="button" id="writing-sync" data-i18n="writing.sync">同步</button>
+          </div>
+          <ul id="writing-list" class="writing-list"></ul>
+        </section>
+        <section class="writing-panel" aria-labelledby="writing-editor-title">
+          <h2 id="writing-editor-title" data-i18n="writing.editor">编辑草稿</h2>
+          <p id="writing-no-draft" data-i18n="writing.select_draft">请选择一份草稿，或新建草稿。</p>
+          <form id="writing-draft-form" hidden>
+            <label><span data-i18n="writing.draft_title">标题</span>
+              <input name="title" maxlength="140" dir="auto" required>
+            </label>
+            <label><span data-i18n="writing.content">正文</span>
+              <textarea name="content" rows="13" maxlength="20000" dir="auto" aria-describedby="writing-count"></textarea>
+            </label>
+            <p id="writing-count"></p>
+            <div class="writing-actions">
+              <button class="button primary" type="submit" data-i18n="writing.save">保存草稿</button>
+              <button class="button" type="button" id="writing-download" data-i18n="writing.download">下载文本</button>
+              <button class="button" type="button" id="writing-delete" data-i18n="writing.delete">删除草稿</button>
+            </div>
+          </form>
+          <section id="writing-conflict" class="writing-conflict" aria-labelledby="writing-conflict-title" hidden>
+            <h3 id="writing-conflict-title" data-i18n="writing.conflict">草稿已在另一设备上修改</h3>
+            <details id="writing-remote"><summary data-i18n="writing.see_remote">查看服务器版本</summary><bdi id="writing-remote-title"></bdi><pre id="writing-remote-content" dir="auto"></pre></details>
+            <div class="writing-actions">
+              <button class="button" type="button" id="writing-use-remote" data-i18n="writing.use_remote">载入服务器版本</button>
+              <button class="button primary" type="button" id="writing-copy" data-i18n="writing.copy">将本机版本另存为草稿</button>
+            </div>
+          </section>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
