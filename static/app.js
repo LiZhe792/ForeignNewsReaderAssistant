@@ -396,7 +396,7 @@ document.addEventListener('click',async event=> {
       const date=button.dataset.calendarDay;
       const day=state.calendarStats.days.find(d=>d.date===date);
       const makeup=state.calendarStats.makeups?.find(d=>d.day===date);
-      const detail=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录`;
+      const detail=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 ${day.reading_seconds%60} 秒 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录`;
       $('#calendar-detail').textContent=makeup?`${date} · 补签${makeup.note?' · '+makeup.note:''}${day?' · 已有后续学习记录':''}`:detail;
       return;
     }
