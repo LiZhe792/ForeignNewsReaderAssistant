@@ -125,8 +125,9 @@ function updateSidebar() {
   $('#page-label').textContent = ui({library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',plans:'学习计划',activity:'学习足迹'}[state.view] || '发现文章');
 }
 async function loadData() {
-  const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
-  state.articles = articles.articles; state.words = vocabulary.words; state.stats = stats; state.settings = settings; updateSidebar();
+  const [articles, vocabulary, stats, settings, categories, tags] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings'),api('/categories'),api('/tags')]);
+  state.articles = articles.articles; state.words = vocabulary.words; state.stats = stats; state.settings = settings;
+  state.categories = categories.categories; state.tags = tags.tags; updateSidebar();
 }
 function dateLabel() { return new Intl.DateTimeFormat(typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language(),{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Shanghai'}).format(new Date()); }
 function weekDots() {
@@ -137,6 +138,110 @@ function weekDots() {
   }).join('');
 }
 
+async function loadArticles() {
+  const params = new URLSearchParams();
+  if (state.status === 'favorite') params.set('favorite', '1');
+  else if (state.status === 'read_later') params.set('read_later', '1');
+  else if (state.status === 'archived') params.set('status', 'archived');
+  else if (state.status === 'trashed') params.set('status', 'trashed');
+  else params.set('status', 'all');
+  const result = await api('/articles?' + params.toString());
+  state.articles = result.articles;
+  state.selected = new Set();
+}
+async function loadCategoriesTags() {
+  const [categories, tags] = await Promise.all([api('/categories'), api('/tags')]);
+  state.categories = categories.categories;
+  state.tags = tags.tags;
+}
+const priorityBadge = level => level ? `<span class="tag priority-${level}">${icon('flag')}${['低','中','高'][level-1]}</span>` : '';
+function cardHtml(a) {
+  const checked = state.selected.has(a.id);
+  const tags = a.tags || [];
+  const marks = `${a.favorite ? `<span class="card-flag fav" title="已收藏">${icon('star')}</span>` : ''}${a.read_later ? `<span class="card-flag later" title="待读">${icon('clock')}</span>` : ''}`;
+  return `<article class="article-card${checked ? ' selected' : ''}">
+    <label class="card-check" title="选择文章"><input type="checkbox" data-select="${a.id}" ${checked ? 'checked' : ''}></label>
+    <button class="card-art" data-open="${a.id}" aria-label="阅读 ${escapeHTML(a.title)}">${artwork(a.category)}<span class="art-label">${{科技:'TECH & IDEAS',文化:'ARTS & CULTURE',科学:'SCIENCE & NATURE',生活:'LIFE & JOURNEYS',环境:'A GREENER WORLD',其他:'NEW PERSPECTIVES'}[a.category] || 'NEW PERSPECTIVES'}</span></button>
+    <div class="card-copy">
+      <div class="card-meta"><span>${escapeHTML(a.source)}</span><span>· ${escapeHTML(a.category)}</span>${levelTag(a.level)}${priorityBadge(a.priority)}</div>
+      <div class="card-title-row"><button class="card-title" data-open="${a.id}">${escapeHTML(a.title)}</button>${marks}</div>
+      <p class="card-subtitle">${escapeHTML(a.subtitle || '从这篇文章，遇见一个新的视角。')}</p>
+      ${tags.length ? `<div class="card-tags">${tags.map(t => `<span class="keyword-pill">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
+      <div class="card-footer"><span>${icon('clock')}${a.reading_minutes} 分钟<span>·</span>${a.word_count} 词</span>
+        <div class="card-actions"><button class="icon-button" data-action="edit-article" data-edit="${a.id}" title="整理这篇文章" aria-label="编辑">${icon('edit')}</button>
+        <button class="read-link" data-open="${a.id}">${a.progress >= 100 ? '再读一遍' : a.progress > 0 ? '继续 ' + Math.round(a.progress) + '%' : '去阅读'}${icon('arrow-right')}</button></div></div>
+    </div>
+    <div class="card-progress"><span style="width:${a.progress}%"></span></div>
+  </article>`;
+}
+function renderBatchBar() {
+  const el = $('#batch-bar');
+  if (!el) return;
+  const n = state.selected.size;
+  if (!n) { el.classList.remove('visible'); return; }
+  const inTrash = state.status === 'trashed';
+  el.classList.add('visible');
+  el.innerHTML = `<span class="batch-count">已选 ${n} 篇</span>
+    ${inTrash ? `
+      <button class="button small" data-batch="restore">${icon('archive')}恢复</button>
+      <button class="button small danger" data-batch="delete">${icon('trash')}彻底删除</button>` : `
+      <button class="button small" data-batch="favorite">${icon('star')}收藏</button>
+      <button class="button small" data-batch="read_later">${icon('clock')}待读</button>
+      <button class="button small" data-batch="archive">${icon('archive')}归档</button>
+      <button class="button small danger" data-batch="trash">${icon('trash')}移入回收站</button>
+      <button class="button small" data-action="add-tag">${icon('tag')}加标签</button>
+      <label class="batch-select-label">分类<select data-batch-select="set_category"><option value="">设置分类…</option>${state.categories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}</select></label>
+      <label class="batch-select-label">优先级<select data-batch-select="set_priority"><option value="">设置优先级…</option><option value="0">无</option><option value="1">低</option><option value="2">中</option><option value="3">高</option></select></label>`}
+    <button class="icon-button" data-action="clear-selection" title="取消选择">${icon('close')}</button>`;
+}
+async function doBatch(op, extra = {}) {
+  const ids = [...state.selected];
+  if (!ids.length) { toast('请先选择文章。', true); return; }
+  const result = await api('/articles/batch', { method: 'POST', body: { ids, op, ...extra } });
+  toast(`已处理 ${result.count} 篇文章。`);
+  await loadArticles();
+  renderLibrary();
+}
+function openArticleDialog(id) {
+  const article = state.articles.find(a => a.id === id);
+  if (!article) return;
+  state.editArticle = id;
+  const form = $('#article-form');
+  $('#article-dialog-title').textContent = '整理「' + article.title.slice(0, 18) + '」';
+  $('#article-category').innerHTML = state.categories.map(c => `<option value="${escapeHTML(c.name)}" ${c.name === article.category ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('');
+  $('#tag-options').innerHTML = state.tags.map(t => `<option value="${escapeHTML(t.name)}">`).join('');
+  form.elements.category.value = article.category;
+  form.elements.priority.value = String(article.priority || 0);
+  form.elements.tags.value = (article.tags || []).join(', ');
+  form.elements.author.value = article.author || '';
+  form.elements.published_at.value = article.published_at || '';
+  form.elements.favorite.checked = !!article.favorite;
+  form.elements.read_later.checked = !!article.read_later;
+  $('#article-error').textContent = '';
+  $('#article-dialog').showModal();
+}
+function renderManage() {
+  const el = $('#manage-content');
+  if (!el) return;
+  $$('[data-manage-tab]').forEach(b => b.classList.toggle('active', b.dataset.manageTab === state.manageMode));
+  if (state.manageMode === 'categories') {
+    el.innerHTML = `<form class="manage-add" id="category-add-form"><input name="name" maxlength="20" placeholder="新分类名称" required><button class="button small primary" type="submit">添加分类</button></form>
+      <div class="manage-list">${state.categories.map(c => `<div class="manage-row" data-manage-row="${c.id}"><span class="manage-name">${escapeHTML(c.name)}</span><small>${c.article_count} 篇</small><button class="icon-button" data-action="rename-category" data-id="${c.id}" title="重命名">${icon('edit')}</button><button class="icon-button danger" data-action="delete-category" data-id="${c.id}" title="删除">${icon('trash')}</button></div>`).join('')}</div>`;
+  } else {
+    el.innerHTML = `<form class="manage-add" id="tag-add-form"><input name="name" maxlength="30" placeholder="新标签名称" required><button class="button small primary" type="submit">添加标签</button></form>
+      <div class="manage-list">${state.tags.map(t => `<div class="manage-row" data-manage-row="${t.id}"><span class="manage-name">${escapeHTML(t.name)}</span><small>${t.article_count} 篇</small><button class="icon-button" data-action="rename-tag" data-id="${t.id}" title="重命名">${icon('edit')}</button><button class="icon-button danger" data-action="delete-tag" data-id="${t.id}" title="删除">${icon('trash')}</button></div>`).join('')}</div>`;
+  }
+}
+function startRename(kind, id) {
+  const row = $(`[data-manage-row="${id}"]`);
+  if (!row) return;
+  const current = row.querySelector('.manage-name').textContent;
+  const max = kind === 'category' ? 20 : 30;
+  row.innerHTML = `<input class="manage-rename-input" value="${escapeHTML(current)}" maxlength="${max}">
+    <button class="button small primary" data-action="confirm-rename" data-kind="${kind}" data-id="${id}">保存</button>
+    <button class="button small" data-action="cancel-manage">取消</button>`;
+  row.querySelector('input').focus();
+}
 function renderLibrary() {
   const continuing = [...state.articles].filter(a=>a.progress>0 && a.progress<100).sort((a,b)=>(b.last_read_at||'').localeCompare(a.last_read_at||''))[0];
   const featured = continuing || state.articles.find(a=>a.is_demo) || state.articles[0];
@@ -520,7 +625,8 @@ document.addEventListener('click',async event=> {
   lastActive=performance.now();const button=event.target.closest('button, a');if(!button)return;
   try {
     if(button.dataset.open){location.hash='reader/'+button.dataset.open;return;}
-    if(button.dataset.category){state.category=button.dataset.category;$$('[data-category]').forEach(b=>b.classList.toggle('active',b===button));renderArticleCards();return;}
+    if(button.dataset.status){state.status=button.dataset.status;await loadArticles();renderLibrary();return;}
+    if(button.dataset.manageTab){state.manageMode=button.dataset.manageTab;renderManage();return;}
     if(button.dataset.masteryFilter){state.mastery=button.dataset.masteryFilter;$$('[data-mastery-filter]').forEach(b=>b.classList.toggle('active',b===button));renderWordRows();return;}
     if(button.dataset.editWord){showWordDialog(Number(button.dataset.editWord));return;}
     if(button.dataset.deleteWord){const id=Number(button.dataset.deleteWord),word=state.words.find(w=>w.id===id);if(await confirmDelete(`删除生词「${word.word}」？`)){await api('/vocabulary/'+id,{method:'DELETE',body:{}});state.words=state.words.filter(w=>w.id!==id);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('生词已删除。');}return;}
@@ -572,6 +678,15 @@ document.addEventListener('click',async event=> {
       }
     }
     else if(action==='add-word')showWordDialog();
+    else if(action==='manage-library'){$('#manage-dialog').showModal();renderManage();}
+    else if(action==='edit-article')openArticleDialog(Number(button.dataset.edit));
+    else if(action==='clear-selection'){state.selected.clear();renderLibrary();}
+    else if(action==='add-tag'){$('#tag-error').textContent='';$('#tag-form').reset();$('#tag-dialog').showModal();}
+    else if(action==='rename-category'||action==='rename-tag')startRename(action==='rename-category'?'category':'tag', Number(button.dataset.id));
+    else if(action==='cancel-manage')renderManage();
+    else if(action==='confirm-rename'){const input=button.parentElement.querySelector('.manage-rename-input');const value=(input?.value||'').trim();if(!value){toast('名称不能为空。',true);return;}const kind=button.dataset.kind;await api(`/${kind==='category'?'categories':'tags'}/${button.dataset.id}`,{method:'PATCH',body:{name:value}});await loadCategoriesTags();renderManage();toast('已重命名。');}
+    else if(action==='delete-category'){const c=state.categories.find(x=>x.id===Number(button.dataset.id));if(await confirmDelete(`删除分类「${c.name}」？其下文章会移到其他分类。`)){await api('/categories/'+c.id,{method:'DELETE',body:{}});await loadCategoriesTags();renderManage();toast('分类已删除。');}}
+    else if(action==='delete-tag'){const t=state.tags.find(x=>x.id===Number(button.dataset.id));if(await confirmDelete(`删除标签「${t.name}」？会从所有文章上移除。`)){await api('/tags/'+t.id,{method:'DELETE',body:{}});await loadCategoriesTags();renderManage();toast('标签已删除。');}}
     else if(action==='cancel-confirm')resolveConfirm(false);
     else if(action==='accept-confirm')resolveConfirm(true);
   }catch(error){toast(error.message,true);button.disabled=false;}
