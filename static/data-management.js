@@ -18,7 +18,7 @@
       }catch{}
       Data.network(info);
     }
-    static network(info){Data.offline=!!info.offline;const text=document.querySelector('#network-status-text');if(text)text.textContent=info.offline?'离线模式 · 本机服务':'本地学习空间';}
+    static network(info){Data.offline=!!info.offline;const text=document.querySelector('#network-status-text');if(text){const label=info.offline?'离线模式 · 本机服务':'本地学习空间';text.textContent=typeof MarginInterface==='undefined'?label:MarginInterface.t(label);}}
     constructor({root,api,toast,confirm}){Object.assign(this,{root,api,toast,confirm});this.abort=new AbortController();this.previews={};this.version={restore:0,articles:0};
       for(const type of ['click','change','submit'])root.addEventListener(type,e=>this.handle(e),{signal:this.abort.signal});
     }
