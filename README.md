@@ -425,6 +425,7 @@ ForeignNewsReaderAssistant/
 ├── requirements.txt          # Flask、Beautiful Soup、edge-tts
 ├── newsreader/
 │   ├── db.py                 # SQLite 初始化、旧库迁移、北京时间
+│   ├── knowledge.py          # 原文标注、笔记、表达素材、卡片与导图 API
 │   ├── learning.py           # 词数与阅读难度估算
 │   ├── sentences.py          # 保留原文的句段切分
 │   ├── speech.py             # 朗读设置、音频 API 与持久化列表
