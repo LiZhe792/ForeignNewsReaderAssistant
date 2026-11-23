@@ -71,6 +71,8 @@ let personalUI = null;
 let analyticsUI = null;
 let learningEvents = null;
 let dataUI = null;
+let planUI = null;
+let studyReminders = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
 const minutes = seconds => Math.floor((seconds || 0) / 60);
@@ -95,10 +97,14 @@ async function refreshStats() {
 function updateSidebar() {
   const stats = state.stats;
   $('#word-count').textContent = stats.total_words || 0;
-  $('#daily-minutes').textContent = `${minutes(stats.today_seconds)} / 15 分钟`;
-  $('#daily-bar').style.width = Math.min(100, (stats.today_seconds || 0) / 9) + '%';
+  const goals = stats.daily_goals || {reading_minutes:15,new_words:5,words_today:0};
+  const reading = minutes(stats.today_seconds);
+  $('#daily-minutes').textContent = (goals.reading_minutes ? reading + ' / ' + goals.reading_minutes : reading) + ' 分钟';
+  const goalLink = $('#daily-vocabulary');
+  if(goalLink)goalLink.textContent='词汇 '+goals.words_today+(goals.new_words?' / '+goals.new_words:'')+' 条';
+  $('#daily-bar').style.width = (goals.reading_minutes ? Math.min(100, (stats.today_seconds || 0) / (goals.reading_minutes * .6)) : 0) + '%';
   $$('.nav-list a').forEach(link => link.classList.toggle('active', link.dataset.nav === (state.view === 'reader' ? 'library' : state.view)));
-  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',activity:'学习足迹'}[state.view] || '发现文章';
+  $('#page-label').textContent = {library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',plans:'学习计划',activity:'学习足迹'}[state.view] || '发现文章';
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings')]);
@@ -109,7 +115,7 @@ function weekDots() {
   const today = new Date(state.stats.today + 'T12:00:00'); const monday = new Date(today); monday.setDate(today.getDate() - (today.getDay()+6)%7);
   return ['一','二','三','四','五','六','日'].map((day,index) => {
     const d = new Date(monday); d.setDate(d.getDate()+index); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const checked = state.stats.days?.some(item=>item.date===key); return `<div class="week-day"><span>${day}</span><i class="${checked?'done ':''}${key===state.stats.today?'today':''}">${checked?icon('check'):d.getDate()}</i></div>`;
+    const checked = state.stats.days?.some(item=>item.date===key) || state.stats.makeups?.some(item=>item.day===key); return `<div class="week-day"><span>${day}</span><i class="${checked?'done ':''}${key===state.stats.today?'today':''}">${checked?icon('check'):d.getDate()}</i></div>`;
   }).join('');
 }
 
@@ -328,7 +334,8 @@ async function renderActivity(month='',version=state.routeVersion) {
   const stats=await api('/stats'+(month?'?month='+month:''));if(version!==state.routeVersion||state.view!=='activity')return;state.month=stats.month;
   const [year,monthNum]=stats.month.split('-').map(Number);const first=new Date(year,monthNum-1,1);const dayCount=new Date(year,monthNum,0).getDate();
   const blank=(first.getDay()+6)%7;const activity=new Map(stats.days.map(day=>[day.date,day]));
-  app.innerHTML=`<div class="page-wrap"><a class="button small analytics-entry" href="#analytics">查看学习数据分析 →</a>${intro('SMALL STEPS, REAL GROWTH','每一次翻开，都算数。','你的学习足迹，正在把零散的时间变成看得见的积累。')}${summaryTiles()}<div class="calendar-layout"><section class="calendar-card"><div class="calendar-heading"><h2>${year} 年 ${monthNum} 月<span class="eyebrow">YOUR READING DAYS</span></h2><div class="calendar-actions"><button class="button small" data-action="checkin" ${stats.checked_in?'disabled':''}>${icon('check')}${stats.checked_in?'今日已打卡':'今日打卡'}</button><div class="month-nav"><button class="icon-button" data-month-offset="-1" aria-label="上个月">${icon('chevron-left')}</button><button class="icon-button" data-month-offset="1" aria-label="下个月">${icon('chevron-right')}</button></div></div></div><div class="calendar-grid">${['一','二','三','四','五','六','日'].map(d=>`<div class="calendar-weekday">${d}</div>`).join('')}${Array(blank).fill('<div class="calendar-day blank"></div>').join('')}${Array.from({length:dayCount},(_,index)=> {const key=stats.month+'-'+String(index+1).padStart(2,'0');const day=activity.get(key);return `<button class="calendar-day ${day?'active ':''}${key===stats.today?'today ':''}${key>stats.today?'future':''}" data-calendar-day="${key}" aria-label="${key}${day?' 已学习':' 暂无学习记录'}" title="${day?'阅读 '+minutes(day.reading_seconds)+' 分钟 · 完成 '+day.articles_completed+' 篇':'暂无学习记录'}">${index+1}${day?'<span class="dot"></span>':''}</button>`;}).join('')}</div><div class="calendar-legend"><span><i class="legend-square"></i>有学习记录</span><span>描边为今天</span><span>· 阅读或手动打卡均会点亮</span></div><div id="calendar-detail" class="calendar-detail">这个月，你已经在 ${stats.days.length} 天里留下一点进步。</div></section><aside class="insight-card"><h3>时间会看见你的坚持</h3><div class="big-number">${stats.active_days}<small>天</small></div><p>这是你与英语相遇的日子。<br>不必每次都很多，只要常常开始。</p><div class="insight-divider"></div><div class="insight-line"><span>今日阅读</span><strong>${minutes(stats.today_seconds)} 分钟</strong></div><div class="insight-line"><span>已掌握词汇</span><strong>${stats.mastered_words} 个</strong></div><div class="quote">“Little by little,<br>a little becomes a lot.”<small>KEEP YOUR CURIOSITY ALIVE</small></div></aside></div><div class="page-footnote">${icon('shield')}数据保存在本机 · 北京时间 · 阅读计时只统计前台活跃时间</div></div>`;
+  for(const makeup of stats.makeups||[])if(!activity.has(makeup.day))activity.set(makeup.day,{date:makeup.day,makeup:true,note:makeup.note});
+  app.innerHTML=`<div class="page-wrap"><a class="button small analytics-entry" href="#analytics">查看学习数据分析 →</a> <a class="button small analytics-entry" href="#plans">设定学习目标 →</a>${intro('SMALL STEPS, REAL GROWTH','每一次翻开，都算数。','你的学习足迹，正在把零散的时间变成看得见的积累。')}${summaryTiles()}<div class="calendar-layout"><section class="calendar-card"><div class="calendar-heading"><h2>${year} 年 ${monthNum} 月<span class="eyebrow">YOUR READING DAYS</span></h2><div class="calendar-actions"><button class="button small" data-action="checkin" ${stats.checked_in?'disabled':''}>${icon('check')}${stats.checked_in?'今日已打卡':'今日打卡'}</button><div class="month-nav"><button class="icon-button" data-month-offset="-1" aria-label="上个月">${icon('chevron-left')}</button><button class="icon-button" data-month-offset="1" aria-label="下个月">${icon('chevron-right')}</button></div></div></div><div class="calendar-grid">${['一','二','三','四','五','六','日'].map(d=>`<div class="calendar-weekday">${d}</div>`).join('')}${Array(blank).fill('<div class="calendar-day blank"></div>').join('')}${Array.from({length:dayCount},(_,index)=> {const key=stats.month+'-'+String(index+1).padStart(2,'0');const day=activity.get(key);return `<button class="calendar-day ${day?'active ':''}${day?.makeup?'plan-makeup-day ':''}${key===stats.today?'today ':''}${key>stats.today?'future':''}" data-calendar-day="${key}" aria-label="${key}${day?.makeup?' 已补签':day?' 已学习':' 暂无学习记录'}" title="${day?.makeup?'补签 · 无阅读时长':day?'阅读 '+minutes(day.reading_seconds)+' 分钟 · 完成 '+day.articles_completed+' 篇':'暂无学习记录'}">${index+1}${day?'<span class="dot"></span>':''}</button>`;}).join('')}</div><div class="calendar-legend"><span><i class="legend-square"></i>有学习记录</span><span>描边为今天</span><span>虚线标为补签</span></div><div id="calendar-detail" class="calendar-detail">这个月，你已经在 ${stats.days.length} 天里留下一点进步。</div></section><aside class="insight-card"><h3>时间会看见你的坚持</h3><div class="big-number">${stats.active_days}<small>天</small></div><p>这是你与英语相遇的日子。<br>不必每次都很多，只要常常开始。</p><div class="insight-divider"></div><div class="insight-line"><span>今日阅读</span><strong>${minutes(stats.today_seconds)} 分钟</strong></div><div class="insight-line"><span>已掌握词汇</span><strong>${stats.mastered_words} 个</strong></div><div class="quote">“Little by little,<br>a little becomes a lot.”<small>KEEP YOUR CURIOSITY ALIVE</small></div></aside></div><div class="page-footnote">${icon('shield')}数据保存在本机 · 北京时间 · 阅读计时只统计前台活跃时间</div></div>`;
   state.calendarStats=stats;
 }
 
@@ -344,19 +351,28 @@ function confirmDelete(message) {$('#confirm-message').textContent=message;$('#c
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
   const version=++state.routeVersion;state.lookupVersion++;
-  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;
+  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;planUI?.destroy();planUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
   if(version!==state.routeVersion)return;
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
-  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','data','activity'].includes(route)?route:'library';
+  const [route,id,sessionId]=(location.hash.slice(1)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','data','plans','activity'].includes(route)?route:'library';
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading('正在打开你的阅读手记…');
   try {
     if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
     else {await refreshStats();if(version!==state.routeVersion)return;
-      if(state.view==='library'){state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
+      if(state.view==='library'){if(id){try{const category=decodeURIComponent(id);if(['科技','文化','科学','生活','环境','其他'].includes(category)){state.category=category;state.difficulty='全部';state.query='';}}catch{}}state.articles=(await api('/articles')).articles;if(version===state.routeVersion)renderLibrary();}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='review'){reviewUI=new MarginSRS({root:app,api,toast});await reviewUI.render();}
+      else if(state.view==='plans'){
+        planUI=new MarginStudyPlans({root:app,api,toast,confirm:confirmDelete,refreshStats,reminders:studyReminders,
+          onOverview:({progress,goals})=>{
+            state.stats.today_seconds=progress.seconds;
+            state.stats.daily_goals={reading_minutes:goals.reading_minutes,new_words:goals.new_words,words_today:progress.words};
+            updateSidebar();
+          }});
+        await planUI.render();
+      }
       else if(state.view==='data'){dataUI=new MarginData({root:app,api,toast,confirm:confirmDelete});await dataUI.render();}
       else if(state.view==='analytics'){analyticsUI=new MarginAnalytics({root:app,api,toast,tracker:learningEvents});await analyticsUI.render();}
       else if(state.view==='personalization'){personalUI=new MarginPersonalization({root:app,api,toast,articleId:id==='article'?sessionId:null});await personalUI.render();}
@@ -376,7 +392,14 @@ document.addEventListener('click',async event=> {
     if(button.dataset.editWord){showWordDialog(Number(button.dataset.editWord));return;}
     if(button.dataset.deleteWord){const id=Number(button.dataset.deleteWord),word=state.words.find(w=>w.id===id);if(await confirmDelete(`删除生词「${word.word}」？`)){await api('/vocabulary/'+id,{method:'DELETE',body:{}});state.words=state.words.filter(w=>w.id!==id);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('生词已删除。');}return;}
     if(button.dataset.monthOffset){const [year,month]=state.month.split('-').map(Number);const next=new Date(year,month-1+Number(button.dataset.monthOffset),1);await renderActivity(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);return;}
-    if(button.dataset.calendarDay){const date=button.dataset.calendarDay,day=state.calendarStats.days.find(d=>d.date===date);$('#calendar-detail').textContent=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 ${day.reading_seconds%60} 秒 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录。`;return;}
+    if(button.dataset.calendarDay){
+      const date=button.dataset.calendarDay;
+      const day=state.calendarStats.days.find(d=>d.date===date);
+      const makeup=state.calendarStats.makeups?.find(d=>d.day===date);
+      const detail=day?`${date} · 阅读 ${minutes(day.reading_seconds)} 分钟 · 完成 ${day.articles_completed} 篇${day.manual?' · 手动打卡':''}`:`${date} · 这一天暂无学习记录`;
+      $('#calendar-detail').textContent=makeup?`${date} · 补签${makeup.note?' · '+makeup.note:''}${day?' · 已有后续学习记录':''}`:detail;
+      return;
+    }
     if(button.dataset.importTab){state.importMode=button.dataset.importTab;$$('[data-import-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#paste-fields').hidden=state.importMode!=='paste';$('#url-fields').hidden=state.importMode!=='url';$$('input,textarea',$('#paste-fields')).forEach(input=>input.disabled=state.importMode!=='paste');$('#url-fields input').disabled=state.importMode!=='url';$('#url-fields input').required=state.importMode==='url';$('#import-error').textContent='';return;}
     if(button.dataset.dictionaryTerm){const entry=state.lookup;await lookup(button.dataset.dictionaryTerm,entry?.context||'',{paragraphIndex:entry?.paragraphIndex??-1,expanded:true});return;}
     const action=button.dataset.action;
@@ -461,7 +484,9 @@ hydrateIcons();
 async function boot(){
   if(typeof MarginData!=='undefined'){const info=await api('/data/state');dataGeneration=info.generation;MarginData.prepare(info);}
   if(typeof MarginLearningEvents!=='undefined')learningEvents=new MarginLearningEvents({api,toast});
-  await loadData();await navigate();
+  await loadData();
+  if(typeof MarginStudyReminders!=='undefined')studyReminders=new MarginStudyReminders(api);
+  await navigate();
 }
 boot().catch(error=> {app.innerHTML=empty('暂时无法打开阅读空间',escapeHTML(error.message),'<button class="button primary" data-action="retry-app">重试连接</button>','info');});
 document.addEventListener('click',event=> {if(event.target.closest('[data-action="retry-app"], [data-action="reload-data"]'))location.reload();});
