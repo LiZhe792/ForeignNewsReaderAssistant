@@ -4,7 +4,7 @@
 
 使用 **Python + Flask + SQLite** 完成赛题 1 的五项基础要求。前端使用原生 HTML / CSS / JavaScript，无需 Node.js 或单独的数据库服务。
 
-本项目使用本地 **PyCharm 直接运行 app.py**，当前包含五项基础功能、「05 阅读器扩展」和「06 阅读流畅性设计」，不提供批处理启动脚本。
+本项目使用本地 **PyCharm 直接运行 app.py**，当前包含五项基础功能、「05 阅读器扩展」、「06 阅读流畅性设计」和「24 导出与外部工具联动」，不提供批处理启动脚本。
 
 ## 在 PyCharm 中运行
 
@@ -79,6 +79,82 @@
 
 暂存只记录单词和原文语境，不会自动加入生词本。收藏待查词与移出待查列表在同一事务中完成；已收藏的词保留原释义、笔记和掌握度。未收录的词可手填释义；查询或保存失败时保留记录并提供重试。
 
+## 24 导出与外部工具联动
+
+重新安装 `requirements.txt` 中的依赖并运行 `app.py`，打开侧栏 **「导出与联动」**。导出在本机完成，无需 AI 密钥或笔记工具账号，也不会产生 AI 调用费用。新增运行依赖为 `openpyxl`、`reportlab`、`genanki`。
+
+| 内容 | 支持的文件与功能 |
+| --- | --- |
+| 生词本 | CSV、Excel（.xlsx）、JSON、Markdown、PDF；包含音标、词性、释义、掌握度、语境、学习笔记和来源 |
+| 笔记与收藏 | CSV、Excel、JSON、Markdown、PDF；涵盖高亮、段落书签、页边批注、句子收藏、语法点、主题笔记、表达素材和知识卡片；保留标签、摘录和来源状态 |
+| Anki 卡片 | 生词和知识卡片导出为 `.apkg`，可自定义牌组名称；正面是单词或卡片问题，背面包含释义 / 答案、语境和来源 |
+| 学习报告 | 选择起止日期，导出 PDF、Excel、CSV、JSON、Markdown；统计阅读时长、完成次数、打卡、连续天数、新增生词与笔记，附每日明细 |
+| 阅读清单 | 下载独立 HTML 文件分享，或复制 Markdown 清单；同时支持 CSV、Excel、JSON、PDF。只含文章信息和来源链接 |
+| Obsidian | ZIP 笔记包：Markdown、标签、索引、相关原文摘录及往返链接 |
+| Notion | ZIP 导入包：Markdown 页面、索引和 `records.csv`，可导入页面或数据库 |
+| 数据接口 | 默认关闭；生成只读 Bearer 令牌后，本机脚本可分页读取生词、笔记、阅读清单和学习报告 |
+
+先选择内容和筛选条件，点击「更新预览」，再选择格式和导出范围。可导出所有匹配项，也可勾选部分条目；「勾选已加载」只勾选当前已加载的记录，更多记录通过「加载更多」获取。更改筛选后需要重新预览。空结果不会生成空文件，失效勾选会提示重新选择。生成失败会保留筛选和勾选；「取消生成」会取消浏览器下载，本机已经开始的文件处理可能仍会完成。
+
+单次最多 5000 条、8 MB 序列化文本，超过时请筛选或分批导出。JSON 保留标签数组和 UTF-16 原文位置字段；来源文章已删除时，笔记摘录仍可导出。CSV 使用 UTF-8 BOM，并对可能被表格软件当作公式的文本添加前置单引号；Excel 使用字面文本单元格。Excel 长文本完整保留，超长内容可在编辑栏查看，或选择 PDF / Markdown 阅读。PDF 自动分页，优先使用本机中文字体；可设置 `MARGIN_PDF_FONT` 为支持中文的 TTF / TTC 路径。字体仍未覆盖的少见字符会显示 `[U+编号]`，JSON 和 Markdown 保留原字符。
+
+笔记导出读取第 19 项的 `knowledge_items` 数据，不依赖其编辑器模块。在尚未合入第 19 项的基础版上，笔记列表为空，生词、报告和阅读清单仍可正常导出；合入第 19 项并添加记录后即可导出笔记。导出模块不会创建或修改笔记表。
+
+学习报告使用北京时间，默认最近 30 天，单次最多 366 天。阅读时长与完成次数来自所选日期的打卡记录，完成次数不是去重文章数；连续打卡只在本区间内计算。「新增」指区间内创建且当前仍保留的记录；掌握分布为导出时现状，不能作为历史掌握度快照。
+
+### 导入外部工具
+
+- **Anki**：选择「Anki 卡片包」，下载后在 Anki 使用「文件 → 导入」打开 `.apkg`。笔记导出会自动筛选「知识卡片」，普通笔记可先在知识整理中制成卡片。同一数据库、同一记录使用稳定 GUID，便于重复导入时更新；更新方式仍受 Anki 导入选项影响。导出不会修改本项目掌握度，也不会把 Anki 复习进度同步回来。
+- **Obsidian**：解压 ZIP，将文件夹放入你的 Obsidian 仓库，打开 `index.md`。`words/` 或 `notes/` 保存记录，`sources/` 保存本次涉及的原文摘录，支持跳转与返回。
+- **Notion**：在「导入 → Markdown 与 CSV」中选择 ZIP，也可解压后分别导入 Markdown 或 `records.csv`；CSV 可作为数据库。导入后按 Notion 提示检查页面链接。
+- **分享阅读清单**：把下载的 HTML 文件发给他人即可独立打开；有公开来源的文章可以点击标题访问。清单不附带原文正文，个人导入且无公开链接的文章需另行提供。
+
+Obsidian 和 Notion 文件都是导出快照，不会自动同步。重复导入时需在对应工具中自行选择更新或去重；建议每次使用独立文件夹，避免覆盖已有笔记。
+
+### 本机只读数据接口
+
+在「导出与联动 → 数据接口」生成令牌，只在生成时显示一次；可显示、复制、重置或撤销。明文不会保存在浏览器存储或数据库中，数据库仅保存校验哈希、尾号和创建时间。重置 / 撤销后旧令牌立即失效。接口只在程序运行时可用，默认仍监听 `127.0.0.1`，不提供公网地址和跨域读取。
+
+所有数据接口使用 `GET`，路径前缀为 `/api/integrations/v1/`，需要请求头 `Authorization: Bearer YOUR_TOKEN`：
+
+| 路径 | 筛选参数 |
+| --- | --- |
+| `vocabulary` | `query`、`mastery`（new / learning / mastered）、`article_id`、`from`、`to` |
+| `notes` | `query`、`kind`、`tag`、`article_id`、`from`、`to` |
+| `reading-list` | `query`、`read_status`（unread / reading / completed）、`from`、`to` |
+| `report` | `from`、`to` |
+| `schema` | 返回版本、资源、筛选和分页说明 |
+
+日期采用 `YYYY-MM-DD`，包含起止两天；列表日期筛选对应记录创建日期。列表按 ID 升序，`limit` 默认为 100、范围 1–200；下一页将 `next_cursor` 作为 `after`，`next_cursor=null` 表示末页。返回 `schema_version`、`dataset`、`generated_at`、`filters`、`count` 和 `items`；报告则返回 `report` 对象。错误响应为 `{"error":"说明"}`：401 表示未启用或令牌无效，400 表示参数无效，404 表示资源不存在。
+
+Python 调用示例：先在本机设置环境变量 `MARGIN_READ_TOKEN`，然后读取所有已掌握生词。
+
+```python
+import json
+import os
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+after = 0
+while True:
+    query = urlencode({"mastery": "mastered", "limit": 100, "after": after})
+    request = Request(
+        "http://127.0.0.1:5000/api/integrations/v1/vocabulary?" + query,
+        headers={"Authorization": "Bearer " + os.environ["MARGIN_READ_TOKEN"]},
+    )
+    with urlopen(request, timeout=30) as response:
+        page = json.load(response)
+    for word in page["items"]:
+        print(word["word"], word["meaning"])
+    after = page["next_cursor"]
+    if after is None:
+        break
+```
+
+程序还提供页面使用的 `GET /api/exports/options`、`POST /api/exports/preview` 和 `POST /api/exports/file`。后两者接受 JSON，例如 `{"dataset":"notes","format":"md","filters":{"tag":"写作"},"ids":[1,2]}`；`ids` 省略时导出全部匹配记录。此组接口用于本机页面操作，脚本集成建议使用上面的令牌接口。
+
+本项测试位于 `tests/test_exports.py` 和 `tests/test_exports_browser.cjs`。安装 Playwright 后可运行 `node --test tests/test_exports_browser.cjs`，可通过 `EXPORT_TEST_BROWSER=msedge` 选择 Edge，通过 `EXPORT_TEST_PYTHON` 指定项目解释器。测试使用临时数据库，覆盖全部导出格式、内容保真、筛选与分页、Anki 标识、分享范围、令牌轮换与撤销、下载取消 / 失败恢复，以及桌面和手机布局。
+
 ## 使用流程
 
 1. 打开示例文章，或通过「导入文章」添加英文材料。粘贴导入至少需要 40 个英文单词。
@@ -124,6 +200,8 @@ ForeignNewsReaderAssistant/
 │   ├── learning.py           # 词数与阅读难度估算
 │   ├── preferences.py        # 阅读设置默认值、校验与兼容读取
 │   ├── reading_flow.py       # 待查词 API、段落语境与事务式收藏
+│   ├── exports.py            # 导出筛选、学习报告与只读数据接口
+│   ├── export_formats.py     # 表格、PDF、Markdown、Anki 与笔记包序列化
 │   ├── content.py            # 正文提取、基础查词、释义缓存
 │   └── network.py            # 公开网页访问、重定向与大小限制
 ├── data/
@@ -136,6 +214,8 @@ ForeignNewsReaderAssistant/
 │   ├── reader.css            # 阅读器主题、双栏与响应式样式
 │   ├── reading-flow.js       # 流畅/精读、待查列表与阶段提醒
 │   ├── reading-flow.css      # 学习节奏、提示密度和面板样式
+│   ├── exports.js            # 导出中心、预览、下载与令牌管理
+│   ├── exports.css           # 导出中心与手机布局
 │   ├── style.css             # 桌面与窄屏样式
 │   └── favicon.svg
 ├── tests/                   # 基础功能、迁移与阅读设置测试
