@@ -1,6 +1,7 @@
 """SQLite persistence. All user data lives in instance/margin.sqlite3."""
 
 import json
+import re
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,13 @@ from flask import current_app, g
 from .preferences import READER_DEFAULTS
 
 CHINA_TZ = timezone(timedelta(hours=8))
+
+DEFAULT_CATEGORIES = ("科技", "文化", "科学", "生活", "环境", "其他")
+
+
+def normalize_title(title):
+    """Lowercase alphanumeric title used for duplicate detection."""
+    return re.sub(r"[^a-z0-9]+", "", (title or "").lower())
 
 
 def today():
@@ -61,7 +69,10 @@ CREATE TABLE IF NOT EXISTS articles (
     created_at TEXT NOT NULL, is_demo INTEGER NOT NULL DEFAULT 0,
     progress REAL NOT NULL DEFAULT 0, position REAL NOT NULL DEFAULT 0,
     reading_seconds INTEGER NOT NULL DEFAULT 0, last_read_at TEXT,
-    completed_at TEXT
+    completed_at TEXT,
+    favorite INTEGER NOT NULL DEFAULT 0, read_later INTEGER NOT NULL DEFAULT 0,
+    priority INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
+    published_at TEXT NOT NULL DEFAULT '', title_norm TEXT NOT NULL DEFAULT ''
 );
 """ + VOCABULARY_SCHEMA + """
 CREATE TABLE IF NOT EXISTS checkins (
@@ -207,12 +218,12 @@ def init_db():
             metrics = assess_difficulty(article["content"])
             db.execute(
                 """INSERT INTO articles (title, subtitle, content, source, category, author,
-                level, difficulty_score, word_count, reading_minutes, created_at, is_demo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                level, difficulty_score, word_count, reading_minutes, created_at, is_demo, title_norm)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)""",
                 (article["title"], article["subtitle"], article["content"],
                  "Margin 原创示例", article["category"], "Margin Editorial",
                  metrics["level"], metrics["score"], metrics["word_count"],
-                 metrics["reading_minutes"], now()),
+                 metrics["reading_minutes"], now(), normalize_title(article["title"])),
             )
         db.execute("INSERT INTO settings (key, value) VALUES ('seeded', 'true')")
         db.commit()
