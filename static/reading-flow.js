@@ -61,13 +61,23 @@ window.MarginFlow = class MarginFlow {
       this.interval = settings.reminder_minutes;
       this.dismissReminder();
     }
-    this.root.querySelector('#flow-mode-hint').textContent = this.mode === 'fluent'
-      ? '点词先暂存，读完一段再处理。' : '点词打开查词卡片，按需展开释义。';
-    this.root.querySelector('.lookup-form input').placeholder = this.mode === 'fluent'
-      ? '输入单词或短语主动查词' : '输入单词、短语，或划选正文';
-    this.root.querySelector('.reader-hint').lastChild.textContent = this.mode === 'fluent'
-      ? '单击或划选一个单词暂存；段末可集中处理，也可随时打开待查词。' : '单击或划选一个单词打开查词卡片；释义可展开、收起，也可暂存稍后处理。';
+    this.updateLocalizedHints();
     this.refreshMarks();
+  }
+
+  updateLocalizedHints() {
+    const english = document.documentElement.lang === 'en';
+    const fluent = this.mode === 'fluent';
+    this.root.querySelector('#flow-mode-hint').textContent = english
+      ? (fluent ? 'Queue words to review after the paragraph.' : 'Open lookup to view a definition.')
+      : (fluent ? '点词先暂存，读完一段再处理。' : '点词打开查词卡片，按需展开释义。');
+    this.root.querySelector('.lookup-form input').placeholder = english
+      ? 'Type an English word or phrase' : (fluent ? '输入单词或短语主动查词' : '输入单词、短语，或划选正文');
+    const hint = this.root.querySelector('.reader-hint').lastChild;
+    hint.removeAttribute?.('data-i18n');
+    hint.textContent = english
+      ? (fluent ? 'Select a word to queue it, or use Look up to enter a word.' : 'Select a word or use Look up, then expand the definition on demand.')
+      : (fluent ? '单击或划选一个单词暂存；段末可集中处理，也可随时打开待查词。' : '单击或划选一个单词打开查词卡片；释义可展开、收起，也可暂存稍后处理。');
   }
 
   refreshMarks() {
