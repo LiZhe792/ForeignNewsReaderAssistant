@@ -65,7 +65,7 @@ async function api(path, options = {}) {
 }
 
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
-  category:'全部', difficulty:'全部', query:'', mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
+  category:'全部', difficulty:'全部', query:'', searchMode:'text', source:'', tag:'', minWords:'', maxWords:'', minMinutes:'', maxMinutes:'', readingStatus:'', searchVersion:0, searchOptions:{sources:[],tags:[]}, mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
 let interfaceLanguage = typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language();
 let reader = null;
@@ -437,7 +437,14 @@ document.addEventListener('click',async event=> {
       $('[data-reader-action="lookup"]')?.focus({preventScroll:true});
     }
     else if(action==='settings')openSettings();
-    else if(action==='reset-filters'){state.category=state.difficulty='全部';state.query='';renderLibrary();}
+    else if(action==='reset-filters'){Object.assign(state,{category:'全部',difficulty:'全部',query:'',searchMode:'text',source:'',tag:'',minWords:'',maxWords:'',minMinutes:'',maxMinutes:'',readingStatus:''});renderLibrary();}
+    else if(action==='search-articles'){clearTimeout(searchTimer);await renderArticleCards();}
+    else if(action==='similar-articles'){
+      const id=state.article.id,results=$('#similar-results');button.disabled=true;results.textContent='正在查找；首次使用需下载语义模型，请稍候…';
+      try {const data=await api(`/articles/${id}/similar`,{timeoutMs:300000});if(state.view==='reader'&&state.article?.id===id&&$('#similar-results')===results)results.innerHTML=data.articles.length?data.articles.map(a=>`<button class="similar-item" data-open="${a.id}">${escapeHTML(a.title)} <small>${escapeHTML(a.source)} · ${escapeHTML(a.level)}</small></button>`).join(''):'文章库中暂时没有其他文章。';}
+      catch(error){if(state.view==='reader'&&state.article?.id===id)results.textContent=error.message;}
+      finally{button.disabled=false;}
+    }
     else if(action==='checkin'){button.disabled=true;await api('/checkin',{method:'POST',body:{}});await refreshStats();if(state.view==='library')renderLibrary();else if(state.view==='activity')await renderActivity(state.month);toast('今天的学习，已留下足迹。');}
     else if(action==='font-down'||action==='font-up'){saveSettings({font_size:Math.max(16,Math.min(28,state.settings.font_size+(action==='font-up'?1:-1)))});}
     else if(action==='retry-lookup'&&state.lookup){const entry=state.lookup;await lookup(entry.word,entry.context,{paragraphIndex:entry.paragraphIndex,expanded:entry.expanded,manualMeaning:entry.manualMeaning});}
@@ -499,7 +506,7 @@ document.addEventListener('mouseup',event=> {
   }
   const target=event.target.closest('[data-word]');if(target)flow?.selectWord(target.dataset.word,target.closest('.paragraph'));
 });
-document.addEventListener('keydown', () => { lastActive = performance.now(); });
+document.addEventListener('keydown', event => { lastActive = performance.now();if(event.target.id==='article-search'&&event.key==='Enter'){event.preventDefault();clearTimeout(searchTimer);renderArticleCards();} });
 $('#confirm-dialog').addEventListener('cancel',()=> {if(confirmResolve){confirmResolve(false);confirmResolve=null;}});
 window.addEventListener('hashchange', async () => {
   const focus = document.activeElement;
