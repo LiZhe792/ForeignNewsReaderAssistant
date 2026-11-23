@@ -36,7 +36,7 @@ def create_app(test_config=None):
     app = Flask(__name__)
     app.config.update(
         DATABASE=str(ROOT / "instance" / "margin.sqlite3"),
-        MAX_CONTENT_LENGTH=512 * 1024,
+        MAX_CONTENT_LENGTH=21 * 1024 * 1024,
         JSON_AS_ASCII=False,
         TRUSTED_HOSTS=["localhost", "127.0.0.1", "[::1]"],
         AI_API_KEY=os.getenv("MARGIN_AI_API_KEY", ""),
@@ -77,6 +77,8 @@ def create_app(test_config=None):
             multipart = request.endpoint in ('management.restore_preview','management.articles_preview') and request.mimetype == 'multipart/form-data'
             if not request.is_json and not multipart:
                 return jsonify(error="请使用 JSON 格式提交数据。"), 415
+            elif request.content_length and request.content_length > 512 * 1024:
+                return jsonify(error="提交内容过大。"), 413
 
     @app.after_request
     def security_headers(response):
@@ -143,6 +145,16 @@ def create_app(test_config=None):
             created_at, is_demo FROM articles ORDER BY created_at DESC, id ASC"""
         ).fetchall()
         return jsonify(articles=[dict(row) for row in rows])
+
+    @app.post("/api/import/preview")
+    def preview_file():
+        upload = request.files.get("file")
+        if not upload or not upload.filename:
+            raise ValueError("请选择一个文件。")
+        data = upload.stream.read(20 * 1024 * 1024 + 1)
+        if len(data) > 20 * 1024 * 1024:
+            raise ValueError("文件不能超过 20 MB。")
+        return jsonify(extract_file(upload.filename, data))
 
     @app.get("/api/articles/<int:article_id>")
     def article_detail(article_id):
