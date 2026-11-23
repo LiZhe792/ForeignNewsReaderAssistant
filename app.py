@@ -26,6 +26,7 @@ from newsreader.data_management import management, initialize as initialize_mana
 from newsreader.study_plans import planning, continuity, read_goals, today_progress
 from newsreader.analytics import analytics, record_reading, token as analytics_token, fingerprint as analytics_fingerprint
 from newsreader.personalization import digest as article_digest
+from newsreader.writing_workspace import default_database as writing_database, install as install_writing
 
 ROOT = Path(__file__).resolve().parent
 
@@ -56,12 +57,17 @@ def create_app(test_config=None):
     app.register_blueprint(analytics)
     app.register_blueprint(management)
     app.register_blueprint(planning)
+    if not app.config.get("WRITING_DATABASE"):
+        app.config["WRITING_DATABASE"] = os.getenv("MARGIN_WRITING_DATABASE") or writing_database(app.config["DATABASE"])
+    install_writing(app)
     with app.app_context():
         init_db()
         initialize_management(app)
 
     @app.before_request
     def protect_local_writes():
+        if request.blueprint == "workspace":
+            return
         if request.method in ("POST", "PATCH", "DELETE", "PUT"):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
@@ -72,6 +78,8 @@ def create_app(test_config=None):
 
     @app.after_request
     def security_headers(response):
+        if request.blueprint == "workspace":
+            return response
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
