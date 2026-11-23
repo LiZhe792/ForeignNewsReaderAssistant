@@ -53,7 +53,7 @@ class PinnedHTTPS(PinnedHTTP):
             raise
 
 
-def fetch_public(url, max_bytes=2_000_000):
+def fetch_document(url, max_bytes=2_000_000, extra_headers=None, allow_not_modified=False):
     from flask import has_app_context
     if has_app_context():
         from .data_management import offline

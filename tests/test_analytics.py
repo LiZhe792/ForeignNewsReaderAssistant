@@ -37,7 +37,7 @@ class AnalyticsTests(unittest.TestCase):
     def serial_id(self):self.serial+=1;return f'analytics_receipt_{self.serial}'
 
     def article(self,content='The city has a small park. '*100,**extra):
-        return self.call('/articles','POST',{'title':'Reading sample','content':content,'category':'生活',**extra},201)['id']
+        return self.call('/articles','POST',{'title':'Reading sample '+str(len(self.client.get('/api/articles').json['articles'])),'content':content,'category':'生活',**extra},201)['id']
 
     def progress(self,identity,seconds=30,progress=20,**extra):
         return self.call(f'/articles/{identity}/progress','PATCH',{'seconds':seconds,'progress':progress,'position':progress,'request_id':self.serial_id(),**extra})

@@ -7,7 +7,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 LEVELS = ('beginner', 'intermediate', 'advanced')
 PROMPT_VERSION = 'study-8-9-v1'
@@ -44,7 +44,7 @@ def profile():
 def status():
     from .data_management import offline
     config = configuration()
-    if offline():
+    if has_app_context() and offline():
         return {'configured':False,'offline':True,'model':config['model'],'profile':profile(),
                 'message':'离线模式已暂停 AI 生成；已有解释、译文和练习仍可查看。'}
     return {'configured': config['configured'], 'model': config['model'], 'profile': profile(),
@@ -92,14 +92,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def request_json(payload, config):
+def request_json(payload, config, timeout=35):
     from .data_management import offline
-    if offline():
+    if has_app_context() and offline():
         raise AIError('离线模式已暂停 AI 生成；已有学习结果仍可查看。',409)
     request = Request(config['base'] + '/responses', data=json.dumps(payload, ensure_ascii=False).encode(),
                       headers={'Authorization': 'Bearer ' + config['key'], 'Content-Type': 'application/json'}, method='POST')
     try:
-        with build_opener(NoRedirect()).open(request, timeout=35) as response:
+        with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             raw = response.read(160001)
         if len(raw) > 160000:
             raise AIError('AI 返回内容过长，请缩小原文范围后重试。')

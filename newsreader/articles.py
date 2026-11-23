@@ -3,7 +3,7 @@
 from flask import current_app
 
 from .content import import_url
-from .db import get_db, now
+from .db import get_db, now, normalize_title
 from .learning import assess_difficulty, words
 
 CATEGORIES = ("科技", "文化", "科学", "生活", "环境", "其他")
@@ -32,11 +32,11 @@ def insert_article(db, *, title, content, source, source_url="", category="其�
     metrics = assess_difficulty(content)
     cursor = db.execute(
         """INSERT INTO articles (title, subtitle, content, source, source_url, category, author,
-        level, difficulty_score, word_count, reading_minutes, created_at, feed_id, guid)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        level, difficulty_score, word_count, reading_minutes, created_at, feed_id, guid, title_norm)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (title, subtitle, content, source, source_url, category, author,
          metrics["level"], metrics["score"], metrics["word_count"],
-         metrics["reading_minutes"], now(), feed_id, guid),
+         metrics["reading_minutes"], now(), feed_id, guid, normalize_title(title)),
     )
     return cursor.lastrowid
 

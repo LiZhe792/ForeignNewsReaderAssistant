@@ -46,7 +46,7 @@ async function pageFor(t,settings={},viewport={width:1440,height:960}){
   const context=await browser.newContext({viewport});
   const api=async(endpoint,method='GET',data)=>{const response=await context.request.fetch(origin+'/api'+endpoint,{method,data});assert.equal(response.ok(),true,await response.text());return response.json();};
   await api('/settings','PATCH',{...defaults,dictionary_provider:'offline',reading_mode:'intensive',...settings});
-  const article=await api('/articles','POST',{title:'AI reading browser test',content});
+  const article=await api('/articles','POST',{title:'AI reading browser test '+t.name,content});
   const page=await context.newPage(),errors=[],posts=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/assistance'))posts.push(request.postDataJSON());});

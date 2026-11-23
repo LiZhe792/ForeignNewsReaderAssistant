@@ -93,7 +93,7 @@ def filtered_articles(db, args):
         raise ValueError('阅读状态无效。')
     rows = [dict(row) for row in db.execute('SELECT * FROM articles ORDER BY created_at DESC, id ASC')]
     tags = {}
-    for row in db.execute('SELECT article_id, tag FROM article_tags ORDER BY tag COLLATE NOCASE'):
+    for row in db.execute('SELECT at.article_id, t.name AS tag FROM article_tags at JOIN tags t ON t.id=at.tag_id ORDER BY t.name COLLATE NOCASE'):
         tags.setdefault(row['article_id'], []).append(row['tag'])
     output = []
     for a in rows:

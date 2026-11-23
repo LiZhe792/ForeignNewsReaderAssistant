@@ -67,7 +67,7 @@ async function readerPage(t, settings = {}, viewport = {width: 1440, height: 960
   };
   for (const word of (await api('/vocabulary')).words) await api('/vocabulary/' + word.id, 'DELETE', {});
   await api('/settings', 'PATCH', {...defaults, ...settings});
-  const article = await api('/articles', 'POST', {title: 'Reading flow browser test', content});
+  const article = await api('/articles', 'POST', {title: 'Reading flow browser test '+t.name, content});
   const page = await context.newPage();
   const errors = [], dictionaryRequests = [];
   page.on('pageerror', error => errors.push(error.message));
