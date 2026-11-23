@@ -82,6 +82,7 @@ let planUI = null;
 let studyReminders = null;
 let lastActive = performance.now(), lastTick = performance.now(), activeSession = null, tickCount = 0;
 const readingSessions = new Map();
+let writingTrainer = null;
 const minutes = seconds => Math.floor((seconds || 0) / 60);
 const levelTag = level => `<span class="tag level-${escapeHTML(level.toLowerCase())}" title="根据阅读易读度估算，并非正式 CEFR 测评">${escapeHTML(level)} · ${ui(['A2','B1'].includes(level)?'轻松阅读':level==='B2'?'进阶阅读':'挑战阅读')}</span>`;
 const empty = (title, description, action = '', symbol = 'book') => `<div class="empty-state"><div class="empty-icon">${icon(symbol)}</div><h2>${title}</h2><p>${description}</p>${action}</div>`;
@@ -218,6 +219,7 @@ function renderReader(article) {
   $$('.paragraph').forEach((p, i) => { p.dataset.plain = paragraphs[i].trim(); });
   reader = new MarginReader({root:app, settings:state.settings, onChange:saveSettings,
     onLayout:()=>onReaderScroll({layoutOnly:true}), toast});
+  writingTrainer = new MarginWriting({root:app, article, reader, api, toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
     getWords:()=>state.words, onLookup:(word,article,index)=>learningEvents?.observe(word,article,index), onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
   study = new MarginStudy({root:app,article,reader,settings:state.settings,api,toast,onSettings:saveSettings,getLookup:()=>state.lookup});
@@ -362,9 +364,15 @@ function showWordDialog(id=null) {
   $('#word-dialog').showModal();
 }
 let confirmResolve=null;
-function confirmDelete(message) {$('#confirm-message').textContent=message;$('#confirm-dialog').showModal();return new Promise(resolve=> {confirmResolve=resolve;});}
+function confirmDelete(message) {
+  if(message.startsWith('删除文章「'))message += ' 本篇写作练习、草稿和反馈也会删除。';
+  $('#confirm-message').textContent=message;
+  $('#confirm-dialog').showModal();
+  return new Promise(resolve=> {confirmResolve=resolve;});
+}
 function resolveConfirm(answer) {$('#confirm-dialog').close();if(confirmResolve){confirmResolve(answer);confirmResolve=null;}}
 async function navigate() {
+  writingTrainer?.destroy();writingTrainer=null;
   const version=++state.routeVersion;state.lookupVersion++;
   practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;planUI?.destroy();planUI=null;
   if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
@@ -466,6 +474,7 @@ document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
   if(form.closest('#article-qa-dialog'))return;
   if(form.id==='lookup-form'){lookup(form.elements.word.value.trim());return;}
+  if(form.closest('#writing-dialog'))return;
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
     $('#import-error').textContent='';button.textContent=ui(state.importMode==='url'?'正在提取正文…':'正在导入…');

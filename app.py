@@ -14,6 +14,7 @@ from newsreader.content import import_url, lookup_word
 from newsreader.db import close_db, get_db, init_db, now, today
 from newsreader.learning import assess_difficulty, words
 from newsreader.preferences import READER_DEFAULTS, read_preferences, validate_preferences
+from newsreader.writing import writing, expire_pending_writing
 from newsreader.reading_flow import reading_flow
 from newsreader.dictionary import normalize_term
 from newsreader.assistance import assistance
@@ -47,6 +48,7 @@ def create_app(test_config=None):
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
     app.json.ensure_ascii = False
     app.teardown_appcontext(close_db)
+    app.register_blueprint(writing)
     app.register_blueprint(reading_flow)
     app.register_blueprint(assistance)
     app.register_blueprint(wordbook)

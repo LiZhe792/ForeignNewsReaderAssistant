@@ -69,6 +69,25 @@ CREATE TABLE IF NOT EXISTS checkins (
     articles_completed INTEGER NOT NULL DEFAULT 0, manual INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS writing_exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    request_id TEXT NOT NULL UNIQUE,
+    mode TEXT NOT NULL, source_kind TEXT NOT NULL, source_text TEXT NOT NULL,
+    target_words TEXT NOT NULL DEFAULT '[]', focus TEXT NOT NULL DEFAULT '',
+    draft TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS writing_exercises_article ON writing_exercises(article_id, id DESC);
+CREATE TABLE IF NOT EXISTS writing_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_id INTEGER NOT NULL REFERENCES writing_exercises(id) ON DELETE CASCADE,
+    request_id TEXT NOT NULL UNIQUE, original TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending','complete','failed')),
+    feedback TEXT NOT NULL DEFAULT '{}', error TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS writing_attempts_exercise ON writing_attempts(exercise_id, id);
 CREATE TABLE IF NOT EXISTS dictionary_cache (
     word TEXT PRIMARY KEY, result TEXT NOT NULL, cached_at TEXT NOT NULL
 );
