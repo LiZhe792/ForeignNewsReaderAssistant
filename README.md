@@ -459,6 +459,7 @@ ForeignNewsReaderAssistant/
 │   ├── analytics.py          # 学习事件、周期汇总与 CSV 报表
 │   ├── data_management.py    # 离线开关、备份、预览还原与文章包
 │   ├── content.py            # 正文提取、基础查词、释义缓存
+│   ├── file_import.py        # 文件解析、扫描件 OCR 与预览
 │   └── network.py            # 公开网页访问、重定向与大小限制
 ├── data/
 │   ├── articles.json         # 原创示例文章
