@@ -8,6 +8,8 @@
 
 本项目使用本地 **PyCharm 直接运行 app.py**，当前包含五项基础功能和扩展 05–09、13–14、16–17、21–23，不提供批处理启动脚本。
 
+本地全功能合并的范围、验证记录和后续建议见 [LOCAL_INTEGRATION_REVIEW.md](LOCAL_INTEGRATION_REVIEW.md)。
+
 ## 在 PyCharm 中运行
 
 1. 用 PyCharm 打开 `ForeignNewsReaderAssistant` 项目文件夹。
@@ -441,6 +443,110 @@ DeepSeek 默认启用思考模式；为给结构化输出保留生成预算并�
 
 在「发现文章」页点击右上角「分类与标签」管理分类与标签；卡片左上角勾选框用于选择文章并触发批量操作。
 
+## 19 标注与知识整理
+
+重新运行 `app.py` 即可使用。阅读时选中原文，会出现标注工具；点击顶部「标注与笔记」或段落右侧的数字 / `＋`，可打开页边记录。侧栏「知识整理」汇总所有文章的记录与导图。本项功能完全在本地运行，不需要 AI 密钥或新增依赖。
+
+| 功能 | 使用方式 |
+| --- | --- |
+| 多颜色高亮 | 选中文字后选择黄、绿、蓝、粉四种颜色；可在记录编辑器修改颜色或删除高亮 |
+| 段落书签 | 点段落右侧 `☆` 收藏，再点 `★` 取消；在知识整理中按「段落书签」筛选 |
+| 页边批注 | 选中原文点「写批注」；也可从段落标注面板点「批注此段」；面板浮在正文侧边，手机端显示在下方 |
+| 句子收藏 | 选中句子点「收藏句子」，保留完整摘录及其原文位置 |
+| 语法点收藏 | 选中例句后选择「整理为 → 语法点」，填写语法规则与分析；也能独立新建 |
+| 主题笔记 | 在知识整理中选择「主题笔记 → 新建记录」，整理阅读主题；从原文新建时保留来源 |
+| 笔记标签 | 编辑记录时用逗号分隔标签；支持标签筛选、点标签查看相关记录，以及关键词与类型组合筛选 |
+| 原文双向定位 | 记录中的「定位原文」打开文章、选中摘录并显示相关标注；段落右侧的标注数可反向打开该段记录 |
+| 个人表达素材库 | 选择「表达素材」，填写短语、释义与使用场景、自拟例句；按类型、关键词和标签检索 |
+| 知识卡片 | 填写正面问题和背面答案，列表中点「翻开答案」自测；已有记录可一键「制成卡片」 |
+| 思维导图 | 新建导图后编辑中心与分支，添加子节点、调整父节点、折叠分支、删除分支；节点可搜索并关联知识记录，保存后再次打开 |
+
+标注按段落编号和字符范围核对原文，能区分同段内的重复句子。支持跨段摘录，每次最多 20 段、6000 字符；段落书签与整段批注保存段落起始摘录用于定位。同一处高亮、句子收藏和段落书签不会重复添加，重新选择同一高亮范围时可从标注列表修改颜色。高亮保留正文的词语结构和点词查询能力，也兼容后续合并的逐句朗读。
+
+笔记需点击「保存记录」，导图需点击「保存导图」。导图最多 100 个节点。未保存时关闭编辑器会提醒，保存失败会保留当前输入；多个窗口编辑同一记录或导图时，会展示最新版本供比较，再选择载入或保留当前内容。关闭 Python 服务后，重新运行仍可读取已保存记录。
+
+删除文章后，高亮摘录、书签、批注、收藏及笔记仍保留，并标明「原文已删除」；原文变化导致位置不匹配时不会跳转到错误位置。删除知识记录会取消导图节点的关联，节点文字保留；删除导图不删除知识记录。
+
+新增数据保存在同一个本机数据库的 `knowledge_items`、`knowledge_maps` 表中，旧库自动创建这两张表。后端测试位于 `tests/test_knowledge.py`；可选的真实浏览器测试运行 `node --test tests/test_knowledge_browser.cjs`，需要 Playwright，使用临时数据库，覆盖标注、来源往返、素材整理、导图、失败恢复及手机布局。可用 `KNOWLEDGE_TEST_BROWSER=msedge` 选择已安装的 Edge。
+
+
+## 24 导出与外部工具联动
+
+重新安装 `requirements.txt` 中的依赖并运行 `app.py`，打开侧栏 **「导出与联动」**。导出在本机完成，无需 AI 密钥或笔记工具账号，也不会产生 AI 调用费用。新增运行依赖为 `openpyxl`、`reportlab`、`genanki`。
+
+| 内容 | 支持的文件与功能 |
+| --- | --- |
+| 生词本 | CSV、Excel（.xlsx）、JSON、Markdown、PDF；包含音标、词性、释义、掌握度、语境、学习笔记和来源 |
+| 笔记与收藏 | CSV、Excel、JSON、Markdown、PDF；涵盖高亮、段落书签、页边批注、句子收藏、语法点、主题笔记、表达素材和知识卡片；保留标签、摘录和来源状态 |
+| Anki 卡片 | 生词和知识卡片导出为 `.apkg`，可自定义牌组名称；正面是单词或卡片问题，背面包含释义 / 答案、语境和来源 |
+| 学习报告 | 选择起止日期，导出 PDF、Excel、CSV、JSON、Markdown；统计阅读时长、完成次数、打卡、连续天数、新增生词与笔记，附每日明细 |
+| 阅读清单 | 下载独立 HTML 文件分享，或复制 Markdown 清单；同时支持 CSV、Excel、JSON、PDF。只含文章信息和来源链接 |
+| Obsidian | ZIP 笔记包：Markdown、标签、索引、相关原文摘录及往返链接 |
+| Notion | ZIP 导入包：Markdown 页面、索引和 `records.csv`，可导入页面或数据库 |
+| 数据接口 | 默认关闭；生成只读 Bearer 令牌后，本机脚本可分页读取生词、笔记、阅读清单和学习报告 |
+
+先选择内容和筛选条件，点击「更新预览」，再选择格式和导出范围。可导出所有匹配项，也可勾选部分条目；「勾选已加载」只勾选当前已加载的记录，更多记录通过「加载更多」获取。更改筛选后需要重新预览。空结果不会生成空文件，失效勾选会提示重新选择。生成失败会保留筛选和勾选；「取消生成」会取消浏览器下载，本机已经开始的文件处理可能仍会完成。
+
+单次最多 5000 条、8 MB 序列化文本，超过时请筛选或分批导出。JSON 保留标签数组和 UTF-16 原文位置字段；来源文章已删除时，笔记摘录仍可导出。CSV 使用 UTF-8 BOM，并对可能被表格软件当作公式的文本添加前置单引号；Excel 使用字面文本单元格。Excel 长文本完整保留，超长内容可在编辑栏查看，或选择 PDF / Markdown 阅读。PDF 自动分页，优先使用本机中文字体；可设置 `MARGIN_PDF_FONT` 为支持中文的 TTF / TTC 路径。字体仍未覆盖的少见字符会显示 `[U+编号]`，JSON 和 Markdown 保留原字符。
+
+笔记导出读取第 19 项的 `knowledge_items` 数据，不依赖其编辑器模块。在尚未合入第 19 项的基础版上，笔记列表为空，生词、报告和阅读清单仍可正常导出；合入第 19 项并添加记录后即可导出笔记。导出模块不会创建或修改笔记表。
+
+学习报告使用北京时间，默认最近 30 天，单次最多 366 天。阅读时长与完成次数来自所选日期的打卡记录，完成次数不是去重文章数；连续打卡只在本区间内计算。「新增」指区间内创建且当前仍保留的记录；掌握分布为导出时现状，不能作为历史掌握度快照。
+
+### 导入外部工具
+
+- **Anki**：选择「Anki 卡片包」，下载后在 Anki 使用「文件 → 导入」打开 `.apkg`。笔记导出会自动筛选「知识卡片」，普通笔记可先在知识整理中制成卡片。同一数据库、同一记录使用稳定 GUID，便于重复导入时更新；更新方式仍受 Anki 导入选项影响。导出不会修改本项目掌握度，也不会把 Anki 复习进度同步回来。
+- **Obsidian**：解压 ZIP，将文件夹放入你的 Obsidian 仓库，打开 `index.md`。`words/` 或 `notes/` 保存记录，`sources/` 保存本次涉及的原文摘录，支持跳转与返回。
+- **Notion**：在「导入 → Markdown 与 CSV」中选择 ZIP，也可解压后分别导入 Markdown 或 `records.csv`；CSV 可作为数据库。导入后按 Notion 提示检查页面链接。
+- **分享阅读清单**：把下载的 HTML 文件发给他人即可独立打开；有公开来源的文章可以点击标题访问。清单不附带原文正文，个人导入且无公开链接的文章需另行提供。
+
+Obsidian 和 Notion 文件都是导出快照，不会自动同步。重复导入时需在对应工具中自行选择更新或去重；建议每次使用独立文件夹，避免覆盖已有笔记。
+
+### 本机只读数据接口
+
+在「导出与联动 → 数据接口」生成令牌，只在生成时显示一次；可显示、复制、重置或撤销。明文不会保存在浏览器存储或数据库中，数据库仅保存校验哈希、尾号和创建时间。重置 / 撤销后旧令牌立即失效。接口只在程序运行时可用，默认仍监听 `127.0.0.1`，不提供公网地址和跨域读取。
+
+所有数据接口使用 `GET`，路径前缀为 `/api/integrations/v1/`，需要请求头 `Authorization: Bearer YOUR_TOKEN`：
+
+| 路径 | 筛选参数 |
+| --- | --- |
+| `vocabulary` | `query`、`mastery`（new / learning / mastered）、`article_id`、`from`、`to` |
+| `notes` | `query`、`kind`、`tag`、`article_id`、`from`、`to` |
+| `reading-list` | `query`、`read_status`（unread / reading / completed）、`from`、`to` |
+| `report` | `from`、`to` |
+| `schema` | 返回版本、资源、筛选和分页说明 |
+
+日期采用 `YYYY-MM-DD`，包含起止两天；列表日期筛选对应记录创建日期。列表按 ID 升序，`limit` 默认为 100、范围 1–200；下一页将 `next_cursor` 作为 `after`，`next_cursor=null` 表示末页。返回 `schema_version`、`dataset`、`generated_at`、`filters`、`count` 和 `items`；报告则返回 `report` 对象。错误响应为 `{"error":"说明"}`：401 表示未启用或令牌无效，400 表示参数无效，404 表示资源不存在。
+
+Python 调用示例：先在本机设置环境变量 `MARGIN_READ_TOKEN`，然后读取所有已掌握生词。
+
+```python
+import json
+import os
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+after = 0
+while True:
+    query = urlencode({"mastery": "mastered", "limit": 100, "after": after})
+    request = Request(
+        "http://127.0.0.1:5000/api/integrations/v1/vocabulary?" + query,
+        headers={"Authorization": "Bearer " + os.environ["MARGIN_READ_TOKEN"]},
+    )
+    with urlopen(request, timeout=30) as response:
+        page = json.load(response)
+    for word in page["items"]:
+        print(word["word"], word["meaning"])
+    after = page["next_cursor"]
+    if after is None:
+        break
+```
+
+程序还提供页面使用的 `GET /api/exports/options`、`POST /api/exports/preview` 和 `POST /api/exports/file`。后两者接受 JSON，例如 `{"dataset":"notes","format":"md","filters":{"tag":"写作"},"ids":[1,2]}`；`ids` 省略时导出全部匹配记录。此组接口用于本机页面操作，脚本集成建议使用上面的令牌接口。
+
+本项测试位于 `tests/test_exports.py` 和 `tests/test_exports_browser.cjs`。安装 Playwright 后可运行 `node --test tests/test_exports_browser.cjs`，可通过 `EXPORT_TEST_BROWSER=msedge` 选择 Edge，通过 `EXPORT_TEST_PYTHON` 指定项目解释器。测试使用临时数据库，覆盖全部导出格式、内容保真、筛选与分页、Anki 标识、分享范围、令牌轮换与撤销、下载取消 / 失败恢复，以及桌面和手机布局。
+
+
 ## 实现说明
 
 ### 阅读与记录
@@ -576,6 +682,7 @@ node --test tests/test_analytics_browser.cjs
 node --test tests/test_data_management_browser.cjs
 node --test tests/test_study_plans_browser.cjs
 node --test tests/test_writing_accessibility_browser.cjs
+node --test tests/test_integration_browser.cjs
 ```
 
 浏览器检查覆盖流畅/精读模式、释义折叠、段落待查词的刷新恢复与收藏、提示密度和已掌握词、网络失败重试、阶段提醒，以及桌面和手机视口下的阅读位置。异步列表更新会保留正在编辑的释义、焦点和光标；段末按钮出现或消失时按原文词语保持阅读位置。

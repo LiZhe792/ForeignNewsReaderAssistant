@@ -1,0 +1,10 @@
+Local integration verification
+Backend: 444 tests, 36.992 s, OK
+Node logic: 24 passed, 0 failed
+Chromium: 34 passed, 0 failed, 0 skipped; 149.676 s
+Source integration commit: aa791a4b5e5f896d78753570808bdd4f6989816b
+Superseded branches recorded without reverting main fixes.
+Remote main: bf4a973657fd5d938def68d94f2ff4e8d4524979
+Remote heads: 22; integrated branch absent remotely.
+No push / PR / remote merge performed.
+External model outputs and network services mocked; real provider quality unverified.
