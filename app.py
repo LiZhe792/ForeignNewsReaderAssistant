@@ -23,6 +23,7 @@ from newsreader.training import training
 from newsreader.exercises import exercises
 from newsreader.personalization import personalization
 from newsreader.data_management import management, initialize as initialize_management
+from newsreader.study_plans import planning, continuity, read_goals, today_progress
 from newsreader.analytics import analytics, record_reading, token as analytics_token, fingerprint as analytics_fingerprint
 from newsreader.personalization import digest as article_digest
 
@@ -54,6 +55,7 @@ def create_app(test_config=None):
     app.register_blueprint(personalization)
     app.register_blueprint(analytics)
     app.register_blueprint(management)
+    app.register_blueprint(planning)
     with app.app_context():
         init_db()
         initialize_management(app)
@@ -308,15 +310,17 @@ def create_app(test_config=None):
             raise ValueError("月份格式应为 YYYY-MM。") from exc
         last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
         days = [dict(r) for r in db.execute("SELECT * FROM checkins WHERE date BETWEEN ? AND ?", (first.isoformat(), last.isoformat()))]
-        activity_dates = {r[0] for r in db.execute("SELECT date FROM checkins")}
-        cursor = current if current.isoformat() in activity_dates else current - timedelta(days=1)
-        streak = 0
-        while cursor.isoformat() in activity_dates:
-            streak += 1
-            cursor -= timedelta(days=1)
+        activity_dates = {r[0] for r in db.execute("SELECT date FROM checkins WHERE date<=?", (current.isoformat(),))}
+        makeups = [dict(row) for row in db.execute(
+            "SELECT * FROM study_makeups WHERE day BETWEEN ? AND ? ORDER BY day",
+            (first.isoformat(), last.isoformat()),
+        )]
+        learned = today_progress(db, current)
+        goals = read_goals(db)
         today_record = db.execute("SELECT * FROM checkins WHERE date=?", (current.isoformat(),)).fetchone()
         return jsonify(
-            today=current.isoformat(), month=month, days=days, streak=streak,
+            today=current.isoformat(), month=month, days=days, makeups=makeups, streak=continuity(db,current)["current"],
+            daily_goals={"reading_minutes":goals["reading_minutes"],"new_words":goals["new_words"],"words_today":learned["words"]},
             checked_in=current.isoformat() in activity_dates,
             today_seconds=today_record["reading_seconds"] if today_record else 0,
             total_seconds=db.execute("SELECT COALESCE(SUM(reading_seconds),0) FROM checkins").fetchone()[0],
