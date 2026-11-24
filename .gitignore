@@ -8,6 +8,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+ai.env
 instance/
 *.sqlite
 *.sqlite3
@@ -17,6 +18,10 @@ instance/
 .coverage
 htmlcov/
 node_modules/
+ai.env
 *.log
 .DS_Store
 Thumbs.db
+
+# Local backup archives and private restore previews
+*-data/

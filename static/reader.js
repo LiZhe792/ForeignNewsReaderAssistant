@@ -172,7 +172,9 @@ window.MarginReader = class MarginReader {
       if (Number(button.dataset.readerJump) === this.current) button.setAttribute('aria-current', 'location');
       else button.removeAttribute('aria-current');
     });
-    this.root.querySelector('#reader-position-label').textContent = `第 ${this.current + 1} / ${this.paragraphs.length} 段`;
+    this.root.querySelector('#reader-position-label').textContent = document.documentElement.lang === 'en'
+      ? `Paragraph ${this.current + 1} / ${this.paragraphs.length}`
+      : `第 ${this.current + 1} / ${this.paragraphs.length} 段`;
     this.root.querySelector('[data-reader-action="previous"]').disabled = this.current === 0;
     this.root.querySelector('[data-reader-action="next"]').disabled = this.current === this.paragraphs.length - 1;
   }

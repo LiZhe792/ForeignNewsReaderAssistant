@@ -38,7 +38,7 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertIn("Margin 知刊", home.get_data(as_text=True))
         self.assertIn("frame-ancestors 'none'", home.headers["Content-Security-Policy"])
-        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg", "/static/reader.js", "/static/reader.css", "/static/reading-flow.js", "/static/reading-flow.css"):
+        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.svg", "/static/reader.js", "/static/reader.css", "/static/reading-flow.js", "/static/reading-flow.css", "/static/article-qa.js", "/static/article-qa.css"):
             with self.client.get(asset) as response:
                 self.assertEqual(response.status_code, 200)
 
@@ -134,7 +134,7 @@ class ApplicationTests(unittest.TestCase):
             self.assertEqual(response.json["meaning"], "")
 
     def test_dictionary_validation(self):
-        for word in ("hello world", "<script>", "a" * 61, "", "123"):
+        for word in ("one two three four five six seven", "<script>", "a" * 61, "", "123"):
             response = self.client.get("/api/dictionary", query_string={"word": word})
             self.assertEqual(response.status_code, 400)
 
@@ -162,7 +162,7 @@ class ApplicationTests(unittest.TestCase):
         word_id = self.add_word()
         self.assertEqual(self.client.patch(f"/api/vocabulary/{word_id}", json={"note": "should rollback", "mastery": "invalid"}).status_code, 400)
         self.assertEqual(self.client.get("/api/vocabulary").json["words"][0]["note"], "")
-        for payload in ({"word": "two words", "meaning": "invalid"}, {"word": "read", "meaning": ""},
+        for payload in ({"word": "one two three four five six seven", "meaning": "invalid"}, {"word": "read", "meaning": ""},
                         {"word": "read", "meaning": "阅读", "article_id": 999}, {"word": "read", "meaning": "阅读", "article_id": True}):
             self.assertIn(self.client.post("/api/vocabulary", json=payload).status_code, (400, 404))
 

@@ -5,9 +5,15 @@ import re
 from flask import Blueprint, abort, jsonify, request
 
 from .db import get_db, now
+from .dictionary import normalize_term
+from .wordbook import ensure_word, attach_context
 
 reading_flow = Blueprint("reading_flow", __name__, url_prefix="/api/articles")
-WORD = re.compile(r"[a-z]+(?:['-][a-z]+)*")
+
+
+def contains_term(paragraph, term):
+    paragraph = re.sub(r"\s+", " ", paragraph.lower().replace("’", "'"))
+    return re.search(r"(?<![a-z'-])" + re.escape(term) + r"(?![a-z'-])", paragraph) is not None
 
 
 def payload():
@@ -28,7 +34,7 @@ def field(data, key, limit, required=False):
 
 
 def article(article_id):
-    row = get_db().execute("SELECT content FROM articles WHERE id=?", (article_id,)).fetchone()
+    row = get_db().execute("SELECT id,title,category,content FROM articles WHERE id=?", (article_id,)).fetchone()
     if row is None:
         abort(404)
     return row
@@ -56,9 +62,7 @@ def pending_words(article_id):
         return jsonify(words=[dict(row) for row in rows])
 
     data = payload()
-    word = field(data, "word", 60, required=True).lower().replace("’", "'")
-    if not WORD.fullmatch(word):
-        raise ValueError("待查词必须是单个英文单词。")
+    word = normalize_term(field(data, "word", 60, required=True))
     index = data.get("paragraph_index", -1)
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n|\n", source["content"]) if p.strip()]
     if type(index) is not int or not -1 <= index < len(paragraphs):
@@ -66,16 +70,19 @@ def pending_words(article_id):
     context = ""
     if index >= 0:
         paragraph = paragraphs[index]
-        if word not in WORD.findall(paragraph.lower().replace("’", "'")):
-            raise ValueError("该单词不在指定段落中。")
+        if not contains_term(paragraph, word):
+            raise ValueError("该单词或短语不在指定段落中。")
         sentences = re.findall(r"[^.!?]+[.!?]+|[^.!?]+$", paragraph)
-        context = next((s.strip() for s in sentences if word in WORD.findall(s.lower().replace("’", "'"))), paragraph)[:5000]
+        context = next((s.strip() for s in sentences if contains_term(s, word)), paragraph)[:5000]
     cursor = db.execute(
         """INSERT INTO pending_words (article_id, paragraph_index, word, context, created_at)
         VALUES (?, ?, ?, ?, ?) ON CONFLICT(article_id, paragraph_index, word) DO NOTHING""",
         (article_id, index, word, context, now()),
     )
     duplicate = cursor.rowcount == 0
+    if index >= 0:
+        from .analytics import record_lookup
+        record_lookup(db, word, "encounter", source, index)
     row = db.execute(
         "SELECT * FROM pending_words WHERE article_id=? AND paragraph_index=? AND word=?", (article_id, index, word)
     ).fetchone()
@@ -114,6 +121,9 @@ def collect_pending(article_id, pending_id):
             (entry["word"], meaning, phonetic, part, entry["context"], article_id, now()),
         )
         word_id = cursor.lastrowid
+    ensure_word(db,word_id)
+    attach_context(db,word_id,entry['context'],article_id)
+    db.execute('UPDATE word_meta SET version=version+1 WHERE word_id=?',(word_id,))
     db.execute("DELETE FROM pending_words WHERE id=? AND article_id=?", (pending_id, article_id))
     db.commit()
     return jsonify(id=word_id, duplicate=bool(existing), ok=True)

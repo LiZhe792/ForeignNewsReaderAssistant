@@ -2,8 +2,8 @@
 'use strict';
 
 window.MarginFlow = class MarginFlow {
-  constructor({root, article, reader, settings, api, toast, getWords, onWords, lookup}) {
-    Object.assign(this, {root, article, reader, settings, api, toast, getWords, onWords, lookup});
+  constructor({root, article, reader, settings, api, toast, getWords, onWords, lookup, onLookup}) {
+    Object.assign(this, {root, article, reader, settings, api, toast, getWords, onWords, lookup, onLookup});
     this.pending = [];
     this.definitions = new Map();
     this.expanded = new Set();
@@ -43,7 +43,14 @@ window.MarginFlow = class MarginFlow {
   }
 
   apply(settings) {
+    const providerChanged = this.provider && this.provider !== settings.dictionary_provider;
+    this.provider = settings.dictionary_provider || 'auto';
     this.settings = settings;
+    if (providerChanged) {
+      this.definitions.clear();
+      this.renderQueue();
+      this.expanded.forEach(id => this.loadDefinition(id));
+    }
     this.root.dataset.hintDensity = settings.hint_density;
     if (this.mode !== settings.reading_mode) {
       this.root.querySelector('.reader-margin').classList.remove('mobile-open');
@@ -54,13 +61,23 @@ window.MarginFlow = class MarginFlow {
       this.interval = settings.reminder_minutes;
       this.dismissReminder();
     }
-    this.root.querySelector('#flow-mode-hint').textContent = this.mode === 'fluent'
-      ? '点词先暂存，读完一段再处理。' : '点词打开查词卡片，按需展开释义。';
-    this.root.querySelector('.lookup-form input').placeholder = this.mode === 'fluent'
-      ? '输入单词主动查词' : '输入单词，或直接点击正文';
-    this.root.querySelector('.reader-hint').lastChild.textContent = this.mode === 'fluent'
-      ? '单击或划选一个单词暂存；段末可集中处理，也可随时打开待查词。' : '单击或划选一个单词打开查词卡片；释义可展开、收起，也可暂存稍后处理。';
+    this.updateLocalizedHints();
     this.refreshMarks();
+  }
+
+  updateLocalizedHints() {
+    const english = document.documentElement.lang === 'en';
+    const fluent = this.mode === 'fluent';
+    this.root.querySelector('#flow-mode-hint').textContent = english
+      ? (fluent ? 'Queue words to review after the paragraph.' : 'Open lookup to view a definition.')
+      : (fluent ? '点词先暂存，读完一段再处理。' : '点词打开查词卡片，按需展开释义。');
+    this.root.querySelector('.lookup-form input').placeholder = english
+      ? 'Type an English word or phrase' : (fluent ? '输入单词或短语主动查词' : '输入单词、短语，或划选正文');
+    const hint = this.root.querySelector('.reader-hint').lastChild;
+    hint.removeAttribute?.('data-i18n');
+    hint.textContent = english
+      ? (fluent ? 'Select a word to queue it, or use Look up to enter a word.' : 'Select a word or use Look up, then expand the definition on demand.')
+      : (fluent ? '单击或划选一个单词暂存；段末可集中处理，也可随时打开待查词。' : '单击或划选一个单词打开查词卡片；释义可展开、收起，也可暂存稍后处理。');
   }
 
   refreshMarks() {
@@ -202,7 +219,7 @@ window.MarginFlow = class MarginFlow {
     if (result.loading) return '<p class="lookup-note">正在查询…</p>';
     if (result.error) return `<p class="error-note">${this.escape(result.error)}</p><button class="button small" data-flow-op="retry-definition" data-pending-id="${entry.id}">重试查词</button>`;
     if (!result.found) return `<p class="lookup-note">${this.escape(result.message)}</p><label>手动填写释义<textarea data-pending-meaning="${entry.id}" maxlength="3000" rows="2">${this.escape(this.manual.get(entry.id) || '')}</textarea></label>`;
-    return `<p class="phonetic">${this.escape(result.phonetic)}</p><p class="definition"><span class="part-of-speech">${this.escape(result.part_of_speech)}</span>${this.escape(result.meaning)}</p><p class="source-caption">${this.escape(result.source)}</p>`;
+    return `${MarginDictionary.pronunciation(result)}<p class="definition"><span class="part-of-speech">${this.escape(result.part_of_speech)}</span>${this.escape(result.meaning)}</p><p class="source-caption">${this.escape(result.source)}${result.cached ? ' · 本地缓存' : ''}</p>${MarginDictionary.knowledge(result, false)}`;
   }
 
   async loadDefinition(id, retry = false) {
@@ -210,12 +227,13 @@ window.MarginFlow = class MarginFlow {
     if (!entry || (this.definitions.has(id) && !retry) || this.definitions.get(id)?.loading) return;
     this.definitions.set(id, {loading: true});
     this.updateDefinition(entry);
+    const provider = this.provider;
+    this.onLookup?.(entry.word,this.article,entry.paragraph_index);
     try {
-      const saved = this.vocabulary(entry.word);
-      const result = saved ? {...saved, found: true, source: '我的生词本'} : await this.api('/dictionary?word=' + encodeURIComponent(entry.word));
-      if (!this.destroyed) this.definitions.set(id, result);
-    } catch (error) { if (!this.destroyed) this.definitions.set(id, {error: error.message}); }
-    if (!this.destroyed) this.updateDefinition(entry);
+      const result = await this.api('/dictionary?word=' + encodeURIComponent(entry.word) + '&provider=' + encodeURIComponent(provider));
+      if (!this.destroyed && provider === this.provider) this.definitions.set(id, result);
+    } catch (error) { if (!this.destroyed && provider === this.provider) this.definitions.set(id, {error: error.message}); }
+    if (!this.destroyed && provider === this.provider) this.updateDefinition(entry);
   }
 
   updateDefinition(entry) {

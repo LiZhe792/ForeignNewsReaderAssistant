@@ -1,0 +1,53 @@
+.tts-player { flex-shrink:0; min-height:0; max-height:46dvh; background:var(--reader-surface); color:var(--reader-text); border-top:1px solid var(--reader-border); display:flex; flex-direction:column; }
+.tts-transport { display:flex; gap:12px; align-items:center; padding:8px 20px; flex-shrink:0; border-bottom:1px solid var(--reader-border); }
+.tts-transport > strong { font-size:13px; flex:1; min-width:0; }
+#tts-position { font-size:11px; color:var(--reader-muted); font-weight:normal; margin-left:8px; }
+.tts-buttons { display:flex; gap:6px; }
+.tts-player .button { min-height:32px; font-size:11px; padding:6px 10px; }
+.tts-player .icon-button { flex-shrink:0; }
+.tts-content { padding:10px 20px 14px; overflow:auto; overscroll-behavior:contain; min-height:0; }
+.tts-current-text { font:14px/1.6 Georgia,serif; overflow-wrap:anywhere; margin:0; max-height:46px; overflow:auto; }
+.tts-progress { display:flex; align-items:center; gap:12px; margin:6px 0; }
+.tts-progress input { flex:1; min-width:0; padding:0; height:18px; accent-color:var(--reader-accent); box-shadow:none; }
+.tts-progress span { font-size:10px; color:var(--reader-muted); min-width:68px; }
+.tts-scope-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.tts-player label { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--reader-muted); }
+.tts-player select { font:12px var(--font); padding:6px 9px; width:auto; margin:0; max-width:100%; }
+#tts-word { font-size:12px; padding:7px 10px; width:190px; max-width:100%; }
+.tts-note { font-size:11px; line-height:1.75; color:var(--reader-muted); margin:6px 0; }
+.tts-player details { border-top:1px solid var(--reader-border); padding-top:8px; margin-top:8px; }
+.tts-player summary { font-size:12px; cursor:pointer; padding:2px 0; }
+.tts-settings-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:12px 0; }
+.tts-settings-grid label { align-items:stretch; flex-direction:column; }
+.tts-settings-grid input[type=range] { width:100%; padding:0; height:25px; accent-color:var(--reader-accent); }
+.tts-switches { display:flex; flex-wrap:wrap; gap:14px; }
+.tts-switches input { width:16px; height:16px; margin:0; accent-color:var(--reader-accent); }
+.tts-list-actions { display:flex; gap:7px; flex-wrap:wrap; margin:9px 0; }
+#tts-playlist-items { list-style:none; padding:0; margin:8px 0; max-height:190px; overflow:auto; }
+#tts-playlist-items li { display:flex; align-items:center; gap:6px; padding:8px 0; border-bottom:1px solid var(--reader-border); }
+.tts-list-title { flex:1; min-width:0; text-align:left; color:var(--reader-text); font-size:12px; overflow-wrap:anywhere; }
+.tts-list-title small { display:block; color:var(--reader-muted); font-size:10px; margin-top:4px; }
+.tts-list-current { background:var(--reader-soft); }
+.tts-list-edit { display:flex; gap:4px; flex-shrink:0; }
+.tts-list-edit button { color:var(--reader-text); border:1px solid var(--reader-border); border-radius:4px; width:30px; height:30px; font-size:13px; }
+.tts-confirm { font-size:12px; background:var(--reader-soft); padding:10px; display:flex; align-items:center; flex-wrap:wrap; gap:8px; border-radius:6px; }
+.tts-disclosure { margin-bottom:0; }
+.tts-sentence.tts-speaking { background:var(--reader-selected); box-shadow:0 2px 0 var(--reader-accent); box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+.tts-click-enabled .tts-sentence { cursor:pointer; }
+.tts-click-enabled .tts-sentence:hover { text-decoration:underline; text-decoration-color:var(--reader-accent); text-underline-offset:4px; }
+.tts-sentence:focus-visible { outline:2px solid var(--reader-accent); outline-offset:3px; }
+@media(max-width:760px) {
+  .tts-player { max-height:46dvh; }
+  .tts-transport { padding:6px 10px; gap:5px; flex-wrap:wrap; }
+  .tts-transport > strong { flex-basis:calc(100% - 40px); order:0; }
+  .tts-transport > .icon-button { order:1; width:28px; height:28px; }
+  .tts-buttons { order:2; width:100%; }
+  .tts-buttons .button { flex:1; min-height:36px; }
+  .tts-content { padding:8px 10px 12px; }
+  .tts-settings-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .tts-scope-row { gap:6px; }
+  .tts-scope-row .button { min-height:36px; }
+  #tts-word { width:150px; }
+  #tts-playlist-items li { flex-wrap:wrap; }
+  .tts-list-title { flex-basis:100%; }
+}
