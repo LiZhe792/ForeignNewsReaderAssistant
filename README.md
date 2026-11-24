@@ -29,6 +29,24 @@
 
 数据与示例文件路径均相对于项目代码所在位置解析，不依赖工作目录。如果端口被占用，可以在 Run Configuration → Environment variables 中设置 `PORT=5001`，再访问对应端口。
 
+## 拓展学习
+
+侧栏「拓展学习」和文章末尾的入口提供读后复述及原文核对、跨文章词语迁移、渐退式句子提示、基于复习与错题记录的困难线索、主题连续阅读任务包，以及表达迁移练习。记录与任务包保存在本地，并包含在完整备份中。词义与表达的判断由学习者自评，困难线索只展示可解释的计数和建议；数据不足时不会给出结论。
+
+阅读器在精读模式中统计本次显示过的单词与查词或打开面板次数；样本达到 50 个词且每 100 个显示过的词有至少 6 次操作时，提供可忽略、可撤销的流畅阅读建议。显示过不代表读过或理解。
+
+句子支架可手动填写提示，或使用项目现有 AI 配置生成。选择 AI 生成时，所选句与周边上下文会发送到已配置的模型服务，应结合原文核对结果。
+
+口语反馈使用听说训练中已保存的录音，并可选用本机 faster-whisper 模型生成真实的词级识别时间戳和识别置信度；这些数据不是发音评分。未识别出的词没有可回放的时间戳。首次启用需要联网安装可选依赖和下载英文模型（模型文件保存在被 Git 忽略的 `instance` 下）。在项目 PowerShell 终端中执行：
+
+```powershell
+python -m pip install -r requirements-speech.txt
+python -c "from huggingface_hub import snapshot_download; snapshot_download('Systran/faster-whisper-tiny.en', local_dir='instance/whisper-tiny.en')"
+python app.py
+```
+
+默认使用 `instance/whisper-tiny.en`；如果模型位于其他目录，可在启动应用的终端或 PyCharm 运行配置中设置 `MARGIN_WHISPER_MODEL`。模型推理在本机 CPU 执行，不上传录音。模型或依赖缺失时，界面会提示配置，不会生成虚构结果。处理时间和效果取决于硬件、录音质量和模型；该模型只适合英文。
+
 ## 基础功能
 
 | 赛题要求 | 当前实现 |

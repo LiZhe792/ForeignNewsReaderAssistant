@@ -295,6 +295,8 @@ def init_db():
     initialize_analytics(db)
     from .study_plans import SCHEMA as PLAN_SCHEMA
     db.executescript(PLAN_SCHEMA)
+    from .learning_lab import SCHEMA as LAB_SCHEMA
+    db.executescript(LAB_SCHEMA)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"
