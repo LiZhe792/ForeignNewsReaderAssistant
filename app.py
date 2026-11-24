@@ -38,6 +38,7 @@ from newsreader.sentences import article_segments
 from newsreader.speech import speech
 
 from newsreader.knowledge import knowledge
+from newsreader.learning_lab import lab
 
 from newsreader.exports import exports
 
@@ -89,6 +90,7 @@ def create_app(test_config=None):
     app.register_blueprint(article_qa)
     app.register_blueprint(speech)
     app.register_blueprint(knowledge)
+    app.register_blueprint(lab)
     app.register_blueprint(exports)
     app.register_blueprint(deep_analysis)
     with app.app_context():

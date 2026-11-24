@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
@@ -94,7 +95,7 @@ class WritingWorkspaceTests(unittest.TestCase):
         account = self.login(first, register=True)
         token = first.get_cookie(COOKIE, domain="writer.example", path=API).value
         self.login(second)
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             self.assertTrue(db.execute("SELECT password_hash FROM accounts").fetchone()[0].startswith("scrypt:"))
             self.assertNotIn(token, [row[0] for row in db.execute("SELECT token_hash FROM sessions")])
         self.assertEqual(self.call(first, "/session", "DELETE", {}, account=account).status_code, 200)
@@ -141,7 +142,7 @@ class WritingWorkspaceTests(unittest.TestCase):
         library = reader_app({"TESTING": True, "DATABASE": str(Path(self.directory.name) / "reader.sqlite3"),
                               "WRITING_DATABASE": self.database})
         client = library.test_client()
-        with sqlite3.connect(library.config["DATABASE"]) as connection:
+        with closing(sqlite3.connect(library.config["DATABASE"])) as connection, connection:
             connection.execute("UPDATE data_state SET restored=1")
         response = client.post(API + "/session", json={
             "register": True, "username": "local-writer", "password": "test passphrase",
