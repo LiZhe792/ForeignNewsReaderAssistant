@@ -1,0 +1,623 @@
+{
+  "version": "reading-17-v1",
+  "source": "Margin 原创学习例文配套练习",
+  "articles": [
+    {
+      "article_title": "The quiet return of the night train",
+      "article_hash": "1baed272dcddbd28b31b820fcf61bed8e8fbf2034f018bd4a6850087d31d5d50",
+      "questions": [
+        {
+          "type": "choice",
+          "prompt": "夜车车票可能替代哪项旅行开支？",
+          "options": [
+            "一晚酒店费用",
+            "所有餐饮费用",
+            "护照办理费用",
+            "市内购物费用"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "卧铺票可能替代一晚酒店，影响预算比较。",
+          "evidence": "Although flying is often faster, the comparison becomes less obvious when travelers include the time spent reaching an airport and waiting at the gate. Railway stations are usually closer to the heart of a city. A sleeper ticket may also replace a night in a hotel, which changes the calculation for people traveling on a budget."
+        },
+        {
+          "type": "true_false",
+          "prompt": "只看绿色标签，就能完整判断夜车的环境影响。",
+          "options": [
+            "正确",
+            "错误",
+            "文中未提及"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "原文指出路线、乘客人数与能源来源都会影响排放，绿色标签不能说明全部。",
+          "evidence": "The environmental argument matters too. Electric trains can produce fewer emissions per passenger than planes, particularly where electricity comes from low-carbon sources. The exact difference depends on the route, the number of passengers, and the energy used. A green label, by itself, cannot tell the whole story."
+        },
+        {
+          "type": "paragraph",
+          "prompt": "哪一段主要讨论夜间铁路服务的运营难题？",
+          "options": [
+            "第 1 段",
+            "第 2 段",
+            "第 3 段",
+            "第 4 段",
+            "第 5 段",
+            "第 6 段",
+            "第 7 段"
+          ],
+          "answer": [
+            "4"
+          ],
+          "explanation": "第五段讨论车厢成本、跨国合作、延误和技术标准。",
+          "evidence": "Running a night service is not straightforward. Sleeping carriages are expensive to build and maintain. Routes that cross borders require cooperation between railway companies. A delay in one country can affect the next, while different technical standards make planning more complicated. Comfort also costs money, and passengers do not always agree on what a good night's sleep is worth."
+        },
+        {
+          "type": "cloze",
+          "prompt": "For these passengers, the ____ is not simply the space between two destinations.",
+          "options": [],
+          "answer": [
+            "journey"
+          ],
+          "explanation": "journey 指旅程，原文说旅程本身也是度假的一部分。",
+          "evidence": "At a station just after sunset, a small crowd waits beside a dark blue train. There are no long security lines and no urgent calls to board. A woman carries a paperback. A child presses his face against the window. For these passengers, the journey is not simply the space between two destinations. It is part of the holiday."
+        },
+        {
+          "type": "meaning",
+          "prompt": "第二段中 appeal 的意思最接近哪一项？",
+          "options": [
+            "吸引力",
+            "上诉程序",
+            "紧急警报",
+            "时刻表"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "这里讨论夜车对旅客的吸引力，既有实用因素也有情感因素。",
+          "evidence": "Night trains offer an old idea to a world that has become accustomed to moving quickly. You leave one city in the evening, sleep while the landscape changes, and arrive somewhere else in the morning. The appeal is practical, but it is also emotional. A train can turn hours that might otherwise feel wasted into a memorable experience."
+        },
+        {
+          "type": "theme",
+          "prompt": "哪一项最能概括文章主旨？",
+          "options": [
+            "夜车在速度上永远优于飞机",
+            "夜车把旅途变成体验，但也面临成本和协作问题",
+            "乘火车不需要任何规划",
+            "作者只比较了不同酒店"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "文章既讨论慢旅行的魅力，也讨论环境条件和运营成本，并非绝对推崇夜车。",
+          "evidence": "Running a night service is not straightforward. Sleeping carriages are expensive to build and maintain. Routes that cross borders require cooperation between railway companies. A delay in one country can affect the next, while different technical standards make planning more complicated. Comfort also costs money, and passengers do not always agree on what a good night's sleep is worth."
+        },
+        {
+          "type": "inference",
+          "prompt": "从第六段可以合理推断什么？",
+          "options": [
+            "每列夜车都禁止联网",
+            "车上只能阅读纸质书",
+            "连接不稳定有时可能让旅客更专注于离线活动",
+            "所有乘客都彼此认识"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "原文说没有可靠网络时，旅客也许能读完搁置已久的书；这是一种可能，而非必然。",
+          "evidence": "Yet the attraction of slower travel is difficult to measure on a timetable. In the dining car, strangers exchange suggestions for places they have visited. Outside, the lights of a village appear briefly and then disappear. Without a reliable internet connection, a traveler might finally finish the book that has been sitting in a bag for weeks."
+        },
+        {
+          "type": "order",
+          "prompt": "将以下句子按原文出现顺序排列。",
+          "options": [
+            "At a station just after sunset, a small crowd waits beside a dark blue train.",
+            "There are no long security lines and no urgent calls to board.",
+            "A woman carries a paperback."
+          ],
+          "answer": [
+            "0",
+            "1",
+            "2"
+          ],
+          "explanation": "核对首段叙述的原文顺序。",
+          "evidence": "At a station just after sunset, a small crowd waits beside a dark blue train. There are no long security lines and no urgent calls to board. A woman carries a paperback."
+        }
+      ]
+    },
+    {
+      "article_title": "A second life for the things we own",
+      "article_hash": "a170c297c63a036cabe3a628b49993bb020fa56564099320f2ccc01eaa5e514b",
+      "questions": [
+        {
+          "type": "choice",
+          "prompt": "维修咖啡馆除了修好物品，还希望实现什么？",
+          "options": [
+            "推广立即换新",
+            "让所有维修都收费",
+            "共享实用知识",
+            "只服务工程师"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "第二段明确说目的不只是修物品，也是分享知识。",
+          "evidence": "Repair cafes bring together people who have practical skills and people who need them. Some volunteers once worked as engineers. Others learned to sew or repair bicycles at home. The aim is not just to fix objects, but to share knowledge that has become less visible in a culture of convenient replacement."
+        },
+        {
+          "type": "true_false",
+          "prompt": "文章说当天所有物品最终都修好了。",
+          "options": [
+            "正确",
+            "错误",
+            "文中未提及"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "结尾指出有些物品修好了，有些没有。",
+          "evidence": "By the end of the morning, some objects work again and others do not. Even the unsuccessful repairs have produced conversations. The owner of the silent radio has learned how its parts fit together. She takes it home with a list of possible next steps, and the feeling that an old object still deserves attention."
+        },
+        {
+          "type": "paragraph",
+          "prompt": "哪一段主要解释“维修权”及维修面临的障碍？",
+          "options": [
+            "第 1 段",
+            "第 2 段",
+            "第 3 段",
+            "第 4 段",
+            "第 5 段",
+            "第 6 段"
+          ],
+          "answer": [
+            "3"
+          ],
+          "explanation": "第四段讨论封闭设计、缺少零件和维修说明。",
+          "evidence": "Not everything can be repaired. Some devices are sealed in ways that make opening them difficult. Spare parts may be unavailable, and manufacturers may not publish useful instructions. These obstacles have encouraged a wider discussion about the right to repair: the idea that owners should have reasonable access to the tools and information needed to maintain their possessions."
+        },
+        {
+          "type": "cloze",
+          "prompt": "____ sit beside their owners, examining each problem.",
+          "options": [],
+          "answer": [
+            "Volunteers"
+          ],
+          "explanation": "原文第一段描述志愿者坐在物主身旁检查问题。",
+          "evidence": "On a Saturday morning, the tables in a neighborhood library are covered with broken objects. There is a lamp that will not turn on, a jacket with a damaged zip, and a radio that has been silent for years. Volunteers sit beside their owners, examining each problem. This is a repair cafe, and buying something new is not the first solution."
+        },
+        {
+          "type": "meaning",
+          "prompt": "第四段 obstacles 在文中的意思是？",
+          "options": [
+            "奖励",
+            "障碍",
+            "兴趣",
+            "工具箱"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "缺少零件、说明和难以拆开的设计都是维修障碍。",
+          "evidence": "Not everything can be repaired. Some devices are sealed in ways that make opening them difficult. Spare parts may be unavailable, and manufacturers may not publish useful instructions. These obstacles have encouraged a wider discussion about the right to repair: the idea that owners should have reasonable access to the tools and information needed to maintain their possessions."
+        },
+        {
+          "type": "theme",
+          "prompt": "哪一项最符合全文主旨？",
+          "options": [
+            "维修可以延长物品寿命，并带来知识和信心",
+            "维修永远比买新东西便宜",
+            "旧物一旦坏掉就失去价值",
+            "所有制造商都支持维修权"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "文章同时讨论资源成本、维修知识和个人信心，没有作绝对成本承诺。",
+          "evidence": "The benefits of repair can also be personal. A working lamp is useful, but learning why it stopped working gives its owner something more lasting. Confidence grows through small successes. A person who has replaced a loose wire may be more willing to investigate the next problem instead of immediately reaching for a shopping app."
+        },
+        {
+          "type": "inference",
+          "prompt": "从最后一段可以推断，即使一次维修没有成功，也可能怎样？",
+          "options": [
+            "必然获得退款",
+            "无需再采取任何步骤",
+            "证明物品没有价值",
+            "让物主更理解物品并找到后续方向"
+          ],
+          "answer": [
+            "3"
+          ],
+          "explanation": "收音机没有修好，但物主理解了部件，带着后续步骤回家。",
+          "evidence": "By the end of the morning, some objects work again and others do not. Even the unsuccessful repairs have produced conversations. The owner of the silent radio has learned how its parts fit together. She takes it home with a list of possible next steps, and the feeling that an old object still deserves attention."
+        },
+        {
+          "type": "order",
+          "prompt": "将以下句子按原文出现顺序排列。",
+          "options": [
+            "On a Saturday morning, the tables in a neighborhood library are covered with broken objects.",
+            "There is a lamp that will not turn on, a jacket with a damaged zip, and a radio that has been silent for years.",
+            "Volunteers sit beside their owners, examining each problem."
+          ],
+          "answer": [
+            "0",
+            "1",
+            "2"
+          ],
+          "explanation": "核对首段叙述的原文顺序。",
+          "evidence": "On a Saturday morning, the tables in a neighborhood library are covered with broken objects. There is a lamp that will not turn on, a jacket with a damaged zip, and a radio that has been silent for years. Volunteers sit beside their owners, examining each problem."
+        }
+      ]
+    },
+    {
+      "article_title": "What a city can learn from its trees",
+      "article_hash": "08e077ce993d467a68f7508b164f2fcaca567b11539dd686384ac5cd6e05652e",
+      "questions": [
+        {
+          "type": "choice",
+          "prompt": "树木通过叶片释放水分并帮助周围空气降温的过程叫什么？",
+          "options": [
+            "侵蚀",
+            "蒸腾作用",
+            "光照反射",
+            "铺设管道"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "第二段明确解释 transpiration，即树木经叶片释放水分。",
+          "evidence": "Shade prevents sunlight from heating the surfaces below. Trees also release water through their leaves in a process called transpiration. As this water evaporates, it helps cool the surrounding air. These effects make trees a useful part of a city's response to extreme heat, although their benefits vary with species, weather, and local conditions."
+        },
+        {
+          "type": "true_false",
+          "prompt": "文章认为只要把树种下，就能保证它健康存活几十年。",
+          "options": [
+            "正确",
+            "错误",
+            "文中未提及"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "第三段区分种树与长期保持健康，后者还需要水、土壤和空间。",
+          "evidence": "Planting a tree is easier than keeping it healthy for decades. Young trees need water, suitable soil, and protection from damage. Their roots require space that is often occupied by pipes and cables. A narrow hole in a pavement may look like a place for a tree, while offering very little of what the tree actually needs."
+        },
+        {
+          "type": "paragraph",
+          "prompt": "哪一段着重讨论不同社区获得树荫是否公平？",
+          "options": [
+            "第 1 段",
+            "第 2 段",
+            "第 3 段",
+            "第 4 段",
+            "第 5 段",
+            "第 6 段"
+          ],
+          "answer": [
+            "4"
+          ],
+          "explanation": "第五段比较富裕社区与少树荫地区的条件。",
+          "evidence": "There is also a question of fairness. Wealthier neighborhoods often have more trees and larger gardens. Residents of less shaded areas may face higher temperatures while having fewer resources to keep their homes cool. Measuring tree cover can help cities identify where investment is most urgent, but maps should be combined with the experiences of people who live there."
+        },
+        {
+          "type": "cloze",
+          "prompt": "____ prevents sunlight from heating the surfaces below.",
+          "options": [],
+          "answer": [
+            "Shade"
+          ],
+          "explanation": "遮阴阻止阳光加热地表。",
+          "evidence": "Shade prevents sunlight from heating the surfaces below. Trees also release water through their leaves in a process called transpiration. As this water evaporates, it helps cool the surrounding air. These effects make trees a useful part of a city's response to extreme heat, although their benefits vary with species, weather, and local conditions."
+        },
+        {
+          "type": "meaning",
+          "prompt": "最后一段 maintenance 指什么？",
+          "options": [
+            "快速采购",
+            "景观照片",
+            "持续养护",
+            "一次性庆典"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "城市森林需要耐心养护，而非只种植一次。",
+          "evidence": "A healthy urban forest is not created in a single planting season. It depends on patient maintenance, a variety of species, and decisions that look beyond the next budget. The small tree planted today may provide its greatest benefit to someone who is not yet born. That makes a shaded street both a practical service and a quiet promise about the future."
+        },
+        {
+          "type": "theme",
+          "prompt": "哪一项最能概括文章？",
+          "options": [
+            "城市树木只起装饰作用",
+            "管道应该全部移出城市",
+            "每种树在所有天气下作用相同",
+            "健康的城市森林需要长期养护、合理设计和公平投入"
+          ],
+          "answer": [
+            "3"
+          ],
+          "explanation": "降温、地下空间、雨水系统、社区公平和长期维护构成全文主线。",
+          "evidence": "A healthy urban forest is not created in a single planting season. It depends on patient maintenance, a variety of species, and decisions that look beyond the next budget. The small tree planted today may provide its greatest benefit to someone who is not yet born. That makes a shaded street both a practical service and a quiet promise about the future."
+        },
+        {
+          "type": "inference",
+          "prompt": "从第三、四段可以推断，城市种树计划还需要考虑什么？",
+          "options": [
+            "地下根系空间与城市基础设施的配合",
+            "只计算叶子颜色",
+            "完全忽略雨水流向",
+            "保证所有树当天长成"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "原文讨论根系与管线的空间关系，并举出连接种植区、引导雨水的设计。",
+          "evidence": "City planners are therefore paying more attention to the ground beneath the surface. Some projects connect several planting areas so roots can spread. Others direct rainwater from nearby streets into planted spaces. When designed carefully, these systems can support trees and reduce the amount of water that rushes into drains during a storm."
+        },
+        {
+          "type": "order",
+          "prompt": "将以下句子按原文出现顺序排列。",
+          "options": [
+            "On a hot afternoon, two neighboring streets can feel like different worlds.",
+            "One has dark pavement and little shade.",
+            "The other is lined with mature trees, their branches forming a loose roof above the sidewalk."
+          ],
+          "answer": [
+            "0",
+            "1",
+            "2"
+          ],
+          "explanation": "核对首段叙述的原文顺序。",
+          "evidence": "On a hot afternoon, two neighboring streets can feel like different worlds. One has dark pavement and little shade. The other is lined with mature trees, their branches forming a loose roof above the sidewalk."
+        }
+      ]
+    },
+    {
+      "article_title": "The human skill of asking better questions",
+      "article_hash": "48c64abedbfa9fb2eca1ed1264469f04364c18098f1b836d7c7cbae6b13b5585",
+      "questions": [
+        {
+          "type": "choice",
+          "prompt": "根据第二段，一个清楚的问题应向系统提供什么？",
+          "options": [
+            "只提供很长的句子",
+            "目的、相关背景和期望回答的描述",
+            "作者的所有隐私信息",
+            "不需要任何限制"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "第二段列出 purpose、relevant context 和 helpful response 的清楚描述。",
+          "evidence": "As digital tools become better at producing text, the ability to ask useful questions becomes more valuable. A vague request often leads to a vague result. A carefully framed question gives the system a purpose, relevant context, and a clear description of what a helpful response would look like."
+        },
+        {
+          "type": "true_false",
+          "prompt": "文章把语言流畅视为答案事实正确的证据。",
+          "options": [
+            "正确",
+            "错误",
+            "文中未提及"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "原文明确说 fluency is not evidence，重要主张仍需核对。",
+          "evidence": "Working with AI makes those assumptions easier to overlook because a fluent answer can feel authoritative. Yet fluency is not evidence. A model can produce a persuasive explanation that includes incorrect details. Users need to check important claims against reliable sources, especially when the consequences of an error are significant."
+        },
+        {
+          "type": "paragraph",
+          "prompt": "哪一段建议把大问题拆成小问题并询问关键假设？",
+          "options": [
+            "第 1 段",
+            "第 2 段",
+            "第 3 段",
+            "第 4 段",
+            "第 5 段",
+            "第 6 段",
+            "第 7 段"
+          ],
+          "answer": [
+            "4"
+          ],
+          "explanation": "第五段提供检视假设、寻找相反证据和拆分问题的方法。",
+          "evidence": "One useful habit is to ask what would change the answer. Which assumptions are essential? What evidence would support a different conclusion? Another is to divide a large problem into smaller questions. Instead of asking a tool to solve an entire project, a learner can use it to compare approaches, identify uncertainties, or explain an unfamiliar concept."
+        },
+        {
+          "type": "cloze",
+          "prompt": "____, patience, and a willingness to revise an initial idea remain human responsibilities.",
+          "options": [],
+          "answer": [
+            "Curiosity"
+          ],
+          "explanation": "原文将好奇心、耐心和修改想法的意愿列为人的责任。",
+          "evidence": "The goal is not to create a perfect prompt that removes the need for judgment. It is to develop a conversation in which each answer helps improve the next question. Curiosity, patience, and a willingness to revise an initial idea remain human responsibilities."
+        },
+        {
+          "type": "meaning",
+          "prompt": "第四段 authoritative 描述答案给人的什么感觉？",
+          "options": [
+            "像有权威、可信的说法",
+            "完全没有语法",
+            "必然是诗歌",
+            "只能由机器阅读"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "流畅答案可能显得权威，但这种感觉不能证明细节正确。",
+          "evidence": "Working with AI makes those assumptions easier to overlook because a fluent answer can feel authoritative. Yet fluency is not evidence. A model can produce a persuasive explanation that includes incorrect details. Users need to check important claims against reliable sources, especially when the consequences of an error are significant."
+        },
+        {
+          "type": "theme",
+          "prompt": "哪一项最符合文章主旨？",
+          "options": [
+            "找到万能提示词后就无需判断",
+            "AI 会替用户完成所有学习",
+            "提问能力和核查判断在使用 AI 时仍很重要",
+            "只要答案够快就有价值"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "作者强调持续改进问题、检查证据和保留人的判断。",
+          "evidence": "The goal is not to create a perfect prompt that removes the need for judgment. It is to develop a conversation in which each answer helps improve the next question. Curiosity, patience, and a willingness to revise an initial idea remain human responsibilities."
+        },
+        {
+          "type": "inference",
+          "prompt": "从结尾学生重写问题的行为，可以推断什么？",
+          "options": [
+            "她不再需要理解材料",
+            "更明确地提供证据和疑惑是主动学习的一部分",
+            "第一次答案一定全部错误",
+            "所有问题都只能问一次"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "她补充已有证据和不懂的部分；工具提供新起点，没有替她完成学习。",
+          "evidence": "Back at the screen, the student reads the answer again. Then she deletes her first question and writes a more precise one. This time, she includes the evidence she already has and the part she does not understand. The tool has not done the learning for her. It has given her another place to begin."
+        },
+        {
+          "type": "order",
+          "prompt": "将以下句子按原文出现顺序排列。",
+          "options": [
+            "A student opens an artificial intelligence tool and types a question.",
+            "Within seconds, a confident answer fills the screen.",
+            "The speed is impressive, but the student still has work to do."
+          ],
+          "answer": [
+            "0",
+            "1",
+            "2"
+          ],
+          "explanation": "核对首段叙述的原文顺序。",
+          "evidence": "A student opens an artificial intelligence tool and types a question. Within seconds, a confident answer fills the screen. The speed is impressive, but the student still has work to do."
+        }
+      ]
+    },
+    {
+      "article_title": "Why small bookshops still matter",
+      "article_hash": "367f090a9a6f1398f0350128f1e95c1f40f0af0e1eea73cf4192d36e5563bea6",
+      "questions": [
+        {
+          "type": "choice",
+          "prompt": "独立书店能提供哪种有别于只按过往购买推荐的体验？",
+          "options": [
+            "保证所有书都最低价",
+            "永不出现不合适的推荐",
+            "由具体的人选书并通过交流带来意外发现",
+            "只出售读者事先选定的书"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "第二段强调个人兴趣形成的选书和意料之外的交流发现。",
+          "evidence": "Online shops are excellent at helping readers find books they already know they want. Recommendations can also introduce new titles based on previous purchases. An independent bookshop offers a different kind of discovery. Its selection reflects the interests of particular people, and a conversation can lead a reader somewhere unexpected."
+        },
+        {
+          "type": "true_false",
+          "prompt": "活动现场坐满人，就一定意味着书店经营健康。",
+          "options": [
+            "正确",
+            "错误",
+            "文中未提及"
+          ],
+          "answer": [
+            "1"
+          ],
+          "explanation": "第四段明确否定 full room 自动等于 healthy business。",
+          "evidence": "Small shops face real challenges. Rent is expensive, stock takes up space, and large retailers can often offer lower prices. Events and community activities may bring people through the door, but a full room does not automatically mean a healthy business. Affection for a bookshop needs to become practical support if the shop is to survive."
+        },
+        {
+          "type": "paragraph",
+          "prompt": "哪一段主要说明书店在社区连接方面的作用？",
+          "options": [
+            "第 1 段",
+            "第 2 段",
+            "第 3 段",
+            "第 4 段",
+            "第 5 段",
+            "第 6 段"
+          ],
+          "answer": [
+            "4"
+          ],
+          "explanation": "第五段讨论读者停留、听本地作者讲话和发现共同兴趣。",
+          "evidence": "For some neighborhoods, the value of a bookshop goes beyond its sales. It provides a place where people can spend time without a screen, hear a local writer speak, or discover that someone nearby shares an unusual interest. These small connections can make a busy street feel more like a community."
+        },
+        {
+          "type": "cloze",
+          "prompt": "____ is expensive, stock takes up space, and large retailers can often offer lower prices.",
+          "options": [],
+          "answer": [
+            "Rent"
+          ],
+          "explanation": "租金昂贵是小书店面临的现实挑战之一。",
+          "evidence": "Small shops face real challenges. Rent is expensive, stock takes up space, and large retailers can often offer lower prices. Events and community activities may bring people through the door, but a full room does not automatically mean a healthy business. Affection for a bookshop needs to become practical support if the shop is to survive."
+        },
+        {
+          "type": "meaning",
+          "prompt": "第四段 stock 在这里指什么？",
+          "options": [
+            "股票价格",
+            "牲畜",
+            "树干",
+            "库存书籍"
+          ],
+          "answer": [
+            "3"
+          ],
+          "explanation": "在书店经营语境中，stock 是占用空间的库存。",
+          "evidence": "Small shops face real challenges. Rent is expensive, stock takes up space, and large retailers can often offer lower prices. Events and community activities may bring people through the door, but a full room does not automatically mean a healthy business. Affection for a bookshop needs to become practical support if the shop is to survive."
+        },
+        {
+          "type": "theme",
+          "prompt": "哪一项最能概括文章？",
+          "options": [
+            "独立书店提供发现和社区价值，也需要实际支持",
+            "所有网上推荐都没有用",
+            "小书店不需要考虑成本",
+            "只要喜欢书店就能保证其生存"
+          ],
+          "answer": [
+            "0"
+          ],
+          "explanation": "文章讨论独特选书、关系和社区价值，同时承认经营压力。",
+          "evidence": "Small shops face real challenges. Rent is expensive, stock takes up space, and large retailers can often offer lower prices. Events and community activities may bring people through the door, but a full room does not automatically mean a healthy business. Affection for a bookshop needs to become practical support if the shop is to survive."
+        },
+        {
+          "type": "inference",
+          "prompt": "结合第四、五段，下列推断最合理的是？",
+          "options": [
+            "举办任何活动都能保证盈利",
+            "只需夸奖书店就可以免除租金",
+            "情感和社区价值需要转化为实际支持，才能帮助书店持续经营",
+            "小书店应该停止举办活动"
+          ],
+          "answer": [
+            "2"
+          ],
+          "explanation": "原文说 affection needs to become practical support；社区价值本身并不自动解决经营问题。",
+          "evidence": "Small shops face real challenges. Rent is expensive, stock takes up space, and large retailers can often offer lower prices. Events and community activities may bring people through the door, but a full room does not automatically mean a healthy business. Affection for a bookshop needs to become practical support if the shop is to survive."
+        },
+        {
+          "type": "order",
+          "prompt": "将以下句子按原文出现顺序排列。",
+          "options": [
+            "The bookshop is small enough that a visitor can see almost every shelf from the door.",
+            "A handwritten card recommends a novel.",
+            "Near the window, a table holds books about the neighborhood, a collection of poems, and a history of bread."
+          ],
+          "answer": [
+            "0",
+            "1",
+            "2"
+          ],
+          "explanation": "核对首段叙述的原文顺序。",
+          "evidence": "The bookshop is small enough that a visitor can see almost every shelf from the door. A handwritten card recommends a novel. Near the window, a table holds books about the neighborhood, a collection of poems, and a history of bread."
+        }
+      ]
+    }
+  ]
+}

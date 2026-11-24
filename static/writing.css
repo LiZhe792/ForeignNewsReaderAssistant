@@ -1,0 +1,66 @@
+.writing-modal { width:min(1120px,calc(100vw - 32px)); padding:24px; }
+.writing-modal .modal-heading { position:sticky; top:-24px; z-index:3; margin:-24px -24px 16px; padding:20px 24px 14px; background:var(--reader-surface); border-bottom:1px solid var(--reader-border); }
+.writing-modal .modal-heading .icon-button { flex-shrink:0; min-width:40px; min-height:40px; }
+.writing-configuration { border:1px solid var(--reader-border); border-radius:8px; padding:10px 14px; margin-bottom:16px; }
+.writing-config-fields { display:grid; grid-template-columns:minmax(0,1fr) 220px; gap:14px; margin:14px 0 10px; }
+.writing-layout { display:grid; grid-template-columns:185px minmax(0,1fr); border:1px solid var(--reader-border); border-radius:10px; overflow:hidden; }
+.writing-history { background:var(--reader-surface); border-right:1px solid var(--reader-border); padding:14px; display:flex; flex-direction:column; gap:12px; }
+.writing-row, .writing-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.writing-actions { justify-content:flex-start; margin:12px 0; }
+.writing-row > strong { font-size:12px; }
+.writing-workspace { background:var(--reader-bg); padding:22px; min-width:0; }
+.writing-workspace h3 { font-size:18px; font-weight:600; }
+.writing-note { font-size:12px; color:var(--reader-muted); line-height:1.8; overflow-wrap:anywhere; }
+.writing-instruction { margin:12px 0 18px; padding:12px 14px; background:var(--reader-soft); color:var(--reader-text); border-radius:8px; line-height:1.8; font-size:13px; }
+#writing-setup > label, .writing-source-fields > label { margin-bottom:16px; }
+#writing-source { font-size:14px; line-height:1.8; }
+.writing-wordbank { display:flex; gap:10px; align-items:end; margin:0 0 16px; }
+.writing-wordbank > label { flex:1; min-width:0; }
+.writing-wordbank > button { flex-shrink:0; margin-bottom:1px; }
+.writing-source-fields > p { margin:-8px 0 14px; }
+#writing-history-list { max-height:58dvh; overflow:auto; }
+.writing-history-item { display:block; width:100%; text-align:left; padding:10px; border-radius:7px; border:1px solid transparent; margin-bottom:6px; overflow-wrap:anywhere; }
+.writing-history-item:hover, .writing-history-item[aria-current] { border-color:var(--reader-border); background:var(--reader-soft); }
+.writing-history-item strong { display:block; font-size:12px; font-weight:600; }
+.writing-history-item small { display:block; color:var(--reader-muted); font-size:11px; margin-top:4px; }
+#writing-material { border:1px solid var(--reader-border); border-radius:8px; padding:10px 12px; margin:0 0 16px; font-size:12px; }
+.writing-modal summary { cursor:pointer; }
+.writing-text { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.85; font-size:14px; }
+#writing-material-text { max-height:240px; overflow:auto; margin-top:12px; }
+#writing-target-summary { margin-bottom:10px; }
+#writing-draft { display:block; margin-top:8px; font-size:16px; line-height:1.8; min-height:190px; }
+.writing-conflict { padding:14px; border:1px solid var(--reader-border); background:var(--reader-soft); border-radius:8px; margin:12px 0; font-size:12px; line-height:1.8; }
+.writing-conflict .writing-text { max-height:220px; overflow:auto; }
+.writing-feedback-heading { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-top:20px; margin-top:20px; border-top:1px solid var(--reader-border); }
+.writing-feedback-heading select { width:auto; max-width:100%; font-size:12px; }
+.writing-feedback-summary { margin:14px 0; line-height:1.85; white-space:pre-wrap; overflow-wrap:anywhere; }
+.writing-feedback-list { padding-left:22px; font-size:13px; line-height:1.85; }
+.writing-feedback-list li + li { margin-top:6px; }
+.writing-comparison { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0; }
+.writing-comparison > section { border:1px solid var(--reader-border); border-radius:8px; padding:14px; min-width:0; }
+.writing-comparison h4 { margin:0 0 12px; font-size:12px; color:var(--reader-muted); }
+.writing-comparison del { text-decoration:line-through; background:#f6d8d1; color:#6c2e27; }
+.writing-comparison ins { text-decoration:underline; background:#dcebd5; color:#294b2b; }
+[data-reader-theme="dark"] .writing-comparison del { background:#663a38; color:#ffe3de; }
+[data-reader-theme="dark"] .writing-comparison ins { background:#365139; color:#d7efd4; }
+.writing-correction { padding:12px 0; border-bottom:1px solid var(--reader-border); }
+.writing-correction strong { font-size:12px; }
+.writing-correction blockquote { margin:8px 0; padding:9px 12px; border-left:2px solid var(--reader-accent); background:var(--reader-soft); }
+.writing-disclosure { margin-top:14px; }
+.writing-target-usage { margin:12px 0; font-size:12px; line-height:1.8; }
+@media(max-width:760px) {
+  .writing-modal { width:calc(100vw - 16px); padding:16px; }
+  .writing-modal .modal-heading h2 { font-size:19px; }
+  .writing-config-fields { grid-template-columns:minmax(0,1fr); }
+  .writing-modal .modal-heading { top:-16px; margin:-16px -16px 12px; padding:14px 16px 10px; }
+  #writing-article-title { max-width:calc(100vw - 115px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .writing-layout { display:flex; flex-direction:column; }
+  .writing-history { border-right:0; border-bottom:1px solid var(--reader-border); display:grid; grid-template-columns:1fr 1fr; padding:10px; gap:8px; }
+  #writing-history-list { grid-column:1/-1; display:flex; max-height:120px; overflow:auto; gap:6px; }
+  .writing-history-item { min-width:145px; max-width:200px; }
+  .writing-workspace { padding:16px; }
+  .writing-comparison { grid-template-columns:1fr; }
+  #writing-draft { min-height:220px; }
+  .writing-wordbank { align-items:stretch; flex-direction:column; }
+  .writing-actions > button { min-height:42px; }
+}

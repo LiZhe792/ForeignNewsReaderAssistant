@@ -19,7 +19,7 @@ function frontend() {
     classList: {add() {}, remove() {}, toggle() {}},
     append() {}, remove() {}, addEventListener() {},
   });
-  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel']) {
+  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel', '#file-drop', '#import-file', '#import-dialog']) {
     elements.set(selector, element());
   }
   const document = {
@@ -41,6 +41,8 @@ function frontend() {
       return respond(url, options);
     },
   });
+  vm.runInContext(fs.readFileSync(path.join(root, 'static/dictionary.js'), 'utf8'), context);
+  context.MarginDictionary = window.MarginDictionary;
   vm.runInContext(flowSource, context);
   vm.runInContext(source, context);
   // The initial data load stays pending; each test controls subsequent responses.
@@ -69,7 +71,8 @@ test('a failed article deletion keeps reading and completion usable', async () =
   assert.equal(ui.run('readingSessions.has(1)'), true);
   ui.respond(() => ok({progress: 100}));
   await ui.run('activeSession.seconds=12; activeSession.progress=100; activeSession.dirty=true; flushSession()');
-  assert.deepEqual(ui.calls.at(-1).body, {seconds: 12, progress: 100, position: 20});
+  assert.match(ui.calls.at(-1).body.request_id,/^[A-Za-z0-9_-]{8,100}$/);
+  const {request_id,...saved}=ui.calls.at(-1).body;assert.deepEqual(saved, {seconds: 12, progress: 100, position: 20});
 });
 
 test('saving drains reading time accumulated during an outage in valid batches', async () => {
@@ -160,7 +163,7 @@ test('scroll and time changes made during a save are included before it finishes
   ui.respond(() => ok({}));
   finish();
   await saving;
-  assert.deepEqual(ui.calls.map(call => call.body), [
+  assert.deepEqual(ui.calls.map(call => {const {request_id,...body}=call.body;return body;}), [
     {seconds: 12, progress: 20, position: 20}, {seconds: 5, progress: 80, position: 50},
   ]);
   assert.equal(ui.run('activeSession.seconds'), 0);
@@ -176,17 +179,17 @@ for (const word of ['well-being', "reader's", 'reader’s']) {
     const node = {};
     const body = {contains: n => n === node};
     ui.window.getSelection = () => ({toString: () => word, anchorNode: node, focusNode: node});
-    const paragraph = {dataset: {plain: `We discussed ${word} in class.`}};
+    const paragraph = {contains: n => n === node, dataset: {plain: `We discussed ${word} in class.`}};
     await ui.emit('mouseup', {target: {closest: selector => selector === '#article-body'
       ? body : selector === '.paragraph' ? paragraph : null}});
-    assert.equal(ui.calls[0]?.url, '/api/dictionary?word=' + encodeURIComponent(word));
+    assert.equal(ui.calls[0]?.url, '/api/dictionary?word=' + encodeURIComponent(word) + '&provider=auto');
   });
 }
 
-test('selecting several words does not accidentally query one clicked word', async () => {
+test('selecting a sentence longer than six words does not query one clicked word', async () => {
   const ui = frontend();
   const node = {};
-  ui.window.getSelection = () => ({toString: () => 'two words', anchorNode: node, focusNode: node});
+  ui.window.getSelection = () => ({toString: () => 'one two three four five six seven', anchorNode: node, focusNode: node});
   await ui.emit('mouseup', {target: {closest: selector => selector === '#article-body'
     ? {contains: n => n === node} : selector === '[data-word]' ? {dataset: {word: 'two'}} : null}});
   assert.equal(ui.calls.length, 0);
@@ -196,6 +199,18 @@ test('the vocabulary form pattern compiles under modern browser validation rules
   const html = fs.readFileSync(path.join(root, 'templates/index.html'), 'utf8');
   const pattern = html.match(/name="word" pattern="([^"]+)"/)[1];
   const regex = new RegExp(`^(?:${pattern})$`, 'v');
-  for (const word of ['journey', 'well-being', "reader's", 'reader’s']) assert.equal(regex.test(word), true);
-  for (const word of ['two words', '123', '<script>', 'read-']) assert.equal(regex.test(word), false);
+  for (const word of ['journey', 'well-being', "reader's", 'reader’s', 'take into account']) assert.equal(regex.test(word), true);
+  for (const word of ['one two three four five six seven', '123', '<script>', 'read-']) assert.equal(regex.test(word), false);
+});
+
+
+test('a lost reading acknowledgement retries the original receipt before saving newer progress', async () => {
+  const ui=frontend();let first=true;
+  ui.respond(()=>{if(first){first=false;throw new TypeError('Lost acknowledgement');}return ok({});});
+  await assert.rejects(ui.run(`activeSession={id:1,seconds:15,progress:25,position:25,dirty:true,saving:null};flushSession()`));
+  ui.run('activeSession.seconds+=10;activeSession.progress=70;activeSession.position=70;activeSession.dirty=true');
+  await ui.run('flushSession()');
+  assert.equal(ui.calls.length,3);assert.deepEqual(ui.calls[0].body,ui.calls[1].body);
+  assert.notEqual(ui.calls[1].body.request_id,ui.calls[2].body.request_id);
+  assert.equal(ui.calls[2].body.seconds,10);assert.equal(ui.calls[2].body.progress,70);assert.equal(ui.run('activeSession.seconds'),0);
 });

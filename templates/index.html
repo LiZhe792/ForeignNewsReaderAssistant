@@ -1,107 +1,331 @@
 <!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#254b3e">
-  <meta name="description" content="Margin 知刊：阅读外刊、查询生词、记录阅读进度与每日打卡。Python 外刊学习助手。">
-  <title>Margin 知刊 · 外刊学习助手</title>
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/reader.css">
-  <link rel="stylesheet" href="/static/reading-flow.css">
-  <script src="/static/reader.js" defer></script>
-  <script src="/static/reading-flow.js" defer></script>
-  <script src="/static/app.js" defer></script>
-</head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="#254b3e" name="theme-color"/>
+<meta content="Margin 知刊：阅读外刊、查询生词、记录阅读进度与每日打卡。Python 外刊学习助手。" name="description"/>
+<title data-i18n="Margin 知刊 · 外刊学习助手">Margin 知刊 · 外刊学习助手</title>
+<link href="/static/favicon.svg" rel="icon" type="image/svg+xml"/>
+<link href="/static/style.css" rel="stylesheet"/>
+<link href="/static/writing.css" rel="stylesheet"/>
+<link href="/static/reader.css" rel="stylesheet"/>
+<link href="/static/speech.css" rel="stylesheet"/>
+<link href="/static/reading-flow.css" rel="stylesheet"/>
+<link href="/static/dictionary.css" rel="stylesheet"/>
+<link href="/static/assistance.css" rel="stylesheet"/>
+<link href="/static/vocabulary.css" rel="stylesheet"/>
+<link href="/static/practice.css" rel="stylesheet"/>
+<link href="/static/personalization.css" rel="stylesheet"/>
+<script defer="" src="/static/personalization.js"></script>
+<link href="/static/analytics.css" rel="stylesheet"/>
+<script defer="" src="/static/analytics.js"></script>
+<link href="/static/data-management.css" rel="stylesheet"/>
+<script defer="" src="/static/data-management.js"></script>
+<script defer="" src="/static/listening.js"></script>
+<script defer="" src="/static/exercises.js"></script>
+<script defer="" src="/static/wordbook.js"></script>
+<script defer="" src="/static/srs.js"></script>
+<script defer="" src="/static/assistance.js"></script>
+<script defer="" src="/static/dictionary.js"></script>
+<script defer="" src="/static/reader.js"></script>
+<script defer="" src="/static/speech.js"></script>
+<script defer="" src="/static/reading-flow.js"></script>
+<link href="/static/study-plans.css" rel="stylesheet"/>
+<script defer="" src="/static/study-plans.js"></script>
+<link href="/static/accessibility.css" rel="stylesheet"/>
+<script defer="" src="/static/interface.js"></script>
+
+<link href="/static/article-qa.css" rel="stylesheet">
+<script defer="" src="/static/article-qa.js"></script>
+<script defer="" src="/static/writing.js"></script>
+<link href="/static/knowledge.css" rel="stylesheet">
+<script defer="" src="/static/knowledge.js"></script>
+<link href="/static/exports.css" rel="stylesheet">
+<script defer="" src="/static/exports.js"></script>
+<script defer="" src="/static/deep-analysis.js"></script>
+</link></link></link><script defer="" src="/static/app.js"></script></head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="主导航">
-      <a class="brand" href="#library" aria-label="Margin 知刊首页"><span class="brand-mark">m<span>·</span></span><span><strong>Margin<span class="brand-cn">知刊</span></strong><small>READ. REFLECT. REMEMBER.</small></span></a>
-      <div class="workspace-label">我的学习空间</div>
-      <nav class="nav-list">
-        <a href="#library" data-nav="library" aria-label="发现文章" title="发现文章"><span data-icon="compass"></span><span>发现文章</span></a>
-        <a href="#vocabulary" data-nav="vocabulary" aria-label="我的生词" title="我的生词"><span data-icon="bookmark"></span><span>我的生词</span><span class="nav-count" id="word-count">0</span></a>
-        <a href="#activity" data-nav="activity" aria-label="学习足迹" title="学习足迹"><span data-icon="calendar"></span><span>学习足迹</span></a>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title">每天留一点时间给世界<span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span>今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div></div>
-        <button class="settings-link" data-action="settings" aria-label="使用说明"><span data-icon="info"></span>使用说明<span class="status-dot"></span></button>
-        <div class="local-profile"><span class="avatar">M</span><div><strong>我的阅读手记</strong><small>本地存储 · 点滴积累</small></div><span data-icon="shield"></span></div>
-      </div>
-    </aside>
-    <main class="main-shell">
-      <header class="topbar"><div class="breadcrumb"><span>我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><span class="local-badge"><i></i>本地学习空间</span><button class="button primary small" data-action="import"><span data-icon="plus"></span>导入文章</button></div></header>
-      <div id="app" class="page-content" aria-live="polite"><div class="loading-screen"><span class="spinner"></span><p>正在翻开你的阅读空间…</p></div></div>
-    </main>
-  </div>
-
-  <dialog id="import-dialog" class="modal import-modal">
-    <div class="modal-heading"><div><span class="eyebrow">MAKE IT YOUR READING</span><h2>把好文章，带到这里</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭导入窗口"><span data-icon="close"></span></button></div>
-    <div class="segmented import-tabs"><button class="active" data-import-tab="paste" type="button">粘贴正文</button><button data-import-tab="url" type="button">网页链接</button></div>
-    <form id="import-form">
-      <div id="paste-fields"><label>文章标题<input name="title" maxlength="250" placeholder="Give your reading a title" required></label><label>英文正文<textarea name="content" rows="7" maxlength="100000" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required></textarea></label><label>来源（选填）<input name="source" maxlength="100" placeholder="例如：BBC / The Guardian / 个人笔记"></label></div>
-      <div id="url-fields" hidden><label>文章链接<input name="url" type="url" maxlength="2048" placeholder="https://example.com/article" disabled></label><div class="info-note"><span data-icon="info"></span><p>自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div></div>
-      <label>文章分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label>
-      <p class="form-error" id="import-error" role="alert"></p>
-      <div class="modal-footer"><span>导入后将自动估算阅读难度</span><button type="submit" class="button primary" id="import-submit">导入并开始阅读<span data-icon="arrow-right"></span></button></div>
-    </form>
-  </dialog>
-
-  <dialog id="settings-dialog" class="modal">
-    <div class="modal-heading"><div><span class="eyebrow">YOUR READING COMPANION</span><h2>让阅读成为日常</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭使用说明"><span data-icon="close"></span></button></div>
-    <div class="help-section"><h3>开始你的阅读</h3><ol><li>导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li>流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li>在「我的生词」中增删词条并手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
-    <div class="help-section"><h3>关于这个阅读空间</h3><p>所有学习记录保存在本机 <code>instance/margin.sqlite3</code>。阅读时自动保存进度；页面隐藏或停止操作一段时间后暂停计时。打卡日期采用北京时间。</p><p>内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。</p></div>
-  </dialog>
-
-  <dialog id="word-dialog" class="modal">
-    <div class="modal-heading"><div><span class="eyebrow">A WORD WORTH KEEPING</span><h2 id="word-dialog-title">添加生词</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭生词编辑"><span data-icon="close"></span></button></div>
-    <form id="word-form"><label>英文单词<input name="word" pattern="[A-Za-z]+(['’\-][A-Za-z]+)*" maxlength="60" required placeholder="例如：perspective"></label><label>释义<textarea name="meaning" rows="3" maxlength="3000" required placeholder="写下你对这个词的理解"></textarea></label><label>学习笔记（选填）<textarea name="note" rows="3" maxlength="2000" placeholder="搭配、联想，或你自己的例句"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span>可在生词本中标记掌握程度</span><button class="button primary" type="submit">保存生词<span data-icon="check"></span></button></div></form>
-  </dialog>
-
-  <dialog id="confirm-dialog" class="modal compact"><div class="modal-heading"><h2>删除这条记录？</h2><button class="icon-button" data-action="cancel-confirm" aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm">保留记录</button><button class="button danger" data-action="accept-confirm">确认删除</button></div></dialog>
-
-  <dialog id="reader-settings-dialog" class="modal reader-settings-modal" aria-labelledby="reader-settings-title">
-    <div class="modal-heading"><div><span class="eyebrow">MAKE ROOM FOR READING</span><h2 id="reader-settings-title">阅读设置</h2></div><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭阅读设置">✕</button></div>
-    <div class="reader-setting-grid">
-      <label>正文字体<select data-reader-setting="font_family"><option value="serif">Georgia · 书卷衬线</option><option value="classic">Times New Roman · 经典衬线</option><option value="sans">Arial · 清晰无衬线</option><option value="mono">Consolas · 等宽字体</option></select></label>
-      <label>正文排版<select data-reader-setting="layout"><option value="single">单栏</option><option value="double">双栏 · 每行先左后右</option></select></label>
-      <label>字号 <output data-reader-output="font_size"></output><input type="range" data-reader-setting="font_size" min="16" max="28" step="1"></label>
-      <label>行距 <output data-reader-output="line_height"></output><input type="range" data-reader-setting="line_height" min="1.4" max="2.4" step="0.1"></label>
-      <label>正文最大宽度 <output data-reader-output="content_width"></output><input type="range" data-reader-setting="content_width" min="560" max="1200" step="20"></label>
-      <label>段落间距 <output data-reader-output="paragraph_spacing"></output><input type="range" data-reader-setting="paragraph_spacing" min="0.5" max="3" step="0.05"></label>
-    </div>
-    <fieldset class="reader-theme-options"><legend>阅读主题</legend><label><input type="radio" name="reader-theme" value="light" data-reader-setting="theme">浅色</label><label><input type="radio" name="reader-theme" value="dark" data-reader-setting="theme">深色</label><label><input type="radio" name="reader-theme" value="sepia" data-reader-setting="theme">护眼</label></fieldset>
-    <div class="reader-switches"><label><input type="checkbox" data-reader-setting="paragraph_numbers">显示段落编号</label><label><input type="checkbox" data-reader-setting="focus_mode">专注模式</label><label><input type="checkbox" data-reader-setting="shortcuts_enabled">启用阅读快捷键</label><label><input type="checkbox" data-reader-setting="gestures_enabled">启用手机左右轻扫</label></div>
-    <p class="reader-setting-note">宽度会适应当前窗口；正文区域不足 680 px 时，双栏自动显示为单栏。字体使用本机可用字体，无需下载。</p>
-    <fieldset class="flow-settings"><legend>阅读与学习节奏</legend>
-      <div class="reader-setting-grid">
-        <label>阅读模式<select data-reader-setting="reading_mode"><option value="fluent">流畅阅读 · 点词先暂存</option><option value="intensive">精读模式 · 点词打开查词卡片</option></select></label>
-        <label>学习提示密度<select data-reader-setting="hint_density"><option value="quiet">安静 · 手动操作，无主动提示</option><option value="balanced">适中 · 每段首次遇见时标记</option><option value="detailed">详细 · 全部学习词与操作提示</option></select></label>
-        <label>阶段提醒间隔（分钟）<input type="number" data-reader-setting="reminder_minutes" min="0" max="60" step="1" required></label>
-      </div>
-      <div class="reader-switches"><label><input type="checkbox" data-reader-setting="definition_collapsed">查词卡片默认折叠释义</label><label><input type="checkbox" data-reader-setting="suppress_mastered">已掌握词减少标记</label></div>
-      <p class="reader-setting-note">提醒按本次前台活跃阅读时间计算；弹窗、离开页面或停止操作时暂停。填 0 关闭提醒，安静档也不主动提醒。待查列表中的释义始终按需展开。</p>
-    </fieldset>
-    <div class="modal-footer"><span id="reader-settings-status" role="status">设置自动保存在本机</span><button class="button small" data-reader-action="retry-settings" id="retry-reader-settings" hidden>重试保存</button><button class="button small" data-reader-action="reset">恢复默认</button><button class="button primary small" data-reader-action="close-dialog">完成</button></div>
-  </dialog>
-  <dialog id="reader-toc-dialog" class="modal reader-toc-modal" aria-labelledby="reader-toc-title">
-    <div class="modal-heading"><div><span class="eyebrow">FIND YOUR PLACE</span><h2 id="reader-toc-title">段落目录</h2></div><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭目录">✕</button></div>
-    <p class="reader-setting-note">按原文段落定位，当前阅读的段落会高亮显示。</p><nav id="reader-toc-list" aria-label="文章段落目录"></nav>
-  </dialog>
-  <dialog id="reader-help-dialog" class="modal" aria-labelledby="reader-help-title">
-    <div class="modal-heading"><h2 id="reader-help-title">阅读操作帮助</h2><button class="icon-button" data-reader-action="close-dialog" aria-label="关闭阅读操作帮助">✕</button></div>
-    <dl class="reader-shortcuts"><dt><kbd>F</kbd></dt><dd>切换专注模式</dd><dt><kbd>G</kbd></dt><dd>进入或退出全屏</dd><dt><kbd>T</kbd> / <kbd>S</kbd></dt><dd>段落目录 / 阅读设置</dd><dt><kbd>N</kbd> / <kbd>C</kbd></dt><dd>段落编号 / 单双栏</dd><dt><kbd>[</kbd> / <kbd>]</kbd></dt><dd>上一段 / 下一段</dd><dt><kbd>−</kbd> / <kbd>+</kbd></dt><dd>减小 / 增大字号</dd><dt><kbd>Space</kbd> / <kbd>Shift Space</kbd></dt><dd>向下 / 向上翻一屏</dd><dt><kbd>Home</kbd> / <kbd>End</kbd></dt><dd>文章顶部 / 文末</dd><dt><kbd>?</kbd></dt><dd>显示本帮助</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗或查词面板；退出全屏或专注模式</dd></dl>
-    <div class="help-section"><h3>手机手势</h3><p>在正文区域向左轻扫进入下一段，向右轻扫返回上一段。上下滑动正常滚动；长按选词和双指缩放保留浏览器原有行为。</p><p>输入文字、使用按钮或打开弹窗时，阅读快捷键不会触发。可在阅读设置中关闭快捷键或手势。全屏需要浏览器支持，并由你主动开启。</p></div>
-    <div class="help-section"><h3>先读懂，再深究</h3><p>流畅阅读中点词会先暂存，不弹出释义。读完一段可点段末的「处理待查词」，也可用工具栏的「本段生词」或「待查词」。精读模式中点词打开查词卡片，点击「展开释义」再查看。任何模式都可以在查词面板主动输入单词。</p><p>待查词按文章与段落保存在本机，刷新后仍在；收藏时保留原文语境。安静档隐藏正文提示，手动查词和待查列表仍然可用。已掌握词默认不再主动标记，但仍可手动查询。</p></div>
-  </dialog>
-  <dialog id="pending-words-dialog" class="modal pending-words-modal" aria-labelledby="pending-words-title">
-    <div class="modal-heading"><div><span class="eyebrow">READ FIRST, LEARN TOGETHER</span><h2 id="pending-words-title">集中处理待查词</h2></div><button class="icon-button" data-flow-action="close-queue" aria-label="关闭待查词">✕</button></div>
-    <label class="pending-filter-label">处理范围<select id="pending-filter" aria-label="待查词段落范围"></select></label>
-    <p id="pending-queue-summary" class="reader-setting-note" role="status"></p>
-    <div id="pending-word-list"></div>
-    <div class="modal-footer"><button class="button primary" data-flow-action="close-queue">完成，继续阅读</button></div>
-  </dialog>
-  <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+<a class="skip-link" data-i18n="skip" data-skip="app" href="#app">跳到主要内容</a>
+<div class="app-shell">
+<aside class="sidebar">
+<a aria-label="Margin 知刊首页" class="brand" data-i18n-aria-label="Margin 知刊首页" href="#library"><span class="brand-mark">m<span>·</span></span><span><strong>Margin<span class="brand-cn">知刊</span></strong><small>READ. REFLECT. REMEMBER.</small></span></a>
+<div class="workspace-label" data-i18n="我的学习空间">我的学习空间</div>
+<nav aria-label="主导航" class="nav-list" data-i18n-aria-label="主导航">
+<a aria-label="发现文章" data-i18n-aria-label="发现文章" data-i18n-title="发现文章" data-nav="library" href="#library" title="发现文章"><span data-icon="compass"></span><span data-i18n="发现文章">发现文章</span></a>
+<a aria-label="我的生词" data-i18n-aria-label="我的生词" data-i18n-title="我的生词" data-nav="vocabulary" href="#vocabulary" title="我的生词"><span data-icon="bookmark"></span><span data-i18n="我的生词">我的生词</span><span class="nav-count" id="word-count">0</span></a>
+<a aria-label="间隔复习" data-i18n-aria-label="间隔复习" data-i18n-title="间隔复习" data-nav="review" href="#review" title="间隔复习"><span data-icon="clock"></span><span data-i18n="间隔复习">间隔复习</span></a>
+<a aria-label="听说训练" data-i18n-aria-label="听说训练" data-i18n-title="听说训练" data-nav="listening" href="#listening" title="听说训练"><span data-icon="sun"></span><span data-i18n="听说训练">听说训练</span></a>
+<a aria-label="阅读测验" data-i18n-aria-label="阅读测验" data-i18n-title="阅读测验" data-nav="exercises" href="#exercises" title="阅读测验"><span data-icon="pen"></span><span data-i18n="阅读测验">阅读测验</span></a>
+<a aria-label="难度与推荐" data-i18n-aria-label="难度与推荐" data-i18n-title="难度与推荐" data-nav="personalization" href="#personalization" title="难度与推荐"><span data-icon="plant"></span><span data-i18n="难度与推荐">难度与推荐</span></a>
+<a aria-label="学习数据分析" data-i18n-aria-label="学习数据分析" data-i18n-title="学习数据分析" data-nav="analytics" href="#analytics" title="学习数据分析"><span data-icon="chart"></span><span data-i18n="学习数据分析">学习数据分析</span></a>
+<a aria-label="离线与数据管理" data-i18n-aria-label="离线与数据管理" data-i18n-title="离线与数据管理" data-nav="data" href="#data" title="离线与数据管理"><span data-icon="shield"></span><span data-i18n="离线与数据管理">离线与数据管理</span></a>
+<a aria-label="学习计划" data-i18n-aria-label="学习计划" data-i18n-title="学习计划" data-nav="plans" href="#plans" title="学习计划"><span data-icon="check"></span><span data-i18n="学习计划">学习计划</span></a>
+<a aria-label="多端写作" data-i18n-aria-label="writing.title" data-i18n-title="writing.title" href="/writing" title="多端写作"><span data-icon="pen"></span><span data-i18n="writing.title">多端写作</span></a>
+<a aria-label="学习足迹" data-i18n-aria-label="学习足迹" data-i18n-title="学习足迹" data-nav="activity" href="#activity" title="学习足迹"><span data-icon="calendar"></span><span data-i18n="学习足迹">学习足迹</span></a>
+<a aria-label="知识整理" data-nav="knowledge" href="#knowledge" title="知识整理"><span data-icon="pen"></span><span>知识整理</span></a>
+<a aria-label="导出与联动" data-nav="exports" href="#exports" title="导出与联动"><span data-icon="arrow-right"></span><span>导出与联动</span></a>
+<a aria-label="订阅源" data-nav="feeds" href="#feeds" title="订阅源"><span data-icon="rss"></span><span>订阅源</span></a>
+</nav>
+<div class="sidebar-bottom">
+<div class="daily-card"><span class="eyebrow">A LITTLE, EVERY DAY</span><div class="daily-title"><span data-i18n="每天留一点时间给世界">每天留一点时间给世界</span><span data-icon="sun"></span></div><div class="daily-progress"><span id="daily-bar"></span></div><div class="daily-meta"><span data-i18n="今日阅读">今日阅读</span><strong id="daily-minutes">0 / 15 分钟</strong></div><a class="daily-goal-link" href="#plans" id="daily-vocabulary">词汇 0 / 5 条</a></div>
+<button aria-label="使用说明" class="settings-link" data-action="settings" data-i18n-aria-label="使用说明"><span data-icon="info"></span><span data-i18n="使用说明">使用说明</span><span class="status-dot"></span></button>
+<div class="local-profile"><span class="avatar">M</span><div><strong data-i18n="我的阅读手记">我的阅读手记</strong><small data-i18n="本地存储 · 点滴积累">本地存储 · 点滴积累</small></div><span data-icon="shield"></span></div>
+</div>
+</aside>
+<main class="main-shell">
+<header class="topbar"><div class="breadcrumb"><span data-i18n="我的学习空间">我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><button class="button small" data-display-settings="" data-i18n="display.settings" type="button">语言与显示</button><span class="local-badge"><i></i><span id="network-status-text">本地学习空间</span></span><button class="button primary small" data-action="import"><span data-icon="plus"></span><span data-i18n="导入文章">导入文章</span></button></div></header>
+<div class="data-changed-banner" hidden="" id="data-changed-banner" role="alert"><span data-i18n="学习数据已在另一页面还原，本页旧操作已暂停。重新载入后继续使用。">学习数据已在另一页面还原，本页旧操作已暂停。重新载入后继续使用。</span><button class="button small" data-action="reload-data" data-i18n="重新载入">重新载入</button></div>
+<div aria-labelledby="page-label" class="page-content" id="app" role="region" tabindex="-1"><div class="loading-screen"><span class="spinner"></span><p data-i18n="正在翻开你的阅读空间…">正在翻开你的阅读空间…</p></div></div>
+<div class="visually-hidden" id="route-status" role="status"></div>
+</main>
+</div>
+<dialog aria-labelledby="import-dialog-title" class="modal import-modal" id="import-dialog">
+<div class="modal-heading"><div><span class="eyebrow">MAKE IT YOUR READING</span><h2 data-i18n="把好文章，带到这里" id="import-dialog-title">把好文章，带到这里</h2></div><button aria-label="关闭导入窗口" class="icon-button" data-action="close-dialog" data-i18n-aria-label="关闭导入窗口"><span data-icon="close"></span></button></div>
+<div class="segmented import-tabs"><button class="active" data-i18n="粘贴正文" data-import-tab="paste" type="button">粘贴正文</button><button data-i18n="网页链接" data-import-tab="url" type="button">网页链接</button><button data-import-tab="batch" type="button">批量链接</button><button data-import-tab="file" type="button">文件 / 图片</button></div>
+<form id="import-form"><div hidden="" id="file-fields"><div class="file-drop" id="file-drop"><strong>拖拽文件到这里</strong><span>或选择文件，识别后可预览和修改</span><input accept=".txt,.md,.markdown,.html,.htm,.pdf,.docx,.epub,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff" aria-label="选择要导入的文件" id="import-file" type="file"/><small>TXT、Markdown、HTML、PDF、DOCX、EPUB、图片 · 最大 20 MB，PDF 最多 30 页</small></div><p class="file-status" id="file-status" role="status"></p></div><div hidden="" id="batch-fields"><label>文章链接（每行一个，最多 10 个）<textarea disabled="" maxlength="20000" name="urls" placeholder="https://example.com/one
+https://example.com/two" rows="6"></textarea></label><div class="info-note"><span data-icon="info"></span><p>逐条提取正文，失败的链接会单独提示原因，成功的文章直接进入文章库。</p></div><button class="button small clipboard-button" data-action="paste-clipboard" data-target="urls" type="button">从剪贴板读取链接列表</button><div class="batch-results" id="batch-results" role="status"></div></div>
+<div id="paste-fields"><label><span data-i18n="文章标题">文章标题</span><input maxlength="250" name="title" placeholder="Give your reading a title" required=""/></label><label><span data-i18n="英文正文">英文正文</span><textarea data-i18n-placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" maxlength="100000" name="content" placeholder="粘贴至少 40 个英文单词。空行会保留为段落。" required="" rows="7"></textarea></label><label><span data-i18n="来源（选填）">来源（选填）</span><input data-i18n-placeholder="例如：BBC / The Guardian / 个人笔记" maxlength="100" name="source" placeholder="例如：BBC / The Guardian / 个人笔记"/></label></div>
+<div hidden="" id="url-fields"><label><span data-i18n="文章链接">文章链接</span><input disabled="" maxlength="2048" name="url" placeholder="https://example.com/article" type="url"/></label><div class="info-note"><span data-icon="info"></span><p data-i18n="自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。">自动提取公开网页的正文。付费、登录或动态加载的页面，请使用粘贴正文；仅导入你有权使用的内容。</p></div></div>
+<label><span data-i18n="文章分类" id="import-category-label">文章分类</span><select aria-labelledby="import-category-label" name="category"><option data-i18n="其他" value="其他">其他</option><option data-i18n="科技" value="科技">科技</option><option data-i18n="文化" value="文化">文化</option><option data-i18n="科学" value="科学">科学</option><option data-i18n="生活" value="生活">生活</option><option data-i18n="环境" value="环境">环境</option></select></label>
+<p class="form-error" id="import-error" role="alert"></p>
+<div class="modal-footer"><span data-i18n="导入后将自动估算阅读难度">导入后将自动估算阅读难度</span><button class="button primary" id="import-submit" type="submit"><span data-i18n="导入并开始阅读">导入并开始阅读</span><span data-icon="arrow-right"></span></button></div>
+</form>
+</dialog>
+<dialog aria-labelledby="help-dialog-title" class="modal" id="settings-dialog">
+<div class="modal-heading"><div><span class="eyebrow">YOUR READING COMPANION</span><h2 data-i18n="让阅读成为日常" id="help-dialog-title">让阅读成为日常</h2></div><button aria-label="关闭使用说明" class="icon-button" data-action="close-dialog" data-i18n-aria-label="关闭使用说明"><span data-icon="close"></span></button></div>
+<div class="help-section"><h3 data-i18n="开始你的阅读">开始你的阅读</h3><ol><li data-i18n="导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。">导入文章或选择示例文章，在阅读工具栏调整字体、排版和主题，也可打开段落目录、专注模式及全屏。</li><li data-i18n="流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。">流畅模式点词先暂存，读完一段再集中处理；精读模式点词打开查词卡片，按需展开释义并加入生词本。阅读器的「操作帮助」中列出了快捷键和手机手势。</li><li data-i18n="在「我的生词」中整理词书、义项、原句和媒体卡片，批量导入导出；在「间隔复习」中进行卡片、挖空、听音和拼写练习，按记忆表现评分，也可手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。">在「我的生词」中整理词书、义项、原句和媒体卡片，批量导入导出；在「间隔复习」中进行卡片、挖空、听音和拼写练习，按记忆表现评分，也可手动标记掌握度，在「学习足迹」中查看阅读记录和打卡日历。</li></ol></div>
+<div class="help-section"><h3 data-i18n="关于这个阅读空间">关于这个阅读空间</h3><p>阅读、词汇和打卡记录保存在本机 <code>instance/margin.sqlite3</code>。阅读时自动保存进度；页面隐藏或停止操作一段时间后暂停计时。打卡日期采用北京时间。</p><p data-i18n="内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。">内置英汉词库优先查询，未收录的词联网查询英英词典。文章难度由阅读易读度估算，仅供选文参考。</p></div>
+</dialog>
+<dialog aria-labelledby="word-dialog-title" class="modal" id="word-dialog">
+<div class="modal-heading"><div><span class="eyebrow">A WORD WORTH KEEPING</span><h2 data-i18n="添加生词" id="word-dialog-title">添加生词</h2></div><button aria-label="关闭生词编辑" class="icon-button" data-action="close-dialog" data-i18n-aria-label="关闭生词编辑"><span data-icon="close"></span></button></div>
+<form id="word-form"><label><span data-i18n="英文单词或短语">英文单词或短语</span><input data-i18n-placeholder="例如：perspective" maxlength="60" name="word" pattern="[A-Za-z]+(['’\-][A-Za-z]+)*( [A-Za-z]+(['’\-][A-Za-z]+)*){0,5}" placeholder="例如：perspective" required=""/></label><label><span data-i18n="释义">释义</span><textarea data-i18n-placeholder="写下你对这个词的理解" maxlength="3000" name="meaning" placeholder="写下你对这个词的理解" required="" rows="3"></textarea></label><label><span data-i18n="学习笔记（选填）">学习笔记（选填）</span><textarea data-i18n-placeholder="搭配、联想，或你自己的例句" maxlength="2000" name="note" placeholder="搭配、联想，或你自己的例句" rows="3"></textarea></label><p class="form-error" id="word-error" role="alert"></p><div class="modal-footer"><span data-i18n="可在生词本中标记掌握程度">可在生词本中标记掌握程度</span><button class="button primary" type="submit"><span data-i18n="保存生词">保存生词</span><span data-icon="check"></span></button></div></form>
+</dialog>
+<dialog aria-describedby="confirm-message" aria-labelledby="confirm-dialog-title" class="modal compact" id="confirm-dialog"><div class="modal-heading"><h2 data-i18n="删除这条记录？" id="confirm-dialog-title">删除这条记录？</h2><button aria-label="取消删除" class="icon-button" data-action="cancel-confirm" data-i18n-aria-label="取消删除"><span data-icon="close"></span></button></div><p id="confirm-message"></p><div class="modal-footer"><button class="button" data-action="cancel-confirm" data-i18n="保留记录">保留记录</button><button class="button danger" data-action="accept-confirm" data-i18n="确认删除">确认删除</button></div></dialog>
+<dialog aria-labelledby="reader-settings-title" class="modal reader-settings-modal" id="reader-settings-dialog">
+<div class="modal-heading"><div><span class="eyebrow">MAKE ROOM FOR READING</span><h2 data-i18n="阅读设置" id="reader-settings-title">阅读设置</h2></div><button aria-label="关闭阅读设置" class="icon-button" data-i18n-aria-label="关闭阅读设置" data-reader-action="close-dialog">✕</button></div>
+<div class="reader-setting-grid">
+<label><span data-i18n="正文字体">正文字体</span><select data-reader-setting="font_family"><option data-i18n="Georgia · 书卷衬线" value="serif">Georgia · 书卷衬线</option><option data-i18n="Times New Roman · 经典衬线" value="classic">Times New Roman · 经典衬线</option><option data-i18n="Arial · 清晰无衬线" value="sans">Arial · 清晰无衬线</option><option data-i18n="Consolas · 等宽字体" value="mono">Consolas · 等宽字体</option></select></label>
+<label><span data-i18n="正文排版">正文排版</span><select data-reader-setting="layout"><option data-i18n="单栏" value="single">单栏</option><option data-i18n="双栏 · 每行先左后右" value="double">双栏 · 每行先左后右</option></select></label>
+<label><span data-i18n="字号">字号</span> <output data-reader-output="font_size"></output><input data-reader-setting="font_size" max="28" min="16" step="1" type="range"/></label>
+<label><span data-i18n="行距">行距</span> <output data-reader-output="line_height"></output><input data-reader-setting="line_height" max="2.4" min="1.4" step="0.1" type="range"/></label>
+<label><span data-i18n="正文最大宽度">正文最大宽度</span> <output data-reader-output="content_width"></output><input data-reader-setting="content_width" max="1200" min="560" step="20" type="range"/></label>
+<label><span data-i18n="段落间距">段落间距</span> <output data-reader-output="paragraph_spacing"></output><input data-reader-setting="paragraph_spacing" max="3" min="0.5" step="0.05" type="range"/></label>
+</div>
+<fieldset class="reader-theme-options"><legend data-i18n="阅读主题">阅读主题</legend><label><input data-reader-setting="theme" name="reader-theme" type="radio" value="light"/><span data-i18n="浅色">浅色</span></label><label><input data-reader-setting="theme" name="reader-theme" type="radio" value="dark"/><span data-i18n="深色">深色</span></label><label><input data-reader-setting="theme" name="reader-theme" type="radio" value="sepia"/><span data-i18n="护眼">护眼</span></label></fieldset>
+<div class="reader-switches"><label><input data-reader-setting="paragraph_numbers" type="checkbox"/><span data-i18n="显示段落编号">显示段落编号</span></label><label><input data-reader-setting="focus_mode" type="checkbox"/><span data-i18n="专注模式">专注模式</span></label><label><input data-reader-setting="shortcuts_enabled" type="checkbox"/><span data-i18n="启用阅读快捷键">启用阅读快捷键</span></label><label><input data-reader-setting="gestures_enabled" type="checkbox"/><span data-i18n="启用手机左右轻扫">启用手机左右轻扫</span></label></div>
+<p class="reader-setting-note" data-i18n="宽度会适应当前窗口；正文区域不足 680 px 时，双栏自动显示为单栏。字体使用本机可用字体，无需下载。">宽度会适应当前窗口；正文区域不足 680 px 时，双栏自动显示为单栏。字体使用本机可用字体，无需下载。</p>
+<fieldset class="flow-settings"><legend data-i18n="阅读与学习节奏">阅读与学习节奏</legend>
+<div class="reader-setting-grid">
+<label><span data-i18n="阅读模式">阅读模式</span><select data-reader-setting="reading_mode"><option data-i18n="流畅阅读 · 点词先暂存" value="fluent">流畅阅读 · 点词先暂存</option><option data-i18n="精读模式 · 点词打开查词卡片" value="intensive">精读模式 · 点词打开查词卡片</option></select></label>
+<label><span data-i18n="学习提示密度">学习提示密度</span><select data-reader-setting="hint_density"><option data-i18n="安静 · 手动操作，无主动提示" value="quiet">安静 · 手动操作，无主动提示</option><option data-i18n="适中 · 每段首次遇见时标记" value="balanced">适中 · 每段首次遇见时标记</option><option data-i18n="详细 · 全部学习词与操作提示" value="detailed">详细 · 全部学习词与操作提示</option></select></label>
+<label><span data-i18n="阶段提醒间隔（分钟）">阶段提醒间隔（分钟）</span><input data-reader-setting="reminder_minutes" max="60" min="0" required="" step="1" type="number"/></label>
+</div>
+<div class="reader-switches"><label><input data-reader-setting="definition_collapsed" type="checkbox"/><span data-i18n="查词卡片默认折叠释义">查词卡片默认折叠释义</span></label><label><input data-reader-setting="suppress_mastered" type="checkbox"/><span data-i18n="已掌握词减少标记">已掌握词减少标记</span></label></div>
+<p class="reader-setting-note">提醒按本次前台活跃阅读时间计算；弹窗、离开页面或停止操作时暂停。填 0 关闭提醒，安静档也不主动提醒。待查列表中的释义始终按需展开。</p>
+</fieldset>
+<div class="modal-footer"><span data-i18n="设置自动保存在本机" id="reader-settings-status" role="status">设置自动保存在本机</span><button class="button small" data-i18n="重试保存" data-reader-action="retry-settings" hidden="" id="retry-reader-settings">重试保存</button><button class="button small" data-i18n="恢复默认" data-reader-action="reset">恢复默认</button><button class="button primary small" data-i18n="完成" data-reader-action="close-dialog">完成</button></div>
+</dialog>
+<dialog aria-labelledby="reader-toc-title" class="modal reader-toc-modal" id="reader-toc-dialog">
+<div class="modal-heading"><div><span class="eyebrow">FIND YOUR PLACE</span><h2 data-i18n="段落目录" id="reader-toc-title">段落目录</h2></div><button aria-label="关闭目录" class="icon-button" data-i18n-aria-label="关闭目录" data-reader-action="close-dialog">✕</button></div>
+<p class="reader-setting-note" data-i18n="按原文段落定位，当前阅读的段落会高亮显示。">按原文段落定位，当前阅读的段落会高亮显示。</p><nav aria-label="文章段落目录" data-i18n-aria-label="文章段落目录" id="reader-toc-list"></nav>
+</dialog>
+<dialog aria-labelledby="writing-title" class="modal writing-modal" id="writing-dialog">
+<div class="modal-heading">
+<div><h2 id="writing-title">表达与写作训练</h2><p class="writing-note" id="writing-article-title"></p></div>
+<button aria-label="关闭写作训练" class="icon-button" data-writing-action="close">✕</button>
+</div>
+<details class="writing-configuration" id="writing-configuration">
+<summary>AI 配置 <span class="writing-note" id="writing-config-state"></span></summary>
+<form id="writing-config-form">
+<div class="writing-config-fields">
+<label>DeepSeek API 密钥<input autocomplete="off" id="writing-api-key" maxlength="512" placeholder="已配置时可留空" type="password"/></label>
+<label>模型<select id="writing-model"></select></label>
+</div>
+<p class="writing-note" id="writing-key-source"></p>
+<div class="writing-actions"><button class="button small" disabled="" id="writing-config-save" type="submit">保存 AI 配置</button><span class="writing-note" id="writing-config-status" role="status"></span></div>
+</form>
+</details>
+<div class="writing-layout">
+<aside class="writing-history">
+<button class="button primary" data-writing-action="new">新建练习</button>
+<div class="writing-row"><strong>本篇练习</strong><button class="button small" data-writing-action="refresh">刷新</button></div>
+<div id="writing-history-list"></div>
+<button class="button small" data-writing-action="more" hidden="">加载更多</button>
+</aside>
+<main class="writing-workspace">
+<form id="writing-setup">
+<label>练习类型<select id="writing-mode" required=""></select></label>
+<p class="writing-instruction" id="writing-instruction"></p>
+<div class="writing-source-fields">
+<label>练习素材<select id="writing-source-choice"></select></label>
+<label id="writing-source-label">素材内容<textarea id="writing-source" maxlength="6000" placeholder="输入句子、段落或要翻译的中文" rows="5"></textarea></label>
+<p class="writing-note" id="writing-source-note"></p>
+</div>
+<label hidden="" id="writing-targets-label">目标词或短语<input id="writing-targets" maxlength="310" placeholder="journey, pay attention to"/><small class="writing-note">用逗号分隔，最多 5 个。</small></label>
+<div class="writing-wordbank" hidden="" id="writing-wordbank"><label>从生词本选词<select id="writing-word-choice"><option value="">选择单词</option></select></label><button class="button small" data-writing-action="add-word" type="button">加入目标词</button></div>
+<label>重点练习的方向（可选）<input id="writing-focus" maxlength="500" placeholder="例如：减少重复用词，语气更正式"/></label>
+<button class="button primary" id="writing-create" type="submit">开始练习</button>
+</form>
+<section hidden="" id="writing-editor">
+<div class="writing-row"><h3 id="writing-exercise-title"></h3><button class="button small" data-writing-action="delete">删除练习</button></div>
+<p class="writing-instruction" id="writing-task"></p>
+<details id="writing-material"><summary>查看练习素材</summary><div class="writing-text" id="writing-material-text"></div></details>
+<p class="writing-note" id="writing-target-summary"></p>
+<label for="writing-draft">我的作答</label>
+<textarea id="writing-draft" maxlength="4000" placeholder="先写下自己的表达，再获取反馈。" rows="7" spellcheck="true"></textarea>
+<div class="writing-row"><span class="writing-note" id="writing-count"></span><span class="writing-note" id="writing-save-status" role="status"></span></div>
+<div class="writing-conflict" hidden="" id="writing-conflict">
+<p>另一标签页已修改草稿。你的文字已保留，请比较后选择要继续使用的版本。</p>
+<details><summary>查看服务器上的草稿</summary><div class="writing-text" id="writing-server-draft"></div></details>
+<div class="writing-actions"><button class="button small" data-writing-action="keep-local">保留当前作答并保存</button><button class="button small" data-writing-action="use-server">使用服务器草稿</button></div>
+</div>
+<div class="writing-actions"><button class="button" data-writing-action="save">保存草稿</button><button class="button primary" data-writing-action="submit" id="writing-submit">获取反馈</button></div>
+<div class="writing-conflict" hidden="" id="writing-delete-confirm">删除这项练习、草稿和全部反馈？<div class="writing-actions"><button class="button danger small" data-writing-action="confirm-delete">确认删除</button><button class="button small" data-writing-action="cancel-delete">取消</button></div></div>
+<section aria-label="写作反馈" id="writing-feedback"></section>
+</section>
+<p class="writing-note" id="writing-status" role="status"></p>
+</main>
+</div>
+<p class="writing-note writing-disclosure">草稿和练习记录保存在本机。获取反馈时，素材、作答和练习要求会发送给 DeepSeek，使用本机 AI 配置并按用量计费。AI 建议供学习参考。</p>
+</dialog>
+<dialog aria-labelledby="reader-help-title" class="modal" id="reader-help-dialog">
+<div class="modal-heading"><h2 data-i18n="阅读操作帮助" id="reader-help-title">阅读操作帮助</h2><button aria-label="关闭阅读操作帮助" class="icon-button" data-i18n-aria-label="关闭阅读操作帮助" data-reader-action="close-dialog">✕</button></div>
+<dl class="reader-shortcuts"><dt><kbd>F</kbd></dt><dd data-i18n="切换专注模式">切换专注模式</dd><dt><kbd>G</kbd></dt><dd data-i18n="进入或退出全屏">进入或退出全屏</dd><dt><kbd>T</kbd> / <kbd>S</kbd></dt><dd data-i18n="段落目录 / 阅读设置">段落目录 / 阅读设置</dd><dt><kbd>N</kbd> / <kbd>C</kbd></dt><dd data-i18n="段落编号 / 单双栏">段落编号 / 单双栏</dd><dt><kbd>[</kbd> / <kbd>]</kbd></dt><dd data-i18n="上一段 / 下一段">上一段 / 下一段</dd><dt><kbd>−</kbd> / <kbd>+</kbd></dt><dd data-i18n="减小 / 增大字号">减小 / 增大字号</dd><dt><kbd>Space</kbd> / <kbd>Shift Space</kbd></dt><dd data-i18n="向下 / 向上翻一屏">向下 / 向上翻一屏</dd><dt><kbd>Home</kbd> / <kbd>End</kbd></dt><dd data-i18n="文章顶部 / 文末">文章顶部 / 文末</dd><dt><kbd>?</kbd></dt><dd data-i18n="显示本帮助">显示本帮助</dd><dt><kbd>Esc</kbd></dt><dd data-i18n="关闭弹窗或查词面板；退出全屏或专注模式">关闭弹窗或查词面板；退出全屏或专注模式</dd></dl>
+<div class="help-section"><h3 data-i18n="手机手势">手机手势</h3><p>在正文区域向左轻扫进入下一段，向右轻扫返回上一段。上下滑动正常滚动；长按选词和双指缩放保留浏览器原有行为。</p><p>输入文字、使用按钮或打开弹窗时，阅读快捷键不会触发。可在阅读设置中关闭快捷键或手势。全屏需要浏览器支持，并由你主动开启。</p></div>
+<div class="help-section"><h3 data-i18n="先读懂，再深究">先读懂，再深究</h3><p>流畅阅读中点词会先暂存，不弹出释义。读完一段可点段末的「处理待查词」，也可用工具栏的「本段生词」或「待查词」。精读模式中点词打开查词卡片，点击「展开释义」再查看。任何模式都可以在查词面板主动输入单词。</p><p>待查词按文章与段落保存在本机，刷新后仍在；收藏时保留原文语境。安静档隐藏正文提示，手动查词和待查列表仍然可用。已掌握词默认不再主动标记，但仍可手动查询。</p></div>
+</dialog>
+<dialog aria-labelledby="pending-words-title" class="modal pending-words-modal" id="pending-words-dialog">
+<div class="modal-heading"><div><span class="eyebrow">READ FIRST, LEARN TOGETHER</span><h2 data-i18n="集中处理待查词" id="pending-words-title">集中处理待查词</h2></div><button aria-label="关闭待查词" class="icon-button" data-flow-action="close-queue" data-i18n-aria-label="关闭待查词">✕</button></div>
+<label class="dictionary-choice"><span data-i18n="待查词词典">待查词词典</span><select aria-label="待查词词典" data-i18n-aria-label="待查词词典" data-reader-setting="dictionary_provider"><option data-i18n="自动 · 离线优先" value="auto">自动 · 离线优先</option><option data-i18n="离线英汉 · ECDICT / Margin" value="offline">离线英汉 · ECDICT / Margin</option><option data-i18n="在线英英 · Free Dictionary" value="free">在线英英 · Free Dictionary</option></select></label>
+<label class="pending-filter-label"><span data-i18n="处理范围">处理范围</span><select aria-label="待查词段落范围" data-i18n-aria-label="待查词段落范围" id="pending-filter"></select></label>
+<p class="reader-setting-note" id="pending-queue-summary" role="status"></p>
+<div id="pending-word-list"></div>
+<div class="modal-footer"><button class="button primary" data-flow-action="close-queue" data-i18n="完成，继续阅读">完成，继续阅读</button></div>
+</dialog>
+<dialog aria-labelledby="study-title" class="modal study-modal" id="study-dialog">
+<div class="modal-heading"><div><span class="eyebrow">READ WITH CONTEXT</span><h2 data-i18n="AI 语境释义与翻译辅助" id="study-title">AI 语境释义与翻译辅助</h2></div><button aria-label="关闭 AI 学习面板" class="icon-button" data-i18n-aria-label="关闭 AI 学习面板" data-study-action="close">✕</button></div>
+<div class="study-tabs"><button aria-pressed="true" class="button small" data-i18n="AI 语境释义" data-study-action="kind" data-study-kind="context" id="study-kind-context">AI 语境释义</button><button aria-pressed="false" class="button small" data-i18n="翻译辅助" data-study-action="kind" data-study-kind="translation" id="study-kind-translation">翻译辅助</button></div>
+<p class="study-service" id="study-service"></p>
+<details class="study-setup" hidden="" id="study-setup"><summary data-i18n="配置 AI 服务">配置 AI 服务</summary><p>在启动 Python 服务前设置服务器环境变量 <code>MARGIN_AI_API_KEY</code> 与 <code>MARGIN_AI_MODEL</code>，选择支持 Responses API 和结构化输出的模型。兼容服务可另设 <code>MARGIN_AI_BASE_URL</code>。完整示例见 README 与 <code>ai.env.example</code>。</p><p>密钥只在服务器使用。点击生成才会发送当前片段及附近上下文；全文按片段逐次处理。生成结果供学习参考。</p></details>
+<div class="study-controls"><label><span data-i18n="原文段落">原文段落</span><select aria-label="原文段落" data-i18n-aria-label="原文段落" id="study-paragraph"></select></label><label><span data-i18n="处理范围">处理范围</span><select aria-label="AI 处理范围" data-i18n-aria-label="AI 处理范围" id="study-scope"><option data-i18n="当前划选 / 单词" value="selection">当前划选 / 单词</option><option data-i18n="句子" value="sentence">句子</option><option data-i18n="整段" value="paragraph">整段</option><option data-i18n="全文逐段翻译" value="full">全文逐段翻译</option></select></label><label><span data-i18n="解释深度">解释深度</span><select aria-label="解释深度" data-i18n-aria-label="解释深度" id="study-level"><option data-i18n="入门 · 简明解释" value="beginner">入门 · 简明解释</option><option data-i18n="进阶 · 语法与语境" value="intermediate">进阶 · 语法与语境</option><option data-i18n="深入 · 语义与修辞" value="advanced">深入 · 语义与修辞</option></select></label></div>
+<label class="study-sentence-label" id="study-sentence-label"><span data-i18n="原文句子">原文句子</span><select aria-label="原文句子" data-i18n-aria-label="原文句子" id="study-sentence"></select></label>
+<blockquote class="study-source-preview" id="study-source-preview" lang="en"></blockquote>
+<div class="study-actions"><button class="button primary small" data-i18n="生成语境释义" data-study-action="generate" disabled="" id="study-generate">生成语境释义</button><button class="button small" data-i18n="停止后续生成" data-study-action="stop" hidden="" id="study-stop">停止后续生成</button><button class="button small" data-i18n="重新读取" data-study-action="reload" hidden="" id="study-reload">重新读取</button><label class="study-favorites"><input id="study-favorites" type="checkbox"/><span data-i18n="仅看收藏译文">仅看收藏译文</span></label></div>
+<p aria-live="polite" class="study-message" id="study-message" role="status"></p>
+<div id="study-results"></div>
+<div class="modal-footer"><span data-i18n="译文按需展开，原文始终保留。">译文按需展开，原文始终保留。</span><button class="button primary small" data-i18n="完成，继续阅读" data-study-action="close">完成，继续阅读</button></div>
+</dialog>
+<dialog aria-label="词条与词书管理" class="modal wb-modal" id="wordbook-dialog"></dialog>
+<dialog aria-label="手动添加阅读题目" class="modal exercise-author-modal" id="exercise-author-dialog"></dialog>
+<aside aria-label="学习提醒" aria-live="polite" data-i18n-aria-label="学习提醒" hidden="" id="study-reminders"><ul></ul></aside>
+<div aria-live="polite" class="toast-region" id="toast-region" role="status"></div>
+<template id="speech-player-template">
+<section aria-label="朗读播放器" class="tts-player" hidden="" id="speech-player">
+<div class="tts-transport">
+<strong>听读 <span id="tts-position"></span></strong>
+<div class="tts-buttons"><button aria-label="上一句" class="button small" data-tts-action="previous">上一句</button><button class="button small primary" data-tts-action="play" id="tts-play">播放</button><button aria-label="下一句" class="button small" data-tts-action="next">下一句</button><button class="button small" data-tts-action="stop">停止</button></div>
+<button aria-label="收起朗读播放器" class="icon-button" data-tts-action="hide">✕</button>
+</div>
+<div class="tts-content">
+<p class="tts-current-text" id="tts-current-text">选择朗读范围，或开启点句起播。</p>
+<div class="tts-progress"><input aria-label="当前句子音频进度" disabled="" id="tts-progress" max="1000" min="0" type="range" value="0"/><span id="tts-time">0:00 / 0:00</span></div>
+<div class="tts-scope-row"><label>范围<select id="tts-scope"><option value="article">全文</option><option value="paragraph">当前段落</option><option value="sentence">当前句子</option><option value="word">单词</option></select></label><input aria-label="要朗读的英文单词" hidden="" id="tts-word" maxlength="60" placeholder="输入或划选英文单词"/><button class="button small" data-tts-action="start">按范围朗读</button><button class="button small" data-tts-action="add">加入列表</button><button class="button small" data-tts-action="locate">定位当前句</button></div>
+<p class="tts-note" id="tts-status" role="status">首次生成需联网，已缓存音频可离线播放。</p>
+<details class="tts-settings"><summary>音色与跟读设置</summary>
+<div class="tts-settings-grid"><label>口音<select id="tts-accent"><option value="en-US">美式英语</option><option value="en-GB">英式英语</option></select></label><label>音色<select aria-label="朗读音色" id="tts-voice"></select></label><label>语速 <output id="tts-rate-label">1.0×</output><input aria-label="朗读语速" id="tts-rate" max="2" min="0.5" step="0.1" type="range" value="1"/></label><label>循环<select id="tts-loop"><option value="none">顺序播放</option><option value="sentence">单句循环</option><option value="paragraph">当前段落循环</option></select></label></div>
+<div class="tts-switches"><label><input checked="" id="tts-follow" type="checkbox"/>自动跟随滚动</label><label><input id="tts-click" type="checkbox"/>点击句子起播</label></div>
+<p class="tts-note">点句起播开启时，点击正文从该句向后朗读；关闭后恢复点词操作。手动滚动会暂缓跟随，可点「定位当前句」恢复。</p>
+<p class="tts-note" id="tts-settings-status" role="status"></p>
+</details>
+<details class="tts-playlist"><summary>播放列表 <span id="tts-list-count">0</span></summary>
+<div class="tts-list-actions"><button class="button small" data-tts-action="playlist">播放列表</button><button class="button small" data-tts-action="refresh-list">刷新列表</button><button class="button small" data-tts-action="clear-list">清空列表</button></div>
+<div class="tts-confirm" hidden="" id="tts-clear-list-confirm">清空保存的播放列表？<button class="button small danger" data-tts-action="confirm-clear-list">清空</button><button class="button small" data-tts-action="cancel-clear-list">取消</button></div>
+<ol id="tts-playlist-items"></ol>
+</details>
+<details class="tts-cache"><summary>音频缓存 <span id="tts-cache-size"></span></summary>
+<div class="tts-list-actions"><button class="button small" data-tts-action="cache-article">缓存本文音频</button><button class="button small" data-tts-action="cancel-cache" hidden="">取消缓存</button><button class="button small" data-tts-action="clear-cache">清理缓存</button></div>
+<p class="tts-note" id="tts-cache-status" role="status"></p>
+<div class="tts-confirm" hidden="" id="tts-clear-cache-confirm">清理后，未缓冲的音频需要重新联网生成。<button class="button small danger" data-tts-action="confirm-clear-cache">清理</button><button class="button small" data-tts-action="cancel-clear-cache">取消</button></div>
+</details>
+<p class="tts-note tts-disclosure">由 Edge 在线语音生成，所读文字会发送给语音服务，无需 API 密钥。音频与播放列表保存在本机。</p>
+</div>
+</section>
+</template>
+<dialog aria-labelledby="qa-title" class="modal qa-modal" id="article-qa-dialog">
+<div class="modal-heading"><div><span class="eyebrow">READ, QUESTION, UNDERSTAND</span><h2 id="qa-title">围绕文章提问</h2><p class="qa-article-title" id="qa-article-title"></p></div><button aria-label="关闭文章问答" class="icon-button" data-qa-action="close">✕</button></div>
+<details class="qa-configuration" id="qa-configuration"><summary>DeepSeek 连接配置 <span id="qa-config-badge"></span></summary>
+<form id="qa-config-form"><div class="qa-config-fields"><label>API 密钥<input autocomplete="new-password" id="qa-api-key" maxlength="512" placeholder="已保存时留空即可保留" type="password"/></label><label>模型<select aria-label="DeepSeek 模型" id="qa-model"></select></label></div>
+<p class="qa-note" id="qa-key-source"></p><div class="qa-config-actions"><button class="button small primary" type="submit">保存配置</button><button class="button small" data-qa-action="connection" type="button">检测连接</button><button class="button small" data-qa-action="clear-key" type="button">移除本机密钥</button><a href="https://platform.deepseek.com/api_keys" rel="noopener noreferrer" target="_blank">获取密钥 ↗</a></div>
+</form><p class="qa-note" id="qa-config-status" role="status"></p>
+</details>
+<div class="qa-layout">
+<aside aria-label="本篇问答历史" class="qa-history-pane"><button class="button small" data-qa-action="new">＋ 新建对话</button><div class="qa-history-tabs"><button aria-pressed="true" data-qa-tab="history">历史</button><button aria-pressed="false" data-qa-tab="favorites">收藏</button></div><div id="qa-history-list"></div><button class="button small" data-qa-action="more-history" hidden="">加载更多</button></aside>
+<section aria-label="问答内容" class="qa-chat">
+<div class="qa-thread-heading"><strong id="qa-thread-title">新的文章问答</strong><button class="button small" data-qa-action="refresh">刷新状态</button><button aria-label="删除当前对话" class="icon-button" data-qa-action="delete">⌫</button></div>
+<div class="qa-delete-confirm" hidden="" id="qa-delete-confirm"><span>删除这段对话及其中的收藏？</span><button class="button small danger" data-qa-action="confirm-delete">删除</button><button class="button small" data-qa-action="cancel-delete">取消</button></div>
+<div aria-label="问答记录" class="qa-messages" id="qa-messages" tabindex="0"></div>
+<form class="qa-composer" id="qa-question-form">
+<div class="qa-question-options"><label>方式<select id="qa-mode"><option value="ask">文章问答</option><option value="meaning">追问词义</option><option value="syntax">追问句法</option><option value="socratic">引导我思考</option><option value="preread">阅读前引导</option><option value="quiz">阅读后理解检查</option><option value="feedback">提交理解检查作答</option></select></label><label>范围<select id="qa-scope"><option value="article">全文</option><option value="selection">选中内容</option></select></label></div>
+<details class="qa-selection-preview" hidden="" id="qa-selection-preview"><summary>已选原文 <span id="qa-selection-label"></span></summary><blockquote id="qa-selection-text"></blockquote></details>
+<label class="qa-question-label" for="qa-question">你的问题或作答</label><textarea id="qa-question" maxlength="2000" placeholder="例如：作者为什么认为慢旅行仍有价值？" required="" rows="3"></textarea>
+<div class="qa-send-row"><span aria-live="polite" id="qa-request-status" role="status"></span><button class="button primary small" id="qa-send" type="submit">发送问题</button></div>
+</form>
+</section>
+</div>
+<p class="qa-note qa-disclosure">发送时将全文、选中内容及最近 6 轮对话交给 DeepSeek，按用量计费。AI 回答可能有误，请结合原文核对；历史与收藏保存在本机。</p>
+</dialog>
+<dialog aria-labelledby="deep-analysis-title" class="modal deep-analysis-modal" id="deep-analysis-dialog">
+<div class="modal-heading"><div><span class="eyebrow">READ BEYOND THE WORDS</span><h2 id="deep-analysis-title">长难句解析</h2></div><button aria-label="关闭解析" class="icon-button" data-analysis-action="close">✕</button></div>
+<div class="deep-controls">
+<label>学习水平<select id="deep-level"><option value="beginner">入门</option><option selected="" value="intermediate">进阶</option><option value="advanced">深入</option></select></label>
+<label id="deep-paragraph-label">段落<select id="deep-paragraph"></select></label>
+<label id="deep-sentence-label">选择原句<select id="deep-sentence"></select></label>
+<label hidden="" id="deep-scope-label">解析范围<select id="deep-scope"><option value="full">整篇文章</option><option value="paragraph">当前段落</option></select></label>
+<label hidden="" id="deep-compare-label">对比文章（可多选，最多 3 篇）<select id="deep-compare" multiple="" size="4"></select></label>
+</div>
+<p class="deep-source-label">原文预览</p><blockquote id="deep-source"></blockquote>
+<p class="reader-setting-note">点击生成后，将所选原文、标题和相关语境发送给配置的 AI 服务；全文对比会发送所选文章全文，可能产生费用。AI 结果需要结合原文核对。</p>
+<p aria-live="polite" class="deep-status" id="deep-status" role="status"></p>
+<div class="deep-actions"><button class="button primary" data-analysis-action="generate" id="deep-generate">生成解析</button><button class="button" data-analysis-action="close">关闭，继续阅读</button></div>
+<div aria-live="polite" id="deep-results"></div>
+</dialog>
+<dialog class="modal" id="feed-dialog">
+<div class="modal-heading"><div><span class="eyebrow">SUBSCRIBE TO THE WORLD</span><h2>订阅一个栏目</h2></div><button aria-label="关闭订阅窗口" class="icon-button" data-action="close-dialog"><span data-icon="close"></span></button></div>
+<form id="feed-form">
+<label>RSS / Atom 链接<input maxlength="2048" name="url" placeholder="https://example.com/rss.xml" required="" type="url"/></label>
+<div class="two-column"><label>媒体来源（选填）<input maxlength="100" name="source" placeholder="例如：The Guardian"/></label><label>栏目分类<select name="category"><option>其他</option><option>科技</option><option>文化</option><option>科学</option><option>生活</option><option>环境</option></select></label></div>
+<label>关键词订阅（选填）<input maxlength="300" name="keywords" placeholder="用逗号分隔，例如：climate, energy"/></label>
+<div class="info-note"><span data-icon="info"></span><p>订阅后立即抓取最新文章；填写关键词时只导入标题或正文包含这些词的文章。</p></div>
+<p class="form-error" id="feed-error" role="alert"></p>
+<div class="modal-footer"><span>抓取数量受每源 10 篇限制</span><button class="button primary" type="submit">添加订阅<span data-icon="arrow-right"></span></button></div>
+</form>
+</dialog>
+<dialog class="modal compact" id="source-dialog">
+<div class="modal-heading"><div><span class="eyebrow">MEDIA SOURCE</span><h2>编辑媒体来源</h2></div><button aria-label="关闭来源编辑" class="icon-button" data-action="close-dialog"><span data-icon="close"></span></button></div>
+<form id="source-form"><label>来源名称<input maxlength="100" name="name" placeholder="例如：The Guardian" required=""/></label><label>备注（选填）<textarea maxlength="500" name="note" placeholder="订阅范围、阅读偏好等" rows="2"></textarea></label><p class="form-error" id="source-error" role="alert"></p><div class="modal-footer"><span>改名会同步到已导入的文章</span><button class="button primary" type="submit">保存修改<span data-icon="check"></span></button></div></form>
+</dialog>
+<dialog class="modal" id="article-dialog">
+<div class="modal-heading"><div><span class="eyebrow">ORGANIZE YOUR SHELF</span><h2 id="article-dialog-title">整理文章</h2></div><button aria-label="关闭文章编辑" class="icon-button" data-action="close-dialog"><span data-icon="close"></span></button></div>
+<form id="article-form">
+<div class="two-column"><label>文章分类<select id="article-category" name="category"></select></label><label>阅读优先级<select name="priority"><option value="0">无优先级</option><option value="1">低</option><option value="2">中</option><option value="3">高</option></select></label></div>
+<label>标签（逗号分隔）<input list="tag-options" maxlength="300" name="tags" placeholder="例如：气候, 能源, 深度报道"/></label>
+<div class="two-column"><label>作者（选填）<input maxlength="100" name="author" placeholder="例如：Jane Goodall"/></label><label>发布日期（选填）<input maxlength="40" name="published_at" placeholder="YYYY-MM-DD"/></label></div>
+<div class="toggle-row"><label class="toggle"><input name="favorite" type="checkbox"><span>收藏这篇文章</span></input></label><label class="toggle"><input name="read_later" type="checkbox"><span>加入待读清单</span></input></label></div>
+<datalist id="tag-options"></datalist>
+<p class="form-error" id="article-error" role="alert"></p>
+<div class="modal-footer"><span>修改会立即保存</span><button class="button primary" type="submit">保存修改<span data-icon="check"></span></button></div>
+</form>
+</dialog>
+<dialog class="modal manage-modal" id="manage-dialog">
+<div class="modal-heading"><div><span class="eyebrow">YOUR LIBRARY, YOUR RULES</span><h2>分类与标签</h2></div><button aria-label="关闭管理窗口" class="icon-button" data-action="close-dialog"><span data-icon="close"></span></button></div>
+<div class="segmented manage-tabs"><button class="active" data-manage-tab="categories" type="button">分类</button><button data-manage-tab="tags" type="button">标签</button></div>
+<div id="manage-content"></div>
+</dialog>
+<dialog class="modal compact" id="tag-dialog">
+<div class="modal-heading"><div><span class="eyebrow">ADD A TAG</span><h2>批量添加标签</h2></div><button aria-label="关闭标签窗口" class="icon-button" data-action="close-dialog"><span data-icon="close"></span></button></div>
+<form id="tag-form"><label>标签名称<input list="tag-options" maxlength="30" name="tag" placeholder="例如：精读" required=""/></label><p class="form-error" id="tag-error" role="alert"></p><div class="modal-footer"><button class="button primary" type="submit">添加到所选文章<span data-icon="check"></span></button></div></form>
+</dialog>
 </body>
 </html>
