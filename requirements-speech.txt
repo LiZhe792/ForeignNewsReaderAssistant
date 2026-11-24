@@ -1,0 +1,4 @@
+# Optional local word-timestamp speech recognition.
+# PyAV 19 removed metadata_errors, which faster-whisper 1.2.1 still uses.
+faster-whisper==1.2.1
+av>=11,<16

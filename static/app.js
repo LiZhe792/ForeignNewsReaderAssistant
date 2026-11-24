@@ -52,7 +52,7 @@ function toast(message, error = false) {
 let dataGeneration=null, dataStale=false;
 function dataChanged(){ dataStale=true; const banner=$('#data-changed-banner');if(banner)banner.hidden=false; }
 async function api(path, options = {}) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 55000);
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 55000);
   const abort = () => controller.abort();
   if (options.signal?.aborted) controller.abort();
   else options.signal?.addEventListener('abort', abort, {once:true});
@@ -72,6 +72,7 @@ async function api(path, options = {}) {
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
   category:'全部', difficulty:'全部', query:'', searchMode:'text', source:'', tag:'', minWords:'', maxWords:'', minMinutes:'', maxMinutes:'', readingStatus:'', searchVersion:0, searchOptions:{sources:[],tags:[]}, mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
 const app = $('#app');
+let labUI=null, readingBudget=null;
 let interfaceLanguage = typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language();
 let filePreviewVersion = 0, filePreviewReady = false;
 async function previewFile(file) {
@@ -159,7 +160,7 @@ function updateSidebar() {
     if (active) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
-  $('#page-label').textContent = ui({library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',plans:'学习计划',activity:'学习足迹',knowledge:'知识整理',exports:'导出与联动',feeds:'订阅源'}[state.view] || '发现文章');
+  $('#page-label').textContent = ui({library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',plans:'学习计划',activity:'学习足迹',knowledge:'知识整理',exports:'导出与联动',feeds:'订阅源',lab:'拓展学习'}[state.view] || '发现文章');
 }
 async function loadData() {
   const [articles, vocabulary, stats, settings, categories, tags] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings'),api('/categories'),api('/tags')]);
@@ -387,7 +388,7 @@ function renderReader(article) {
       <div class="reader-hint">${icon('pen')}<span data-i18n="单击或划选一个英文单词，查看释义并收藏">单击或划选一个英文单词，查看释义并收藏</span></div>
       <p id="reader-layout-note" class="reader-layout-note" hidden></p>
       <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${article.tts_segments ? article.tts_segments.filter(s=>s.paragraph===i).map(s=>`<span class="tts-sentence" data-sentence-index="${s.index}">${tokenizeParagraph(s.text)}</span>`).join('') : tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
-      <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p data-i18n="又多了解了一点世界，也离目标近了一点。">又多了解了一点世界，也离目标近了一点。</p>
+      <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p data-i18n="又多了解了一点世界，也离目标近了一点。">又多了解了一点世界，也离目标近了一点。</p><p><a class="button small" href="#lab/${article.id}">读后回忆与拓展学习</a></p>
         <button class="button primary" data-action="complete-reading" id="complete-reading">${icon('check')}${article.progress>=100?ui('已完成阅读'):ui('标记为已读 · 完成打卡')}</button>
       </div>
     </article></div>
@@ -412,12 +413,14 @@ function renderReader(article) {
   writingTrainer = new MarginWriting({root:app, article, reader, api, toast});
   flow = new MarginFlow({root:app, article, reader, settings:state.settings, api, toast,
     getWords:()=>state.words, onLookup:(word,article,index)=>learningEvents?.observe(word,article,index), onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
+  readingBudget = new MarginReadingBudget({root:app,reader,getSettings:()=>state.settings,onChange:saveSettings});
   study = new MarginStudy({root:app,article,reader,settings:state.settings,api,toast,onSettings:saveSettings,getLookup:()=>state.lookup});
   requestAnimationFrame(() => {
     const scroller = readerScroller();
     if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
     const limit = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     scroller.scrollTop = limit * activeSession.position / 100;
+    const target=location.hash.split('/')[2];if(/^\d+$/.test(target||''))reader.jump(Number(target),true);
     reader.remember();
     scroller.addEventListener('scroll', onReaderScroll, {passive:true});
   });
@@ -671,6 +674,7 @@ async function navigate(event) {
     return;
   }
   knowledgeOrganizer?.leave();exportCenter?.leave();speechPlayer?.unmount();
+  labUI?.destroy();labUI=null;readingBudget?.destroy();readingBudget=null;
   articleQA?.destroy();articleQA=null;deepAnalysis?.destroy();deepAnalysis=null;
   writingTrainer?.destroy();writingTrainer=null;
   const version=++state.routeVersion;state.lookupVersion++;
@@ -681,7 +685,7 @@ async function navigate(event) {
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
   const rawHash=location.hash.slice(1);
   const bookmarkletUrl=rawHash.startsWith('import?')?new URLSearchParams(rawHash.slice(7)).get('url')||'':'';
-  const [route,id,sessionId]=((bookmarkletUrl?'library':rawHash)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','data','plans','activity','knowledge','exports','feeds'].includes(route)?route:'library';
+  const [route,id,sessionId]=((bookmarkletUrl?'library':rawHash)||'library').split('/');state.view=['library','reader','vocabulary','review','listening','exercises','personalization','analytics','data','plans','activity','knowledge','exports','feeds','lab'].includes(route)?route:'library';
   if (['reader','library'].includes(state.view)) app.removeAttribute('lang');
   else app.setAttribute('lang', 'zh-CN');
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading(ui('正在打开你的阅读手记…'));
@@ -690,6 +694,7 @@ async function navigate(event) {
     else {await refreshStats();if(version!==state.routeVersion)return;
       if(state.view==='library'){if(id){try{const category=decodeURIComponent(id);if(['科技','文化','科学','生活','环境','其他'].includes(category)){state.category=category;state.difficulty='全部';state.query='';}}catch{}}await Promise.all([loadArticles(),loadCategoriesTags()]);state.searchOptions=await api('/articles/search-options');if(version===state.routeVersion){renderLibrary();if(bookmarkletUrl){history.replaceState(null,'','#library');openImport(bookmarkletUrl);}}}
       else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
+      else if(state.view==='lab'){labUI=new MarginLearningLab({root:app,api,toast,articleId:id});await labUI.render();}
       else if(state.view==='knowledge')await ensureKnowledge().renderLibrary(app);
       else if(state.view==='exports'){exportCenter ||= new MarginExports({api,toast});await exportCenter.mount(app,id);}
       else if(state.view==='feeds'){await loadFeeds();if(version===state.routeVersion)renderFeeds();}

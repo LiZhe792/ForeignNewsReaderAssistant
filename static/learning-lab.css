@@ -1,0 +1,8 @@
+.learning-lab{max-width:1100px;margin:0 auto;padding:30px 24px 70px;color:var(--text,#283b33)}
+.learning-lab h1{margin:0 0 8px}.learning-lab .intro{color:#65786d;margin-bottom:24px}
+.lab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:14px}
+.lab-card{background:var(--surface,#fff);border:1px solid #dce5dd;border-radius:14px;padding:18px;min-width:0}
+.lab-card summary{font-weight:700;font-size:17px;cursor:pointer}.lab-card p,.lab-card li{line-height:1.6}
+.lab-card label{display:block;margin:12px 0 4px;font-weight:600}.lab-card input:not([type=checkbox]),.lab-card textarea,.lab-card select,.lab-article-select{display:block;width:100%;max-width:100%;padding:9px;border:1px solid #bacbbf;border-radius:8px;background:#fff;color:#263b30;font:inherit}
+.lab-card textarea{min-height:85px;resize:vertical}.lab-card button{margin:8px 5px 0 0}.lab-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#f3f7f3;padding:10px;border-radius:8px}.lab-card blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #8ba994;background:#f5f8f5;overflow-wrap:anywhere}
+.lab-muted{color:#627368;font-size:14px}.lab-result{margin-top:12px}.lab-status{min-height:1.5em;color:#8a4536}.lab-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.lab-inline input[type=checkbox]{width:auto}.lab-list{padding-left:20px}.lab-record{border-top:1px solid #e5ebe5;padding:8px 0}.lab-budget{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 15px;background:#f3f7eb;color:#314d38;font-size:14px}.lab-budget button{margin:0}

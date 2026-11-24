@@ -28,14 +28,16 @@ MAX_ARCHIVE=128*1024*1024
 MAX_DATABASE=256*1024*1024
 MAX_ARTICLES=20*1024*1024
 INTEGRATION_TABLES=('sources','feeds','feed_seen','categories','tags','article_tags','article_embeddings','qa_threads','qa_turns','writing_exercises','writing_attempts','tts_playlist','knowledge_items','knowledge_maps')
+LAB_TABLES=('lab_records','lab_packs')
 TABLES=('articles','vocabulary','checkins','settings','dictionary_cache','pending_words','study_results',
         'word_meta','word_collections','word_memberships','word_contexts','word_senses','word_notes','word_aliases','word_cards',
         'srs_cards','srs_events','listening_audio','listening_attempts','reading_sets','reading_sessions','reading_mistakes',
-        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state',*PLAN_TABLES,*INTEGRATION_TABLES)
+        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state',*PLAN_TABLES,*INTEGRATION_TABLES,*LAB_TABLES)
 JSON_COLUMNS={'study_plans':{'steps_json':list},'study_results':{'payload_json':dict,'original_json':dict},'srs_events':{'response_json':dict},
  'listening_attempts':{'feedback_json':dict},'reading_sets':{'questions_json':list},
  'reading_sessions':{'snapshot_json':dict,'answers_json':dict,'result_json':dict},
- 'reading_mistakes':{'material_json':dict,'question_json':dict,'last_answer_json':list},'learner_profile':{'preferences':dict}}
+ 'reading_mistakes':{'material_json':dict,'question_json':dict,'last_answer_json':list},'learner_profile':{'preferences':dict},
+ 'lab_records':{'payload_json':dict},'lab_packs':{'article_ids_json':list,'words_json':list,'questions_json':list,'answers_json':list,'completed_json':list}}
 
 
 def offline():
@@ -338,7 +340,7 @@ def restore_preview():
             objects=source.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
             present={r['name'] for r in objects if r['type']=='table'}
             missing=set(TABLES)-present
-            if (missing-set(PLAN_TABLES)-set(INTEGRATION_TABLES)) or present-set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
+            if (missing-set(PLAN_TABLES)-set(INTEGRATION_TABLES)-set(LAB_TABLES)) or present-set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
             for table in TABLES:
                 if table in missing:continue
                 if [tuple(r)[1:] for r in source.execute('PRAGMA table_info("'+table+'")')]!=[tuple(r)[1:] for r in get_db().execute('PRAGMA table_info("'+table+'")')]:raise ValueError('备份结构与当前版本不兼容。')
