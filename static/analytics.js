@@ -33,7 +33,7 @@
     }
   }
   class Analytics {
-    constructor({root,api,toast,tracker}){Object.assign(this,{root,api,toast,tracker});this.abort=new AbortController();this.seq=0;this.period='week';this.anchor=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());this.readMetric='seconds';this.wordMetric='vocabulary_total';
+    constructor({root,api,toast,tracker}){Object.assign(this,{root,api,toast,tracker});this.abort=new AbortController();this.seq=0;this.period='week';this.anchor=new Intl.DateTimeFormat('en-CA',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());this.readMetric='seconds';this.wordMetric='vocabulary_total';
       for(const type of ['click','change','submit','keydown'])root.addEventListener(type,e=>this.handle(e),{signal:this.abort.signal});
     }
     destroy(){this.dead=true;this.seq++;this.abort.abort();}

@@ -6,7 +6,7 @@ import re
 
 from flask import Blueprint, abort, jsonify, request
 
-from .db import CHINA_TZ, get_db, now, today
+from .db import CHINA_TZ, current_timezone, get_db, now, today
 from .personalization import CATEGORIES
 
 planning = Blueprint("planning", __name__, url_prefix="/api/planning")
@@ -357,7 +357,7 @@ def add_makeup():
 
 
 def clock():
-    return datetime.now(CHINA_TZ)
+    return datetime.now(current_timezone())
 
 
 @planning.post("/reminders/claim")

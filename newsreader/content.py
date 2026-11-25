@@ -15,7 +15,7 @@ def extract_article(html, url):
     if not title:
         heading = soup.find("h1") or soup.title
         title = heading.get_text(" ", strip=True) if heading else urlsplit(url).hostname
-    for node in soup.select("script, style, nav, footer, header, aside, form, noscript, iframe, button, [hidden]"):
+    for node in soup.select("script, style, nav, footer, header, aside, form, noscript, iframe, button, [hidden], [aria-hidden='true'], .related, .related-posts, .recommendations, .advertisement, .social-share"):
         node.decompose()
     root = soup.find("article") or soup.find("main") or soup.body or soup
     candidates = [root] + root.select("div, section")
@@ -25,13 +25,27 @@ def extract_article(html, url):
             return sum(len(p.get_text(" ", strip=True)) for p in paragraphs) - len(node.find_all("a")) * 40
         root = max(candidates, key=score)
     paragraphs = []
-    for paragraph in root.find_all(["p", "h2", "h3"]):
+    for paragraph in root.find_all(["p", "h2", "h3", "h4", "li", "blockquote"]):
+        # Process a containing list item or quote only once, keeping document order.
+        if paragraph.find_parent(["li", "blockquote"]) is not None:
+            continue
         text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
-        if len(text) >= 25:
+        if not text:
+            continue
+        if paragraph.name.startswith('h'):
+            text = '#' * int(paragraph.name[1]) + ' ' + text
+        elif paragraph.name == 'li':
+            text = '- ' + text
+        elif paragraph.name == 'blockquote':
+            text = '> ' + text
+        if paragraph.name != 'p' or len(text) >= 2:
             paragraphs.append(text)
     content = "\n\n".join(paragraphs)
-    if len(re.findall(r"[A-Za-z]+", content)) < 40:
-        raise FetchError("未找到足够的英文正文。该网站可能需要登录或动态加载，请复制正文后粘贴导入。")
+    from .learning import words
+    if len(words(content)) < 40:
+        raise FetchError("未找到足够的正文。该网站可能需要登录或动态加载，请复制正文后粘贴导入（至少40个词或文字单位）。")
+    if content.count('\ufffd') > max(2,len(content)//100):
+        raise FetchError('网页编码无法可靠识别，请复制可读正文后粘贴导入。')
     return {"title": title[:250], "content": content[:100000], "source": urlsplit(url).hostname, "source_url": url}
 
 

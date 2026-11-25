@@ -35,7 +35,7 @@ server=make_server('127.0.0.1',0,app,threaded=True);print('PORT:'+str(server.ser
   options={headless:true};if(process.env.READING_TEST_CHROMIUM_MODULE){const {default:runtime}=await import(pathToFileURL(process.env.READING_TEST_CHROMIUM_MODULE).href);options={...options,executablePath:await runtime.executablePath(),args:runtime.args};}
 });
 after(async()=>{if(server&&server.exitCode===null){const exit=new Promise(r=>server.once('exit',r));server.kill();await exit;}if(directory)fs.rmSync(directory,{recursive:true,force:true});});
-async function seed(api){
+async function seed(api,t){
   const article=await api('/articles','POST',{title:'A park for every season '+t.name,category:'生活',content:('The city has a small park. '.repeat(50)+'\n\n').repeat(2)});
   for(const [progress,seconds] of [[20,30],[40,60],[100,0]])await api('/articles/'+article.id+'/progress','PATCH',{progress,position:progress,seconds,request_id:'browser_reading_'+progress});
   const entry=(await api('/wordbook','POST',{word:'city',meaning:'城市'})).entry;const park=await api('/vocabulary','POST',{word:'park',meaning:'公园'});await api('/vocabulary/'+park.id,'PATCH',{mastery:'mastered'});
@@ -47,7 +47,7 @@ async function seed(api){
 async function fixture(t,{seeded=false,mobile=false}={}){
   const browser=await chromium.launch(options);t.after(()=>browser.close());const context=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1440,height:1000}});await context.request.post(origin+'/__test/reset',{data:{}});
   const api=async(endpoint,method='GET',data)=>{const r=await context.request.fetch(origin+'/api'+endpoint,{method,data});assert.equal(r.ok(),true,await r.text());return r.json();};
-  const id=seeded?await seed(api):null;const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));t.after(()=>assert.deepEqual(errors,[]));
+  const id=seeded?await seed(api,t):null;const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));t.after(()=>assert.deepEqual(errors,[]));
   await page.addInitScript(()=>{const NativeDate=Date;window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:['2026-11-22T10:00:00+08:00']));}static now(){return new NativeDate('2026-11-22T10:00:00+08:00').getTime();}};});
   await page.goto(origin+'/#analytics');await page.locator('.analytics-summary h2').waitFor();return{page,api,context,id};
 }

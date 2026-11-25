@@ -2,7 +2,7 @@
 'use strict';
 (() => {
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const date=value=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+  const date=value=>window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat('zh-CN',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
   class Review {
     constructor({root,api,toast}){Object.assign(this,{root,api,toast});this.abort=new AbortController();this.mode='front';this.collection='';this.revealed=false;this.attempt='';this.pending=null;this.message='';for(const type of ['click','change','submit'])root.addEventListener(type,e=>this.handle(e),{signal:this.abort.signal});}
     destroy(){this.dead=true;this.abort.abort();this.stopAudio();}

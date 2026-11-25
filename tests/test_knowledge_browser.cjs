@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Optional: node --test tests/test_knowledge_browser.cjs (Playwright required). */
 const assert = require('node:assert/strict');
 const {spawn} = require('node:child_process');
@@ -13,7 +14,7 @@ const parts=Array.from({length:7},(_,i)=>`Section ${i+1}. A 🌱 quiet journey g
 before(async()=>{
   temporary=fs.mkdtempSync(path.join(os.tmpdir(),'margin-knowledge-'));
   const local=path.join(root,'.venv',process.platform==='win32'?'Scripts/python.exe':'bin/python');
-  server=spawn(process.env.KNOWLEDGE_TEST_PYTHON||(fs.existsSync(local)?local:'python'),['-B','-u','-c',`
+  server=spawn(process.env.KNOWLEDGE_TEST_PYTHON||process.env.READING_TEST_PYTHON||(fs.existsSync(local)?local:'python'),['-B','-u','-c',`
 import logging, sys
 from app import create_app
 from werkzeug.serving import make_server
@@ -29,7 +30,7 @@ server.serve_forever()
     server.once('exit',code=>{clearTimeout(timer);reject(new Error('Server exit '+code+' '+stderr));});
     server.stdout.on('data',data=>{output+=data;const match=output.match(/PORT:(\d+)/);if(match){clearTimeout(timer);resolve('http://127.0.0.1:'+match[1]);}});
   });
-  browser=await chromium.launch({headless:true,...(process.env.KNOWLEDGE_TEST_BROWSER?{channel:process.env.KNOWLEDGE_TEST_BROWSER}:{})});
+  browser=await chromium.launch({headless:true,...(process.env.READING_TEST_CHROME?{executablePath:process.env.READING_TEST_CHROME}:{}),...(process.env.KNOWLEDGE_TEST_BROWSER?{channel:process.env.KNOWLEDGE_TEST_BROWSER}:{})});
 });
 after(async()=>{
   await browser?.close();
@@ -72,7 +73,7 @@ test('four highlight colors, repeated sentence anchors, bookmarks and reload pre
     assert.equal(await page.evaluate(color=>CSS.highlights.get('knowledge-'+color).size,color),1);
   }
   const anchor=await select(page,1,'quiet journey',1);
-  await page.locator('[data-k-action="sentence"]').click();await savedCount(page,5);
+  await clickReaderTool(page,'[data-k-action="sentence"]');await savedCount(page,5);
   const sentence=(await api(context,`/articles/${id}/knowledge`)).items.find(i=>i.kind==='sentence');assert.deepEqual(sentence.anchors,[anchor]);
   await page.locator('.k-bookmark[data-paragraph="0"]').click();await savedCount(page,6);
   await page.locator('.k-bookmark[data-paragraph="0"]').click();await savedCount(page,5);
@@ -95,7 +96,7 @@ test('multi-paragraph selection ignores controls; annotations, cards, tags and s
     const a=knowledgeOrganizer.rangeFor(first),b=knowledgeOrganizer.rangeFor(second);a.setEnd(b.endContainer,b.endOffset);
     const sel=getSelection();sel.removeAllRanges();sel.addRange(a);knowledgeOrganizer.captureSelection();
   });
-  await page.locator('[data-k-action="annotate"]').click();await page.locator('#k-edit-form [name="title"]').fill('城市空间的启发');
+  await clickReaderTool(page,'[data-k-action="annotate"]');await page.locator('#k-edit-form [name="title"]').fill('城市空间的启发');
   await page.locator('#k-edit-form [name="content"]').fill('将公共花园与社区参与联系起来。<img src=x onerror=window.badKnowledge=1>');
   await page.locator('#k-edit-form [name="tags"]').fill('环境, Writing, writing');
   await page.locator('#k-save').click();await savedCount(page,1);
@@ -114,7 +115,7 @@ test('multi-paragraph selection ignores controls; annotations, cards, tags and s
   await page.waitForFunction(id=>knowledgeOrganizer.article?.id===id&&document.querySelector('.k-source-focus'),id);
   assert.equal(await page.evaluate(()=>getSelection().toString()),item.anchors[0].quote);
   await page.locator('#k-margin [data-k-action="close-margin"]').click();await library(page);
-  await page.locator('[data-k-action="reset-filter"]').click();await page.locator('#k-filter-form [name="kind"]').selectOption('card');await page.locator('#k-filter-form button[type="submit"]').click();
+  await clickReaderTool(page,'[data-k-action="reset-filter"]');await page.locator('#k-filter-form [name="kind"]').selectOption('card');await page.locator('#k-filter-form button[type="submit"]').click();
   await page.waitForSelector('.k-answer');await page.locator('.k-answer summary').first().click();assert.ok(await page.locator('.k-answer[open]').count());
   await snapshot(page,'knowledge-library');
 });
@@ -122,7 +123,7 @@ test('multi-paragraph selection ignores controls; annotations, cards, tags and s
 test('free notes, grammar, expressions, flashcards and safe edits; failures and conflicting saves keep input',async t=>{
   const {page,context}=await setup(t);await library(page);
   for(const kind of ['grammar','note','expression','card']) {
-    await page.locator('#k-new-kind').selectOption(kind);await page.locator('[data-k-action="new-item"]').click();
+    await page.locator('#k-new-kind').selectOption(kind);await clickReaderTool(page,'[data-k-action="new-item"]');
     await page.locator('#k-edit-form [name="title"]').fill(kind+' 素材');await page.locator('#k-edit-form [name="content"]').fill('A useful explanation.');
     if(kind==='expression')await page.locator('#k-edit-form [name="example"]').fill('A garden brings people together.');
     await page.locator('#k-save').click();await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
@@ -136,27 +137,27 @@ test('free notes, grammar, expressions, flashcards and safe edits; failures and 
   await page.locator('#k-save').click();await page.waitForSelector('#k-edit-conflict:not([hidden])');
   assert.equal(await page.locator('#k-edit-form [name="content"]').inputValue(),'Local changes retained.');
   assert.match(await page.locator('#k-edit-conflict pre').textContent(),/another window/);
-  await page.locator('[data-k-action="keep-item"]').click();await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
+  await clickReaderTool(page,'[data-k-action="keep-item"]');await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
   assert.equal((await api(context,'/knowledge/items/'+itemId)).item.content,'Local changes retained.');
   await page.locator('#k-list [data-k-action="edit-item"]').click();await page.locator('#k-edit-form [name="content"]').fill('Offline draft.');
   await page.route('**/api/knowledge/items/'+itemId,route=>route.request().method()==='PATCH'?route.abort():route.continue());
   await page.locator('#k-save').click();await page.waitForFunction(()=>document.querySelector('#k-edit-status').textContent.includes('无法连接'));
   assert.equal(await page.locator('#k-edit-form [name="content"]').inputValue(),'Offline draft.');
   await page.unroute('**/api/knowledge/items/'+itemId);await page.locator('#k-save').click();await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
-  await page.locator('#k-list [data-k-action="edit-item"]').click();await page.locator('[data-k-action="delete-item"]').click();await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
+  await page.locator('#k-list [data-k-action="edit-item"]').click();await clickReaderTool(page,'[data-k-action="delete-item"]');await page.waitForFunction(()=>!document.querySelector('#k-editor').open);
   assert.equal((await context.request.get(origin+'/api/knowledge/items/'+itemId)).status(),404);
 });
 
 test('mind maps edit, reparent, link, collapse, persist and protect against stale versions',async t=>{
   const {page,context}=await setup(t);
   const {item}=await api(context,'/knowledge/items','POST',{request_id:crypto.randomUUID(),kind:'note',title:'Community gardens',content:'Shared space builds community.',tags:['environment']});
-  await library(page);await page.locator('[data-k-action="new-map"]').click();
+  await library(page);await clickReaderTool(page,'[data-k-action="new-map"]');
   await page.locator('#k-map-title').fill('城市与社区');await page.locator('#k-node-text').fill('城市与自然');
-  await page.locator('[data-k-action="add-node"]').click();await page.locator('#k-node-text').fill('公共空间');
+  await clickReaderTool(page,'[data-k-action="add-node"]');await page.locator('#k-node-text').fill('公共空间');
   const branch=await page.evaluate(()=>knowledgeOrganizer.nodeId);
-  await page.locator('#k-link-search').fill('Community gardens');await page.locator('[data-k-action="search-link"]').click();
+  await page.locator('#k-link-search').fill('Community gardens');await clickReaderTool(page,'[data-k-action="search-link"]');
   await page.locator(`[data-k-action="link-node"][data-id="${item.id}"]`).click();
-  await page.locator('[data-k-action="add-node"]').click();await page.locator('#k-node-text').fill('归属感');
+  await clickReaderTool(page,'[data-k-action="add-node"]');await page.locator('#k-node-text').fill('归属感');
   const child=await page.evaluate(()=>knowledgeOrganizer.nodeId);
   await page.locator('#k-node-parent').selectOption('root');assert.equal(await page.evaluate(()=>knowledgeOrganizer.selectedNode().parent),'root');
   await page.locator('#k-node-parent').selectOption(branch);
@@ -167,15 +168,15 @@ test('mind maps edit, reparent, link, collapse, persist and protect against stal
   await snapshot(page,'knowledge-mindmap');
   await api(context,'/knowledge/maps/'+id,'PATCH',{version:0,title:'Other title',nodes:(await api(context,'/knowledge/maps/'+id)).map.nodes});
   await page.locator('#k-map-title').fill('我的城市导图');await page.locator('#k-map-save').click();await page.waitForSelector('#k-map-conflict:not([hidden])');
-  assert.equal(await page.locator('#k-map-title').inputValue(),'我的城市导图');await page.locator('[data-k-action="keep-map"]').click();await page.waitForFunction(()=>!knowledgeOrganizer.mapDirty);
-  await page.locator('[data-k-action="close-map"]').click();await page.locator('[data-k-action="maps-tab"]').click();await page.locator(`[data-k-action="open-map"][data-id="${id}"]`).click();
+  assert.equal(await page.locator('#k-map-title').inputValue(),'我的城市导图');await clickReaderTool(page,'[data-k-action="keep-map"]');await page.waitForFunction(()=>!knowledgeOrganizer.mapDirty);
+  await clickReaderTool(page,'[data-k-action="close-map"]');await clickReaderTool(page,'[data-k-action="maps-tab"]');await page.locator(`[data-k-action="open-map"][data-id="${id}"]`).click();
   await page.waitForSelector('#k-map[open]');
   assert.equal(await page.locator('#k-map-title').inputValue(),'我的城市导图');assert.equal(await page.locator('.k-node').count(),3);
-  await page.locator(`[data-k-action="select-node"][data-node="${branch}"]`).click();await page.locator('[data-k-action="view-linked"]').click();
+  await page.locator(`[data-k-action="select-node"][data-node="${branch}"]`).click();await clickReaderTool(page,'[data-k-action="view-linked"]');
   await page.waitForSelector('#k-editor[open]');
   assert.equal(await page.locator('#k-edit-form [name="title"]').inputValue(),'Community gardens');await page.locator('[data-k-action="close-editor"]').first().click();
-  await page.locator('[data-k-action="delete-node"]').click();assert.equal(await page.locator('.k-node').count(),1);
-  await page.locator('#k-map-save').click();await page.waitForFunction(()=>!knowledgeOrganizer.mapDirty);await page.locator('[data-k-action="delete-map"]').click();await page.waitForFunction(()=>!document.querySelector('#k-map').open);
+  await clickReaderTool(page,'[data-k-action="delete-node"]');assert.equal(await page.locator('.k-node').count(),1);
+  await page.locator('#k-map-save').click();await page.waitForFunction(()=>!knowledgeOrganizer.mapDirty);await clickReaderTool(page,'[data-k-action="delete-map"]');await page.waitForFunction(()=>!document.querySelector('#k-map').open);
   assert.equal((await api(context,'/knowledge/items/'+item.id)).item.id,item.id);
 });
 
@@ -185,9 +186,9 @@ test('mobile dark reader and fallback highlights keep text intact and source del
   await go(page,id);
   assert.equal(await page.locator('body').getAttribute('data-reader-theme'),'dark');
   await page.evaluate(()=>{window.Highlight=undefined;});
-  await select(page,0,'quiet journey');await page.locator('[data-k-action="highlight"][data-color="blue"]').click();await savedCount(page,1);
+  await select(page,0,'quiet journey');await clickReaderTool(page,'[data-k-action="highlight"][data-color="blue"]');await savedCount(page,1);
   assert.ok(await page.locator('mark[data-k-mark="blue"]').count());
-  await select(page,0,'journey gives readers');await page.locator('[data-k-action="highlight"][data-color="pink"]').click();await savedCount(page,2);
+  await select(page,0,'journey gives readers');await clickReaderTool(page,'[data-k-action="highlight"][data-color="pink"]');await savedCount(page,2);
   assert.equal(await page.evaluate(()=>{const p=knowledgeOrganizer.reader.paragraphs[0];return knowledgeOrganizer.textNodes(p).map(n=>n.node.textContent).join('')===p.dataset.plain;}),true);
   await page.locator('.k-paragraph-notes[data-paragraph="0"]').click();
   await page.locator('#k-margin [data-k-action="paragraph-note"]').click();await page.locator('#k-edit-form [name="content"]').fill('手机端页边批注');await page.locator('#k-save').click();await savedCount(page,3);
@@ -203,7 +204,7 @@ test('mobile dark reader and fallback highlights keep text intact and source del
 
 test('back navigation can keep unsaved notes and saving cannot discard edits made in flight',async t=>{
   const {page,context}=await setup(t);await library(page);
-  await page.locator('#k-new-kind').selectOption('note');await page.locator('[data-k-action="new-item"]').click();
+  await page.locator('#k-new-kind').selectOption('note');await clickReaderTool(page,'[data-k-action="new-item"]');
   await page.locator('#k-edit-form [name="title"]').fill('An unfinished note');await page.locator('#k-edit-form [name="content"]').fill('Keep this draft.');
   page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
   await page.evaluate(()=>{location.hash='activity';});

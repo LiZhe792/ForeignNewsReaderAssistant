@@ -1,0 +1,5 @@
+Flask==3.1.2
+beautifulsoup4==4.14.2
+Markdown==3.10.2
+charset-normalizer==3.4.4
+tzdata>=2025.2,<2028

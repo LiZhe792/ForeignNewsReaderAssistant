@@ -1,10 +1,12 @@
 """Article creation shared by imports, subscriptions and batch ingestion."""
 
 from flask import current_app
+import json
 
 from .content import import_url
 from .db import get_db, now, normalize_title
 from .learning import assess_difficulty, words
+from .library import canonical_url, find_duplicate
 
 CATEGORIES = ("科技", "文化", "科学", "生活", "环境", "其他")
 MIN_WORDS = 40
@@ -27,9 +29,14 @@ def ensure_source(db, name, domain=""):
 
 
 def insert_article(db, *, title, content, source, source_url="", category="其他",
-                   subtitle="", author="", feed_id=None, guid=""):
+                   subtitle="", author="", feed_id=None, guid="", language=None):
     """Insert one article and return its id. Caller owns the transaction."""
-    metrics = assess_difficulty(content)
+    source_url = canonical_url(source_url)
+    if language is None:
+        row=db.execute("SELECT value FROM settings WHERE key='locale.article_language'").fetchone()
+        language=json.loads(row[0]) if row else 'auto'
+    if language not in ('auto','en','fr','de','es','ja','ko','zh'):raise ValueError('文章语言无效。')
+    metrics = assess_difficulty(content,language)
     cursor = db.execute(
         """INSERT INTO articles (title, subtitle, content, source, source_url, category, author,
         level, difficulty_score, word_count, reading_minutes, created_at, feed_id, guid, title_norm)
@@ -38,11 +45,14 @@ def insert_article(db, *, title, content, source, source_url="", category="其�
          metrics["level"], metrics["score"], metrics["word_count"],
          metrics["reading_minutes"], now(), feed_id, guid, normalize_title(title)),
     )
-    return cursor.lastrowid
+    identity=cursor.lastrowid
+    db.execute('INSERT INTO extension_records VALUES(?,?,?,1,?,?)',('article-language-'+str(identity),'article-language',json.dumps({'language':language}),now(),now()))
+    return identity
 
 
 def existing_article(db, source_url):
-    return db.execute("SELECT id FROM articles WHERE source_url=?", (source_url,)).fetchone()
+    identity = find_duplicate(db, '', source_url)
+    return {'id': identity} if identity else None
 
 
 def import_many(urls, category="其他", limit=MAX_BATCH):

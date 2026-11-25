@@ -3,7 +3,7 @@
 window.MarginDictionary = (() => {
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const normalize = value => value.trim().toLowerCase().replaceAll('’', "'").replace(/\s+/g, ' ');
-  const valid = value => value.length <= 60 && /^[A-Za-z]+(?:['’-][A-Za-z]+)*(?:\s+[A-Za-z]+(?:['’-][A-Za-z]+)*){0,5}$/.test(value);
+  const valid = value => value.length <= 60 && ((typeof window!=='undefined'&&window.MarginPlatform?.preferences?.article_language&&window.MarginPlatform.preferences.article_language!=='en')?/^\p{L}[\p{L}\p{M}]*(?:['’\-\s]\p{L}[\p{L}\p{M}]*){0,5}$/u:/^[A-Za-z]+(?:['’-][A-Za-z]+)*(?:\s+[A-Za-z]+(?:['’-][A-Za-z]+)*){0,5}$/).test(value);
   const controls = () => `<label class="dictionary-choice">查询词典<select data-reader-setting="dictionary_provider" aria-label="查询词典"><option value="auto">自动 · 离线优先</option><option value="offline">离线英汉 · ECDICT / Margin</option><option value="free">在线英英 · Free Dictionary</option></select></label>`;
   function pronunciation(result) {
     const sounds = result.phonetics || {other: result.phonetic};

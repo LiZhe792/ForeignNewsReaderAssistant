@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta
 
 from flask import Blueprint, abort, jsonify, request
-from .db import CHINA_TZ, get_db
+from .db import CHINA_TZ, current_timezone, get_db
 
 review=Blueprint('review',__name__,url_prefix='/api/review')
 SCHEMA='''
@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS srs_due ON srs_cards(suspended,due_at);
 DEFAULTS={'new_limit':10,'review_limit':50}
 
 
-def clock(): return datetime.now(CHINA_TZ).replace(microsecond=0)
+def clock(): return datetime.now(current_timezone()).replace(microsecond=0)
 
 
 def ensure_schedule(db,word_id):

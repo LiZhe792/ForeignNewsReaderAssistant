@@ -10,7 +10,7 @@ import re
 import uuid
 
 from flask import Blueprint, Response, abort, jsonify, request
-from .db import CHINA_TZ, get_db, now
+from .db import CHINA_TZ, current_timezone, get_db, now
 from .dictionary import normalize_term
 from .personalization import digest, lexicon, knowledge
 from .reading_flow import contains_term
@@ -53,7 +53,7 @@ END;
 
 
 def clock():
-    return datetime.now(CHINA_TZ)
+    return datetime.now(current_timezone())
 
 
 def initialize(db):
@@ -71,7 +71,7 @@ def initialize(db):
 
 def local_day(stamp):
     parsed = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    return parsed.astimezone(CHINA_TZ).date().isoformat() if parsed.tzinfo else parsed.date().isoformat()
+    return parsed.astimezone(current_timezone()).date().isoformat() if parsed.tzinfo else parsed.date().isoformat()
 
 
 def token(value):
@@ -121,7 +121,7 @@ def observe_lookup():
     try:
         parsed=datetime.fromisoformat(stamp.replace("Z", "+00:00"))
         if parsed.tzinfo is None or not clock()-timedelta(days=7)<=parsed<=clock()+timedelta(minutes=2):raise ValueError()
-        stamp=parsed.astimezone(CHINA_TZ).isoformat()
+        stamp=parsed.astimezone(current_timezone()).isoformat()
     except (ValueError,TypeError):raise ValueError('查词时间无效或超过 7 天保存范围。') from None
     db=get_db(); db.execute('BEGIN IMMEDIATE'); article=None
     if identity is not None:

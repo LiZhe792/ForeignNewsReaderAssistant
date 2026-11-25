@@ -5,7 +5,7 @@
   const bytes=n=>n>=1024*1024?(n/1024/1024).toFixed(1)+' MB':(n/1024).toFixed(1)+' KB';
   const token=()=>window.crypto?.randomUUID?.()||Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
   const button=(id,label,attrs='')=>`<button type="button" class="button small" data-manage="${id}" ${attrs}>${label}</button>`;
-  const date=value=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+  const date=value=>window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat('zh-CN',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
   class Data {
     static prepare(info){
       try{

@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, request, send_file
 
-from .db import get_db, now, today
+from .db import get_db, now, today, current_timezone
 from .export_formats import render_export, safe_url
 
 exports = Blueprint('exports', __name__, url_prefix='/api')
@@ -230,7 +230,7 @@ def report(filters):
     for row in db.execute('SELECT mastery,COUNT(*) AS n FROM vocabulary GROUP BY mastery'):
         mastery[row['mastery']] = row['n']
     created = lambda table: db.execute(f'SELECT COUNT(*) FROM {table} WHERE substr(created_at,1,10) BETWEEN ? AND ?', (start, end)).fetchone()[0] if table_exists(table) else 0
-    return {'period': {'from': start, 'to': end, 'timezone': 'Asia/Shanghai'},
+    return {'period': {'from': start, 'to': end, 'timezone': str(current_timezone())},
             'metrics': {'reading_seconds': sum(r['reading_seconds'] for r in daily), 'checked_days': len(rows),
                         'completed_count': sum(r['completed_count'] for r in daily), 'longest_streak': longest_streak,
                         'added_vocabulary': created('vocabulary'), 'added_notes': created('knowledge_items'),
@@ -336,7 +336,7 @@ def data_api(resource):
         response.headers['WWW-Authenticate'] = 'Bearer realm="Margin read-only data"'
         return response
     if resource == 'schema':
-        return jsonify(schema_version=1, read_only=True, timezone='Asia/Shanghai', max_page_size=200,
+        return jsonify(schema_version=1, read_only=True, timezone=str(current_timezone()), max_page_size=200,
                        resources=['vocabulary', 'notes', 'reading-list', 'report'], pagination='after + limit; id ascending',
                        filters={'vocabulary': ['query', 'mastery', 'article_id', 'from', 'to'],
                                 'notes': ['query', 'kind', 'tag', 'article_id', 'from', 'to'],

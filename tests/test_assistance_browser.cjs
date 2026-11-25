@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Real Flask/SQLite/browser checks. The model service is explicitly synthetic. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
@@ -57,7 +58,7 @@ async function pageFor(t,settings={},viewport={width:1440,height:960}){
 }
 const dialog=page=>page.locator('#study-dialog');
 async function open(page,kind='translation'){
-  await page.locator(`[data-study-action="open-${kind==='context'?'context':'translation'}"]`).click();
+  await clickReaderTool(page,`[data-study-action="open-${kind==='context'?'context':'translation'}"]`);
   await page.locator('#study-paragraph option').first().waitFor({state:'attached'});
   await page.waitForFunction(()=>!document.querySelector('#study-generate').disabled);
 }
@@ -74,7 +75,7 @@ test('context explanation uses the selected occurrence, all learning categories 
   const {page,api,id,posts}=await pageFor(t);
   await page.locator('#reader-p-0 [data-word="bank"]').first().click();
   await page.locator('.lookup-result').waitFor();
-  await page.locator('[data-study-action="lookup-context"]').click();
+  await clickReaderTool(page,'[data-study-action="lookup-context"]');
   await page.waitForFunction(()=>!document.querySelector('#study-generate').disabled);
   assert.equal(await page.locator('#study-source-preview').innerText(),'bank');
   await page.locator('#study-level').selectOption('advanced');await generate(page);
@@ -96,7 +97,7 @@ test('a selected expression after an emoji uses code-point offsets and keeps the
     const range=document.createRange();range.selectNodeContents(word);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
     word.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
   });
-  await page.locator('[data-study-action="explain-selection"]').click();
+  await clickReaderTool(page,'[data-study-action="explain-selection"]');
   await page.waitForFunction(()=>!document.querySelector('#study-generate').disabled);await generate(page);
   const record=(await api(`/articles/${id}/assistance`)).results[0];
   assert.equal(record.source_text,'bank');assert.equal(record.paragraph_index,1);assert.ok(record.start>100);
@@ -106,7 +107,7 @@ test('a selected expression after an emoji uses code-point offsets and keeps the
 test('word, sentence and paragraph translation each retain the exact original scope',async t=>{
   const {page,api,id}=await pageFor(t);
   await page.locator('#reader-p-0 [data-word="bank"]').first().click();await page.locator('.lookup-result').waitFor();
-  await page.locator('[data-study-action="lookup-translation"]').click();
+  await clickReaderTool(page,'[data-study-action="lookup-translation"]');
   await page.waitForFunction(()=>!document.querySelector('#study-generate').disabled);await generate(page);
   assert.equal(await page.locator('.study-original-source').innerText(),'bank');
   await page.locator('#study-scope').selectOption('sentence');await generate(page);
@@ -153,17 +154,17 @@ test('stopping a batch preserves completed work and allows a later continuation'
 
 test('translation favorites, revisions and the original draft persist after refresh',async t=>{
   const {page,api,id}=await pageFor(t);await open(page);await generate(page);
-  await page.locator('[data-study-action="favorite"]').click();
+  await clickReaderTool(page,'[data-study-action="favorite"]');
   await page.waitForFunction(()=>document.querySelector('[data-study-action="favorite"]').getAttribute('aria-pressed')==='true');
   await edit(page);
   await page.locator('[data-study-edit="literal"]').fill('我核对后的直译');
   await page.locator('[data-study-edit="natural"]').fill('我核对后的意译');
   await page.locator('[data-study-edit="note"]').fill('保留否定与语气');
-  await page.locator('[data-study-action="original"]').click();
+  await clickReaderTool(page,'[data-study-action="original"]');
   assert.equal(await page.locator('[data-study-edit="note"]').inputValue(),'保留否定与语气');
   await page.locator('[data-study-edit="literal"]').fill('我核对后的直译');
   await page.locator('[data-study-edit="natural"]').fill('我核对后的意译');
-  await page.locator('[data-study-action="save"]').click();
+  await clickReaderTool(page,'[data-study-action="save"]');
   await page.waitForFunction(()=>!document.querySelector('.study-draft-note')?.textContent.includes('尚未保存'));
   const saved=(await api(`/articles/${id}/assistance`)).results[0];
   assert.equal(saved.payload.natural,'我核对后的意译');assert.notEqual(saved.original.natural,saved.payload.natural);
@@ -177,12 +178,12 @@ test('typing during a pending save preserves the newer input and its caret',asyn
   let release;
   await page.route('**/api/articles/*/assistance/*',async route=>{if(route.request().method()==='PATCH'){await new Promise(resolve=>{release=resolve;});await route.continue();}else await route.continue();});
   const field=page.locator('[data-study-edit="natural"]');await field.fill('第一版');
-  await page.locator('[data-study-action="save"]').click();
+  await clickReaderTool(page,'[data-study-action="save"]');
   await field.fill('第二版，仍在输入');await field.evaluate(el=>el.setSelectionRange(2,5));
   release();await page.waitForFunction(()=>document.querySelector('#study-message').textContent.includes('之后的输入仍待保存'));
   assert.equal(await field.inputValue(),'第二版，仍在输入');assert.equal(await field.evaluate(el=>el.selectionStart),2);
   assert.equal((await api(`/articles/${id}/assistance`)).results[0].payload.natural,'第一版');
-  await page.unroute('**/api/articles/*/assistance/*');await page.locator('[data-study-action="save"]').click();
+  await page.unroute('**/api/articles/*/assistance/*');await clickReaderTool(page,'[data-study-action="save"]');
   await page.waitForFunction(()=>document.querySelector('#study-message').textContent==='译文记录已保存。');
   assert.equal((await api(`/articles/${id}/assistance`)).results[0].payload.natural,'第二版，仍在输入');
 });
@@ -192,10 +193,10 @@ test('a revision conflict preserves the local draft and requires an explicit sec
   await page.locator('[data-study-edit="natural"]').fill('保留本页输入');
   const record=(await api(`/articles/${id}/assistance`)).results[0];
   await api(`/articles/${id}/assistance/${record.id}`,'PATCH',{version:record.version,natural:'另一页已保存'});
-  await page.locator('[data-study-action="save"]').click();await page.locator('.study-result [role="alert"]').waitFor();
+  await clickReaderTool(page,'[data-study-action="save"]');await page.locator('.study-result [role="alert"]').waitFor();
   assert.equal(await page.locator('[data-study-edit="natural"]').inputValue(),'保留本页输入');
   assert.equal((await api(`/articles/${id}/assistance`)).results[0].payload.natural,'另一页已保存');
-  await page.locator('[data-study-action="save"]').click();await page.waitForFunction(()=>!document.querySelector('.study-result [role="alert"]'));
+  await clickReaderTool(page,'[data-study-action="save"]');await page.waitForFunction(()=>!document.querySelector('.study-result [role="alert"]'));
   assert.equal((await api(`/articles/${id}/assistance`)).results[0].payload.natural,'保留本页输入');
 });
 
@@ -223,10 +224,10 @@ test('failed generation can be retried without changing the selected source',asy
 test('unconfigured service leaves saved translations visible and editable without a model call',async t=>{
   const {page,posts}=await pageFor(t);await open(page);await generate(page);await close(page);
   await page.route('**/api/assistance/status',route=>route.fulfill({json:{configured:false,model:'',message:'尚未配置 AI 服务。已有结果可查看。'}}));
-  await page.locator('[data-study-action="open-translation"]').click();
+  await clickReaderTool(page,'[data-study-action="open-translation"]');
   await page.waitForFunction(()=>document.querySelector('#study-service').textContent.includes('尚未配置'));
   assert.equal(await page.locator('#study-generate').isDisabled(),true);assert.equal(await page.locator('.study-result').count(),1);
-  await edit(page);const before=posts.length;await page.locator('[data-study-edit="natural"]').fill('离线修订');await page.locator('[data-study-action="save"]').click();
+  await edit(page);const before=posts.length;await page.locator('[data-study-edit="natural"]').fill('离线修订');await clickReaderTool(page,'[data-study-action="save"]');
   await page.waitForFunction(()=>document.querySelector('#study-message').textContent==='译文记录已保存。');assert.equal(posts.length,before);
 });
 
@@ -235,7 +236,9 @@ test('navigation cancels the old panel and a late response never opens it in ano
   await page.route('**/api/articles/*/assistance',async route=>{if(route.request().method()==='POST')await new Promise(resolve=>{release=resolve;});await route.continue().catch(()=>{});});
   await page.locator('#study-generate').click();await page.waitForFunction(()=>document.querySelector('#study-stop').hidden===false);
   const other=await api('/articles','POST',{title:'Another article',content});
-  await page.evaluate(id=>{location.hash='reader/'+id;},other.id);await page.locator('.reader-title').filter({hasText:'Another article'}).waitFor();release?.();
+  await page.evaluate(id=>{location.hash='reader/'+id;},other.id);
+  await page.waitForFunction(id=>state.article?.id===id,other.id);
+  await page.getByRole('heading',{name:'Another article',exact:true}).waitFor();release?.();
   assert.equal(await dialog(page).evaluate(el=>el.open),false);
 });
 

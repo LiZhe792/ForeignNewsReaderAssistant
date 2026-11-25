@@ -19,7 +19,7 @@ function frontend() {
     classList: {add() {}, remove() {}, toggle() {}},
     append() {}, remove() {}, addEventListener() {},
   });
-  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel', '#file-drop', '#import-file', '#import-dialog']) {
+  for (const selector of ['#app', '#confirm-dialog', '#toast-region', '#learning-panel', '#file-drop', '#import-file', '#import-dialog', '#batch-results']) {
     elements.set(selector, element());
   }
   const document = {
@@ -44,6 +44,7 @@ function frontend() {
   vm.runInContext(fs.readFileSync(path.join(root, 'static/dictionary.js'), 'utf8'), context);
   context.MarginDictionary = window.MarginDictionary;
   vm.runInContext(flowSource, context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'static/import-queue.js'), 'utf8'), context);
   vm.runInContext(source, context);
   // The initial data load stays pending; each test controls subsequent responses.
   calls.length = 0;

@@ -118,6 +118,7 @@ test('leaving while recommendations load preserves the next route',async t=>{
 test('library and reader expose personalization without changing reader position',async t=>{
   const {page,api}=await fixture(t,{route:'library'});assert.equal(await page.locator('#personal-library .personal-mini').count(),3);
   await page.locator('#personal-library .personal-mini').first().click();await page.locator('#article-body').waitFor();const id=Number(page.url().match(/reader\/(\d+)/)[1]);
+  await page.locator('.reader-article-details > summary').click();
   await page.getByRole('link',{name:'个人难度与读后反馈'}).click();await card(page,id).waitFor();
   await card(page,id).locator('[data-value=fit]').click();await page.waitForFunction(()=>document.querySelector('[data-personal=difficulty][data-value=fit]')?.getAttribute('aria-pressed')==='true');
   await page.getByRole('link',{name:'← 继续阅读',exact:true}).click();await page.locator('#article-body').waitFor();assert.equal((await api('/articles/'+id)).progress<100,true);

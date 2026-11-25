@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Local merge smoke: real Flask and Chromium; no external AI or paid calls. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
@@ -36,10 +37,10 @@ test('all sidebar routes render their own module and writing workspace opens',as
 test('reader mounts QA, writing, analysis, translation, annotations and speech together',async t=>{
  const p=await pageFor(t);await p.goto(origin+'/#reader/1');await p.locator('#article-body .word').first().waitFor();
  for(const [button,dialog] of [['[data-qa-action="open"]','#article-qa-dialog'],['[data-writing-action="open"]','#writing-dialog'],['[data-analysis-open="sentence"]','#deep-analysis-dialog'],['[data-study-action="open-context"]','#study-dialog']]){
-  await p.locator(button).click();await p.locator(dialog+'[open]').waitFor();await p.keyboard.press('Escape');await p.locator(dialog+'[open]').waitFor({state:'hidden'});
+  await clickReaderTool(p,button);await p.locator(dialog+'[open]').waitFor();await p.keyboard.press('Escape');await p.locator(dialog+'[open]').waitFor({state:'hidden'});
  }
- await p.locator('[data-k-action="margin"]').click();await p.locator('#k-margin').waitFor();
- await p.locator('[data-tts-action="toggle"]').click();await p.locator('#speech-player').waitFor();
+ await clickReaderTool(p,'[data-k-action="margin"]');await p.locator('#k-margin').waitFor();
+ await clickReaderTool(p,'[data-tts-action="toggle"]');await p.locator('#speech-player').waitFor();
  assert.ok(await p.locator('.tts-sentence').count());
 });
 

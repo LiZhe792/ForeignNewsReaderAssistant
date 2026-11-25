@@ -35,7 +35,7 @@
 <link href="/static/study-plans.css" rel="stylesheet"/>
 <script defer="" src="/static/study-plans.js"></script>
 <link href="/static/accessibility.css" rel="stylesheet"/>
-<script defer="" src="/static/interface.js"></script>
+<script defer="" src="/static/interface-extra.js"></script><script defer="" src="/static/interface.js"></script>
 
 <link href="/static/article-qa.css" rel="stylesheet">
 <script defer="" src="/static/article-qa.js"></script>
@@ -47,7 +47,7 @@
 <script defer="" src="/static/deep-analysis.js"></script>
 <link href="/static/learning-lab.css" rel="stylesheet"/>
 <script defer="" src="/static/learning-lab.js"></script>
-</link></link></link><script defer="" src="/static/app.js"></script></head>
+</link></link></link><link rel="manifest" href="/manifest.webmanifest"><script defer src="/static/offline.js"></script><script defer src="/static/platform-client.js"></script><script defer src="/static/import-queue.js"></script><script defer src="/static/install.js"></script><script defer="" src="/static/app.js"></script></head>
 <body data-reader-defaults="{{ reader_defaults|tojson|forceescape }}">
 <a class="skip-link" data-i18n="skip" data-skip="app" href="#app">跳到主要内容</a>
 <div class="app-shell">
@@ -78,7 +78,7 @@
 </div>
 </aside>
 <main class="main-shell">
-<header class="topbar"><div class="breadcrumb"><span data-i18n="我的学习空间">我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><button class="button small" data-display-settings="" data-i18n="display.settings" type="button">语言与显示</button><span class="local-badge"><i></i><span id="network-status-text">本地学习空间</span></span><button class="button primary small" data-action="import"><span data-icon="plus"></span><span data-i18n="导入文章">导入文章</span></button></div></header>
+<header class="topbar"><div class="breadcrumb"><span data-i18n="我的学习空间">我的学习空间</span><span class="breadcrumb-slash">/</span><strong id="page-label">发现文章</strong></div><div class="top-actions"><a class="button small" href="/hub">账户与工具</a><button class="button small" data-display-settings="" data-i18n="display.settings" type="button">语言与显示</button><span class="local-badge"><i></i><span id="network-status-text">本地学习空间</span></span><button class="button primary small" data-action="import"><span data-icon="plus"></span><span data-i18n="导入文章">导入文章</span></button></div></header>
 <div class="data-changed-banner" hidden="" id="data-changed-banner" role="alert"><span data-i18n="学习数据已在另一页面还原，本页旧操作已暂停。重新载入后继续使用。">学习数据已在另一页面还原，本页旧操作已暂停。重新载入后继续使用。</span><button class="button small" data-action="reload-data" data-i18n="重新载入">重新载入</button></div>
 <div aria-labelledby="page-label" class="page-content" id="app" role="region" tabindex="-1"><div class="loading-screen"><span class="spinner"></span><p data-i18n="正在翻开你的阅读空间…">正在翻开你的阅读空间…</p></div></div>
 <div class="visually-hidden" id="route-status" role="status"></div>

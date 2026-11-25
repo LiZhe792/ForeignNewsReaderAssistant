@@ -190,7 +190,38 @@ def upload_limits():
 @wordbook.get('')
 def catalog():
     db=get_db()
-    return jsonify(entries=[detail(db,row['id']) for row in db.execute('SELECT id FROM vocabulary ORDER BY id DESC').fetchall()],
+    from .search import number
+    limit = number(request.args, 'limit')
+    offset = number(request.args, 'offset') or 0
+    if limit is not None and not 1 <= limit <= 100: raise ValueError('每页数量应为1–100。')
+    where, params = ['1=1'], []
+    query = request.args.get('query', '').strip()
+    if len(query)>200: raise ValueError('搜索词不能超过200字符。')
+    db.create_function('casefold',1,lambda s:str(s or '').casefold(),deterministic=True)
+    if query:
+        where.append('''(instr(casefold(v.word||' '||v.meaning||' '||v.note),?)>0
+          OR EXISTS(SELECT 1 FROM word_aliases a WHERE a.word_id=v.id AND instr(casefold(a.alias),?)>0)
+          OR EXISTS(SELECT 1 FROM word_memberships m JOIN word_collections c ON m.collection_id=c.id WHERE m.word_id=v.id AND instr(casefold(c.name),?)>0))''')
+        params.extend([query.casefold()]*3)
+    collection = number(request.args,'collection')
+    if collection: where.append('EXISTS(SELECT 1 FROM word_memberships WHERE word_id=v.id AND collection_id=?)'); params.append(collection)
+    kind = request.args.get('kind','')
+    if kind:
+        if kind not in ('word','phrase','pattern'): raise ValueError('词条类型无效。')
+        where.append('EXISTS(SELECT 1 FROM word_meta WHERE word_id=v.id AND entry_kind=?)');params.append(kind)
+    status = request.args.get('status','')
+    if status in ('new','learning','mastered'): where.append('v.mastery=?');params.append(status)
+    elif status in ('paused','difficult'): where.append('EXISTS(SELECT 1 FROM srs_cards WHERE word_id=v.id AND '+('suspended' if status=='paused' else 'leech')+'=1)')
+    elif status: raise ValueError('学习状态无效。')
+    clause=' AND '.join(where)
+    total=db.execute('SELECT count(*) FROM vocabulary v WHERE '+clause,params).fetchone()[0]
+    sql='SELECT v.id FROM vocabulary v WHERE '+clause+' ORDER BY v.id DESC'
+    if limit is not None: sql+=' LIMIT ? OFFSET ?';params.extend([limit,offset])
+    entries=[detail(db,row['id']) for row in db.execute(sql,params).fetchall()]
+    return jsonify(entries=entries,total=total,offset=offset,
+                   counts={'entries':db.execute('SELECT count(*) FROM vocabulary').fetchone()[0],
+                           'contexts':db.execute('SELECT count(*) FROM word_contexts').fetchone()[0],
+                           'difficult':db.execute('SELECT count(*) FROM srs_cards WHERE leech=1').fetchone()[0]},
                    collections=[dict(r) for r in db.execute('SELECT * FROM word_collections ORDER BY kind,name')], templates=TEMPLATES)
 
 

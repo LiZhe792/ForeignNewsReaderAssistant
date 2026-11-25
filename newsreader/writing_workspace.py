@@ -219,6 +219,10 @@ def authenticate():
     response = jsonify(account=account_json(account))
     response.set_cookie(COOKIE, token, max_age=SESSION_SECONDS, httponly=True,
                         samesite="Strict", secure=request.is_secure, path=API)
+    if not current_app.config.get('WRITING_ONLY'):
+        from .accounts import COOKIE as LEARNING_COOKIE
+        response.set_cookie(LEARNING_COOKIE, token, max_age=SESSION_SECONDS, httponly=True,
+                            samesite='Strict', secure=request.is_secure, path='/')
     return response
 
 
@@ -243,6 +247,9 @@ def sign_out():
             db().execute("DELETE FROM sessions WHERE token_hash=?", (account["token_hash"],))
     response = jsonify(ok=True)
     response.delete_cookie(COOKIE, path=API, secure=request.is_secure, httponly=True, samesite="Strict")
+    if not current_app.config.get('WRITING_ONLY'):
+        from .accounts import COOKIE as LEARNING_COOKIE
+        response.delete_cookie(LEARNING_COOKIE, path='/', secure=request.is_secure, httponly=True, samesite='Strict')
     return response
 
 

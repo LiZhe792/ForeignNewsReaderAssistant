@@ -3,7 +3,7 @@
 (() => {
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const button=(action,label,attributes='')=>`<button type="button" class="button small" data-reading="${action}" ${attributes}>${label}</button>`;
-  const date=value=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+  const date=value=>window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat('zh-CN',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
   class Exercises {
     constructor({root,api,toast,articleId,sessionId}){Object.assign(this,{root,api,toast,articleId:Number(articleId)||null,sessionId});this.abort=new AbortController();this.dialog=document.querySelector('#exercise-author-dialog');this.tab='home';this.answers={};this.draftSeq=0;this.savedSeq=0;this.stageIds=new Set();this.mistakeIds=new Set();this.reason='';this.status='all';this.message='';this.authorQuestions=[];this.mistakeDrafts=new Map();
       for(const node of [root,this.dialog])for(const type of ['click','input','change','submit'])node.addEventListener(type,e=>this.handle(e),{signal:this.abort.signal});

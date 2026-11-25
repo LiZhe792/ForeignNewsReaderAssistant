@@ -236,7 +236,7 @@ def speech():
     if not row: abort(404,'没有找到录音。')
     source=article(db,row['article_id'])
     if row['article_hash']!=digest(source['content']): abort(409,'原文已改变，请重新录音。')
-    model_path=os.environ.get('MARGIN_WHISPER_MODEL','').strip() or os.path.join(current_app.root_path,'instance','whisper-tiny.en')
+    model_path=os.environ.get('MARGIN_WHISPER_MODEL','').strip() or os.path.join(os.getenv('MARGIN_DATA_DIR',os.path.join(current_app.root_path,'instance')),'whisper-tiny.en')
     if not model_path or not os.path.isdir(model_path):
         return jsonify(error='尚未配置本地语音识别模型：请按 README 安装可选依赖并下载模型。'),503
     try:

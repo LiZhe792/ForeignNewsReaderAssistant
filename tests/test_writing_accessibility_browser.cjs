@@ -193,6 +193,7 @@ test('English core controls preserve form data and the original article text', a
   await page.getByRole('button', {name: 'Look up', exact: true}).focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.getByRole('textbox', {name: 'Look up an English word or phrase'}).evaluate(el => el === document.activeElement), true);
+  await page.locator('.reader-article-details > summary').click();
   await page.getByRole('link', {name: 'Write about this article', exact: true}).click();
   await page.getByRole('heading', {name: 'Writing workspace', exact: true}).waitFor();
   assert.ok(await page.locator('body').getAttribute('data-article-title'));

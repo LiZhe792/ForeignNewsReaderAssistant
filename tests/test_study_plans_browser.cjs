@@ -145,7 +145,7 @@ test('topic plan links to a filtered article library', async t => {
   await status(page,'计划已保存');
   await page.getByRole('link',{name:'浏览环境文章 →',exact:true}).click();
   await page.locator('#article-grid').waitFor();
-  assert.equal(await page.locator('[data-category=环境]').getAttribute('class'),'filter active');
+  assert.equal(await page.locator('#category-filter').inputValue(),'环境');
 });
 
 test('makeup is labeled separately in the original activity calendar', async t => {

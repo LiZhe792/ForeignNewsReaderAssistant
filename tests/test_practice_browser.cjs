@@ -101,7 +101,7 @@ test('actual MediaRecorder records a synthetic microphone and releases tracks on
 });
 
 test('shadow recording requires headphones and plays the reference while recording',async t=>{
-  const {page,api}=await fixture(t);await page.locator('#listen-mode').selectOption('shadow');await listen(page,'record').click();assert.equal(await page.evaluate(()=>window.__gumCalls),0);assert.match(await page.locator('#listen-message').innerText(),/戴耳机/);await page.locator('#listen-headphones').check();await listen(page,'record').click();await page.waitForFunction(()=>window.__spoken.length===1);await page.waitForTimeout(200);await listen(page,'record-stop').click();await page.locator('#listen-record-preview audio').waitFor();await listen(page,'save').click();await page.locator('.practice-feedback').waitFor();assert.equal((await api('/training/attempts')).attempts[0].mode,'shadow');
+  const {page,api}=await fixture(t);await page.locator('#listen-mode').selectOption('shadow');await listen(page,'record').click();assert.equal(await page.evaluate(()=>window.__gumCalls),0);assert.match(await page.locator('#listen-message').innerText(),/戴耳机/);await page.locator('#listen-headphones').check();await listen(page,'record').click();await page.waitForFunction(()=>window.__spoken.length===1);await page.waitForFunction(()=>practiceUI?.recordSession?.size>0);await listen(page,'record-stop').click();await page.locator('#listen-record-preview audio').waitFor();await listen(page,'save').click();await page.locator('.practice-feedback').waitFor();assert.equal((await api('/training/attempts')).attempts[0].mode,'shadow');
 });
 
 test('denied microphones keep local audio upload usable',async t=>{

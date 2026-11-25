@@ -22,6 +22,16 @@ class AIError(Exception):
 def configuration():
     key = current_app.config.get('AI_API_KEY', '')
     model = current_app.config.get('AI_MODEL', '')
+    # One saved DeepSeek configuration now powers every article-learning tool.
+    # Explicit legacy Responses settings continue to work for existing installs.
+    if not key and not model:
+        from . import ai_client
+        try:
+            shared_key, shared_model, source = ai_client.credentials()
+        except ai_client.AIError as error:
+            raise AIError(str(error), error.status) from None
+        return {'key': shared_key, 'model': shared_model, 'base': ai_client.API_ROOT,
+                'transport': 'deepseek', 'configured': bool(shared_key), 'source': source}
     raw_base = current_app.config.get('AI_BASE_URL', 'https://api.openai.com/v1')
     base = raw_base.rstrip('/') if isinstance(raw_base, str) else ''
     try:
@@ -49,7 +59,7 @@ def status():
                 'message':'离线模式已暂停 AI 生成；已有解释、译文和练习仍可查看。'}
     return {'configured': config['configured'], 'model': config['model'], 'profile': profile(),
             'message': '生成时发送所选原文和邻近上下文；结果可收藏与修订。' if config['configured'] else
-                       '尚未配置 AI 服务。请在启动 Python 前设置 MARGIN_AI_API_KEY 和 MARGIN_AI_MODEL；已有学习结果仍可查看和修订。'}
+                       '尚未配置 AI 服务。打开统一 AI 设置保存 DeepSeek 密钥即可用于全部学习工具；已有结果仍可查看和修订。'}
 
 
 def object_schema(properties):
@@ -96,6 +106,30 @@ def request_json(payload, config, timeout=35):
     from .data_management import offline
     if has_app_context() and offline():
         raise AIError('离线模式已暂停 AI 生成；已有学习结果仍可查看。',409)
+    if config.get('transport') == 'deepseek':
+        from . import ai_client
+        schema = payload.get('text', {}).get('format', {}).get('schema', {})
+        try:
+            response = ai_client.request_json('/chat/completions', config['key'], {
+                'model': config['model'], 'stream': False,
+                'thinking': {'type': 'disabled'}, 'response_format': {'type': 'json_object'},
+                'messages': [
+                    {'role': 'system', 'content': payload.get('instructions', '') +
+                     '\nReturn a JSON object matching this schema exactly: ' + json.dumps(schema)},
+                    {'role': 'user', 'content': payload['input']}],
+                'max_tokens': min(16000, payload.get('max_output_tokens', 5500)),
+            })
+            choice = response['choices'][0]
+            if choice.get('finish_reason') != 'stop':
+                raise AIError('AI 结果未完整生成，请缩小范围后重试。')
+            result = json.loads(choice['message']['content'])
+            if not isinstance(result, dict):
+                raise ValueError()
+            return result
+        except ai_client.AIError as error:
+            raise AIError(str(error), error.status) from None
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise AIError('AI 返回结构异常，请重试。') from None
     request = Request(config['base'] + '/responses', data=json.dumps(payload, ensure_ascii=False).encode(),
                       headers={'Authorization': 'Bearer ' + config['key'], 'Content-Type': 'application/json'}, method='POST')
     try:

@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Browser tests use a temporary database and mock the model response, not a paid AI service. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -36,7 +37,7 @@ async function reader(t, viewport={width:1300,height:900}){
 test('unconfigured service explains setup without sending material',async t=>{
   const page=await reader(t);let requests=0;
   page.on('request',req=>{if(req.url().endsWith('/deep-analysis')&&req.method()==='POST')requests++;});
-  await page.locator('[data-analysis-open="sentence"]').click();
+  await clickReaderTool(page,'[data-analysis-open="sentence"]');
   await page.locator('#deep-status').getByText('尚未配置 AI 服务',{exact:false}).waitFor();
   assert.equal(await page.locator('#deep-generate').isDisabled(),true);assert.equal(requests,0);
 });
@@ -54,13 +55,13 @@ test('selected sentence and comparison render safe model output',async t=>{
     const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let node,start,end,offset;while(node=w.nextNode()){if(!start)start=node;const at=node.data.indexOf('.');if(at>=0){end=node;offset=at+1;break;}}
     const range=document.createRange();range.setStart(start,0);range.setEnd(end,offset);const s=window.getSelection();s.removeAllRanges();s.addRange(range);p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));return s.toString().trim();
   });
-  await page.locator('[data-analysis-open="sentence"]').click();
+  await clickReaderTool(page,'[data-analysis-open="sentence"]');
   await page.locator('#deep-generate:not([disabled])').waitFor();
   assert.equal((await page.locator('#deep-source').textContent()).trim(),selected);
   await page.locator('#deep-generate').click();await page.getByText('第一层',{exact:true}).waitFor();
   assert.equal(captured[0].selected_text,selected);assert.equal(await page.locator('#deep-results img').count(),0);
   await page.locator('[data-analysis-action="close"]').first().click();
-  await page.locator('[data-analysis-open="article"]').click();await page.locator('#deep-generate:not([disabled])').waitFor();
+  await clickReaderTool(page,'[data-analysis-open="article"]');await page.locator('#deep-generate:not([disabled])').waitFor();
   await page.locator('#deep-compare').selectOption(['2','3']);await page.locator('#deep-generate').click();
   await page.getByText('对比结果',{exact:true}).waitFor();assert.deepEqual(captured[1].compare_ids,[2,3]);
 });
@@ -68,7 +69,7 @@ test('selected sentence and comparison render safe model output',async t=>{
 test('narrow reader exposes paragraph analysis without horizontal overflow',async t=>{
   const page=await reader(t,{width:390,height:844});
   await page.route('**/api/deep-analysis/status',route=>route.fulfill({json:{configured:true,model:'fake-model'}}));
-  await page.locator('[data-analysis-open="article"]').click();await page.locator('#deep-generate:not([disabled])').waitFor();
+  await clickReaderTool(page,'[data-analysis-open="article"]');await page.locator('#deep-generate:not([disabled])').waitFor();
   await page.locator('#deep-scope').selectOption('paragraph');
   assert.equal(await page.locator('#deep-compare-label').isHidden(),true);
   const dimensions=await page.locator('#deep-analysis-dialog').evaluate(el=>({scroll:el.scrollWidth,client:el.clientWidth}));

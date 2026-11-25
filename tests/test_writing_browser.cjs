@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Optional browser regressions: node --test tests/test_writing_browser.cjs */
 const assert = require('node:assert/strict');
 const {spawn} = require('node:child_process');
@@ -15,7 +16,7 @@ const articleText = Array.from({length:9},(_,i)=>`Section ${i+1}. A quiet journe
 before(async()=>{
   temporary=fs.mkdtempSync(path.join(os.tmpdir(),'margin-writing-'));
   const localPython=path.join(root,'.venv',process.platform==='win32'?'Scripts/python.exe':'bin/python');
-  const python=process.env.WRITING_TEST_PYTHON||(fs.existsSync(localPython)?localPython:'python');
+  const python=process.env.WRITING_TEST_PYTHON||process.env.READING_TEST_PYTHON||(fs.existsSync(localPython)?localPython:'python');
   server=spawn(python,['-B','-u','-c',`
 import json, logging, sys, time
 from flask import jsonify, request
@@ -54,7 +55,7 @@ server.serve_forever()
     server.once('exit',code=>{clearTimeout(timer);reject(new Error('Server exited '+code+' '+stderr));});
     server.stdout.on('data',data=>{output+=data;const match=output.match(/PORT:(\d+)/);if(match){clearTimeout(timer);resolve('http://127.0.0.1:'+match[1]);}});
   });
-  browser=await chromium.launch({headless:true,...(process.env.WRITING_TEST_BROWSER?{channel:process.env.WRITING_TEST_BROWSER}:{})});
+  browser=await chromium.launch({headless:true,...(process.env.READING_TEST_CHROME?{executablePath:process.env.READING_TEST_CHROME}:{}),...(process.env.WRITING_TEST_BROWSER?{channel:process.env.WRITING_TEST_BROWSER}:{})});
 });
 
 after(async()=>{
@@ -85,12 +86,12 @@ async function setup(t,options={}){
   const article=await api(context,'/api/articles','POST',{title:'Writing '+t.name,content:articleText});
   await go(page,article.id);
   await page.waitForSelector('#article-body');
-  await page.locator('[data-writing-action="open"]').click();
+  await clickReaderTool(page,'[data-writing-action="open"]');
   await page.waitForFunction(()=>document.querySelector('#writing-mode').options.length===12);
   return {context,page,id:article.id};
 }
 async function create(page,mode='grammar'){
-  await page.locator('[data-writing-action="new"]').click();
+  await clickReaderTool(page,'[data-writing-action="new"]');
   await page.waitForSelector('#writing-setup',{state:'visible'});
   await page.locator('#writing-mode').selectOption(mode);
   if(mode==='vocabulary')await page.locator('#writing-targets').fill('journey, pay attention to');
@@ -100,7 +101,7 @@ async function create(page,mode='grammar'){
 }
 async function save(page,text){
   await page.locator('#writing-draft').fill(text);
-  await page.locator('[data-writing-action="save"]').click();
+  await clickReaderTool(page,'[data-writing-action="save"]');
   await page.waitForFunction(()=>document.querySelector('#writing-save-status').textContent==='草稿已保存');
 }
 async function feedback(page){
@@ -110,7 +111,7 @@ async function feedback(page){
 }
 async function reopen(page){
   await page.reload();await page.waitForSelector('#article-body');
-  await page.locator('[data-writing-action="open"]').click();
+  await clickReaderTool(page,'[data-writing-action="open"]');
   await page.waitForSelector('#writing-editor',{state:'visible'});
 }
 async function screenshot(page,name){
@@ -132,13 +133,13 @@ test('all twelve exercise modes can save and receive grounded feedback',async t=
 
 test('selected source excludes paragraph controls',async t=>{
   const {page}=await setup(t);
-  await page.locator('[data-writing-action="close"]').click();
+  await clickReaderTool(page,'[data-writing-action="close"]');
   await page.evaluate(()=>{
     const paragraph=document.querySelector('.paragraph');
     const range=document.createRange();range.selectNodeContents(paragraph);
     const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
   });
-  await page.locator('[data-writing-action="selection"]').click();
+  await clickReaderTool(page,'[data-writing-action="selection"]');
   await page.waitForFunction(()=>document.querySelector('#writing-source-choice').value==='selection');
   const source=await page.locator('#writing-source').inputValue();
   assert.ok(source.includes('A quiet journey'));
@@ -178,7 +179,7 @@ test('drafts survive reload, offline edits and switching between articles',async
   await save(page,'A saved draft.');
   await page.route('**/api/writing/exercises/*',route=>route.request().method()==='PATCH'?route.abort():route.continue());
   await page.locator('#writing-draft').fill('An offline draft survives.');
-  await page.locator('[data-writing-action="save"]').click();
+  await clickReaderTool(page,'[data-writing-action="save"]');
   await page.waitForFunction(()=>document.querySelector('#writing-save-status').textContent==='尚未保存，请重试');
   await reopen(page);
   assert.equal(await page.locator('#writing-draft').inputValue(),'An offline draft survives.');
@@ -186,11 +187,11 @@ test('drafts survive reload, offline edits and switching between articles',async
   await save(page,'An offline draft survives.');
   const other=await api(context,'/api/articles','POST',{title:'Another article',content:articleText});
   await go(page,other.id);
-  await page.locator('[data-writing-action="open"]').click();
+  await clickReaderTool(page,'[data-writing-action="open"]');
   await page.waitForFunction(()=>document.querySelector('#writing-mode').options.length===12);
   assert.equal(await page.locator('#writing-editor').isVisible(),false);
   await go(page,id);
-  await page.locator('[data-writing-action="open"]').click();await page.waitForSelector('#writing-editor',{state:'visible'});
+  await clickReaderTool(page,'[data-writing-action="open"]');await page.waitForSelector('#writing-editor',{state:'visible'});
   assert.equal(await page.locator('#writing-draft').inputValue(),'An offline draft survives.');
 });
 
@@ -201,11 +202,11 @@ test('concurrent draft edits require explicit resolution without losing local te
   const current=(await api(context,'/api/writing/exercises/'+id)).exercise;
   await api(context,'/api/writing/exercises/'+id,'PATCH',{draft:'Changed in another tab.',version:current.version});
   await page.locator('#writing-draft').fill('My local version remains.');
-  await page.locator('[data-writing-action="save"]').click();
+  await clickReaderTool(page,'[data-writing-action="save"]');
   await page.waitForSelector('#writing-conflict',{state:'visible'});
   assert.equal(await page.locator('#writing-draft').inputValue(),'My local version remains.');
   assert.equal(await page.locator('#writing-server-draft').textContent(),'Changed in another tab.');
-  await page.locator('[data-writing-action="keep-local"]').click();
+  await clickReaderTool(page,'[data-writing-action="keep-local"]');
   await page.waitForSelector('#writing-conflict',{state:'hidden'});
   await page.waitForFunction(()=>document.querySelector('#writing-save-status').textContent==='草稿已保存');
   assert.equal((await api(context,'/api/writing/exercises/'+id)).exercise.draft,'My local version remains.');
@@ -260,10 +261,10 @@ test('closing and navigating during feedback cannot update the next article',asy
   const exercise=await page.evaluate(()=>writingTrainer.exercise.id);
   await page.locator('#writing-submit').click();
   await page.waitForFunction(()=>document.querySelector('#writing-draft').disabled);
-  await page.locator('[data-writing-action="close"]').click();
+  await clickReaderTool(page,'[data-writing-action="close"]');
   const other=await api(context,'/api/articles','POST',{title:'Navigation target',content:articleText});
   await go(page,other.id);
-  await page.locator('[data-writing-action="open"]').click();
+  await clickReaderTool(page,'[data-writing-action="open"]');
   await page.waitForTimeout(1600);
   assert.equal(await page.locator('#writing-feedback').textContent(),'');
   assert.equal(await page.locator('#writing-editor').isVisible(),false);
@@ -275,11 +276,11 @@ test('closing and navigating during feedback cannot update the next article',asy
 test('deleting an exercise removes its drafts and history after confirmation',async t=>{
   const {page}=await setup(t);
   await create(page);await save(page,'She go on a journey.');await feedback(page);
-  await page.locator('[data-writing-action="delete"]').click();
-  await page.locator('[data-writing-action="cancel-delete"]').click();
+  await clickReaderTool(page,'[data-writing-action="delete"]');
+  await clickReaderTool(page,'[data-writing-action="cancel-delete"]');
   assert.equal(await page.locator('#writing-draft').inputValue(),'She go on a journey.');
-  await page.locator('[data-writing-action="delete"]').click();
-  await page.locator('[data-writing-action="confirm-delete"]').click();
+  await clickReaderTool(page,'[data-writing-action="delete"]');
+  await clickReaderTool(page,'[data-writing-action="confirm-delete"]');
   await page.waitForSelector('#writing-setup',{state:'visible'});
   await page.waitForFunction(()=>document.querySelectorAll('.writing-history-item').length===0);
 });
@@ -287,7 +288,7 @@ test('deleting an exercise removes its drafts and history after confirmation',as
 test('mobile dark theme keeps the editor and comparison within the viewport',async t=>{
   const {page,context}=await setup(t,{viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await api(context,'/api/settings','PATCH',{theme:'dark'});
-  await page.reload();await page.waitForSelector('#article-body');await page.locator('[data-writing-action="open"]').click();
+  await page.reload();await page.waitForSelector('#article-body');await clickReaderTool(page,'[data-writing-action="open"]');
   await create(page);await save(page,'She go on a journey.');await feedback(page);
   assert.equal(await page.evaluate(()=>document.body.dataset.readerTheme),'dark');
   assert.ok(await page.locator('#writing-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1));

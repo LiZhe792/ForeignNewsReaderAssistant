@@ -136,7 +136,7 @@ test('listening mode conceals the answer and explains missing local English voic
 test('a lost acknowledgement retries the same receipt without a second grade',async t=>{
   const {page,api}=await fixture(t);await api('/wordbook','POST',{word:'journey',meaning:'旅程'});await go(page,'review');let calls=[];
   await page.route('**/api/review/answer',async route=>{calls.push(route.request().postDataJSON());if(calls.length===1){const response=await route.fetch();assert.equal(response.ok(),true);await route.abort('failed');}else await route.continue();});
-  await srs(page,'reveal').click();await page.locator('[data-grade="4"]').click();await srs(page,'retry').waitFor();assert.equal(await page.locator('[data-grade="5"]').isDisabled(),true);assert.equal((await api('/review/queue')).stats.answers_today,1);await srs(page,'retry').click();await page.waitForFunction(()=>document.querySelector('#srs-message').textContent.includes('已保存评分'));assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.equal((await api('/review/queue')).stats.answers_today,1);
+  await srs(page,'reveal').click();await page.locator('[data-grade="4"]').click();await srs(page,'retry').waitFor();await page.waitForFunction(()=>!document.querySelector('[data-srs=retry]').disabled);assert.equal(await page.locator('[data-grade="5"]').isDisabled(),true);assert.equal((await api('/review/queue')).stats.answers_today,1);await srs(page,'retry').click();await page.waitForFunction(()=>document.querySelector('#srs-message').textContent.includes('已保存评分'));assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.equal((await api('/review/queue')).stats.answers_today,1);
 });
 
 test('forgetting reappears after ten minutes and resumes from one day',async t=>{

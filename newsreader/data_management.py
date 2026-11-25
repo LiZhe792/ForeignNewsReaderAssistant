@@ -29,10 +29,11 @@ MAX_DATABASE=256*1024*1024
 MAX_ARTICLES=20*1024*1024
 INTEGRATION_TABLES=('sources','feeds','feed_seen','categories','tags','article_tags','article_embeddings','qa_threads','qa_turns','writing_exercises','writing_attempts','tts_playlist','knowledge_items','knowledge_maps')
 LAB_TABLES=('lab_records','lab_packs')
+EXTENSION_TABLES=('extension_records','search_changes')
 TABLES=('articles','vocabulary','checkins','settings','dictionary_cache','pending_words','study_results',
         'word_meta','word_collections','word_memberships','word_contexts','word_senses','word_notes','word_aliases','word_cards',
         'srs_cards','srs_events','listening_audio','listening_attempts','reading_sets','reading_sessions','reading_mistakes',
-        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state',*PLAN_TABLES,*INTEGRATION_TABLES,*LAB_TABLES)
+        'learner_profile','article_feedback','learning_reading_events','learning_word_events','learning_lookup_events','data_state',*PLAN_TABLES,*INTEGRATION_TABLES,*LAB_TABLES,*EXTENSION_TABLES)
 JSON_COLUMNS={'study_plans':{'steps_json':list},'study_results':{'payload_json':dict,'original_json':dict},'srs_events':{'response_json':dict},
  'listening_attempts':{'feedback_json':dict},'reading_sets':{'questions_json':list},
  'reading_sessions':{'snapshot_json':dict,'answers_json':dict,'result_json':dict},
@@ -60,7 +61,7 @@ def body():
     return data
 
 
-def manager():return current_app.extensions['data_manager']
+def manager():return getattr(g, 'learning_manager', None) or current_app.extensions['data_manager']
 
 
 def sha_file(path):
@@ -94,7 +95,8 @@ def rows_into(source,destination, missing=()):
             count+=len(batch)
             if count>1000000:raise ValueError('备份记录过多，无法在本机还原。')
             for row in batch:
-                for column,kind in JSON_COLUMNS.get(table,{}).items():
+                definitions = {'payload_json': dict} if table == 'extension_records' else JSON_COLUMNS.get(table,{})
+                for column,kind in definitions.items():
                     raw=row[columns.index(column)]
                     if len(raw)>2*1024*1024:raise ValueError('备份中的学习记录过大。')
                     try:value=json.loads(raw)
@@ -119,6 +121,7 @@ def rows_into(source,destination, missing=()):
 
 class Manager:
     def __init__(self,app):
+        self.database = app.config['DATABASE']
         self.app=app;self.root=Path(app.config.get('DATA_STORAGE_DIR') or (str(Path(app.config['DATABASE']).with_suffix(''))+'-data'))
         self.root=self.root.resolve()
         self.backups=self.root/'backups';self.staging=self.root/'staging'
@@ -166,7 +169,7 @@ class Manager:
             with tempfile.TemporaryDirectory(prefix='snapshot-',dir=self.staging) as scratch:
                 path=Path(scratch)/'database.sqlite3'
                 # A separate connection sees committed WAL pages without blocking active readers.
-                with closing(sqlite3.connect(self.app.config['DATABASE'])) as source,closing(sqlite3.connect(path)) as target:
+                with closing(sqlite3.connect(self.database)) as source,closing(sqlite3.connect(path)) as target:
                     source.backup(target);target.commit()
                     target.row_factory=sqlite3.Row;info=summary(target)
                 if path.stat().st_size>MAX_DATABASE:raise ValueError('数据库超过 256 MB，请停止程序后手动备份数据库文件。')
@@ -204,19 +207,24 @@ class Manager:
         return path
 
 
-def initialize(app):
+def initialize_schema():
     db=get_db();db.execute('CREATE TABLE IF NOT EXISTS data_state(id INTEGER PRIMARY KEY CHECK(id=1),generation TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,restored INTEGER NOT NULL DEFAULT 0)')
     db.execute('INSERT OR IGNORE INTO data_state(id,generation,revision) VALUES(1,?,0)',(uuid.uuid4().hex,))
     for table in TABLES:
-        if table=='data_state':continue
+        if table in ('data_state','search_changes'):continue
         for event in ('INSERT','UPDATE','DELETE'):
             db.execute(f'CREATE TRIGGER IF NOT EXISTS data_revision_{table}_{event.lower()} AFTER {event} ON "{table}" BEGIN UPDATE data_state SET revision=revision+1 WHERE id=1; END')
-    db.commit();app.extensions['data_manager']=Manager(app)
+    db.commit()
+
+
+def initialize(app):
+    initialize_schema()
+    app.extensions['data_manager']=Manager(app)
 
     @app.before_request
     def data_boundary():
         if request.blueprint == 'workspace' or not request.path.startswith('/api/'):return
-        control=app.extensions['data_manager'];exclusive=request.endpoint=='management.restore_apply'
+        control=manager();exclusive=request.endpoint=='management.restore_apply'
         with control.lock:
             if control.maintenance or (exclusive and control.active):return jsonify(error='当前有其他操作正在进行，请结束阅读、录音或 AI 生成后重试还原。'),409
             control.active+=1;control.maintenance=exclusive;g.data_admitted=True
@@ -236,7 +244,7 @@ def initialize(app):
     @app.teardown_request
     def release(_error):
         if g.pop('data_admitted',False):
-            control=app.extensions['data_manager']
+            control=manager()
             with control.lock:control.active-=1;control.maintenance=False
 
     if not app.config.get('TESTING') and flag('data.auto_backup'):
@@ -340,7 +348,7 @@ def restore_preview():
             objects=source.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
             present={r['name'] for r in objects if r['type']=='table'}
             missing=set(TABLES)-present
-            if (missing-set(PLAN_TABLES)-set(INTEGRATION_TABLES)-set(LAB_TABLES)) or present-set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
+            if (missing-set(PLAN_TABLES)-set(INTEGRATION_TABLES)-set(LAB_TABLES)-set(EXTENSION_TABLES)) or present-set(TABLES) or any(r['type']=='view' or re.search(r'\bVIRTUAL\b',r['sql'] or '',re.I) for r in objects):raise ValueError('备份包含不支持的数据结构。')
             for table in TABLES:
                 if table in missing:continue
                 if [tuple(r)[1:] for r in source.execute('PRAGMA table_info("'+table+'")')]!=[tuple(r)[1:] for r in get_db().execute('PRAGMA table_info("'+table+'")')]:raise ValueError('备份结构与当前版本不兼容。')

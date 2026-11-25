@@ -10,27 +10,35 @@
       this.dialog=document.querySelector('#wordbook-dialog');this.abort=new AbortController();this.selected=new Set();this.page=0;this.filters={query:'',collection:'',kind:'',status:''};
       for(const node of [root,this.dialog]) for(const type of ['click','input','change','submit']) node.addEventListener(type,event=>this.handle(event),{signal:this.abort.signal});
     }
-    destroy(){this.dead=true;this.abort.abort();this.dialog.close();}
+    destroy(){clearTimeout(this.filterTimer);this.dead=true;this.abort.abort();this.dialog.close();}
     async request(path,method='GET',body){return this.api('/wordbook'+path,{method,body,signal:this.abort.signal});}
-    async render(){const result=await this.request('');if(this.dead)return;Object.assign(this,result);this.selected=new Set([...this.selected].filter(id=>this.entries.some(e=>e.id===id)));this.draw();}
+    async render(rowsOnly=false){
+      const version=this.loadVersion=(this.loadVersion||0)+1;
+      const result=await this.request('?'+new URLSearchParams({...this.filters,limit:50,offset:this.page*50}));
+      if(this.dead||version!==this.loadVersion)return;
+      Object.assign(this,result);
+      if(!this.entries.length&&this.page>0){this.page--;return this.render(rowsOnly);}
+      this.selected=new Set([...this.selected].filter(id=>this.entries.some(e=>e.id===id)));
+      if(rowsOnly)this.rows();else this.draw();
+    }
     async changed(){await this.render();await this.onChange?.();}
-    filtered(){const f=this.filters;return this.entries.filter(e=>(!f.query||[e.word,e.meaning,e.note,...e.aliases,...e.collections.map(c=>c.name)].join(' ').toLowerCase().includes(f.query.toLowerCase()))&&(!f.collection||e.collections.some(c=>String(c.id)===f.collection))&&(!f.kind||e.entry_kind===f.kind)&&(!f.status||(f.status==='paused'?e.schedule.suspended:f.status==='difficult'?e.schedule.leech:e.mastery===f.status)));}
+    filtered(){return this.entries;}
     draw(){
       const collectionsOpen=this.root.querySelector('.wb-collections')?.open;
       this.root.innerHTML=`<div class="page-wrap wb-page"><div class="page-intro"><div><span class="eyebrow">A PERSONAL WORD GARDEN</span><h1>让遇见的词，成为自己的词。</h1><p>词书、原句与卡片，一起留下；按记忆的节奏再相遇。</p></div><a class="button primary" href="#review">开始复习</a></div>
-      <div class="summary-strip">${[['收藏词条',this.entries.length],['原文语境',this.entries.reduce((n,e)=>n+e.contexts.length,0)],['自建词书',this.collections.filter(c=>c.kind==='book').length],['困难词',this.entries.filter(e=>e.schedule.leech).length]].map(([label,value])=>`<div class="summary-tile"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>
-      <div class="wb-toolbar">${button('add','添加词条')}${button('import','批量导入')}${button('export','导出词条')}${button('merge','合并词形')}<span id="wb-selected" role="status"></span></div>
+      <div class="summary-strip">${[['收藏词条',this.counts.entries],['原文语境',this.counts.contexts],['自建词书',this.collections.filter(c=>c.kind==='book').length],['困难词',this.counts.difficult]].map(([label,value])=>`<div class="summary-tile"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>
+      <div class="wb-toolbar">${button('add','添加词条')}${this.undoToken?button('undo','撤销刚才删除'):''}${button('import','批量导入')}${button('export','导出词条')}${button('merge','合并词形')}<span id="wb-selected" role="status"></span></div>
       <div class="wb-filters"><label>搜索<input id="wb-search" placeholder="单词、词形、释义或标签" value="${esc(this.filters.query)}"></label><label>分类<select id="wb-collection"><option value="">全部分类</option>${this.collectionOptions(this.filters.collection)}</select></label><label>词条类型<select id="wb-kind"><option value="">全部类型</option>${['word','phrase','pattern'].map(k=>`<option value="${k}" ${this.filters.kind===k?'selected':''}>${labels[k]}</option>`).join('')}</select></label><label>学习状态<select id="wb-status"><option value="">全部状态</option>${Object.entries({new:'初次遇见',learning:'正在学习',mastered:'已掌握',difficult:'困难词',paused:'已暂停复习'}).map(([k,v])=>`<option value="${k}" ${this.filters.status===k?'selected':''}>${v}</option>`).join('')}</select></label></div>
       <div id="wb-rows"></div><details class="wb-collections" ${collectionsOpen?'open':''}><summary>管理标签、分组与词书</summary><div class="wb-toolbar"><select id="wb-new-kind" aria-label="新分类类型"><option value="book">词书</option><option value="group">分组</option><option value="tag">标签</option></select><input id="wb-new-name" maxlength="60" aria-label="新分类名称" placeholder="例如：经济外刊">${button('collection-add','创建')}</div><div class="wb-collection-list">${this.collections.map(c=>`<div><span>${labels[c.kind]}</span><input data-collection-name="${c.id}" aria-label="${esc(c.name)} 名称" maxlength="60" value="${esc(c.name)}">${button('collection-rename','更名',`data-id="${c.id}"`)}${button('collection-delete','删除分类',`data-id="${c.id}"`)}</div>`).join('')||'<p>创建一个词书，开始归类。</p>'}</div></details><p class="wb-hint">手动掌握度与复习进度分别保存；暂停和困难标记不会删除词条。单次导入、导出最多 500 条。</p></div>`;
       this.rows();
     }
     collectionOptions(current=''){return this.collections.map(c=>`<option value="${c.id}" ${String(current)===String(c.id)?'selected':''}>${labels[c.kind]} · ${esc(c.name)}</option>`).join('');}
     rows(){
-      const list=this.filtered(),pages=Math.max(1,Math.ceil(list.length/50));this.page=Math.min(this.page,pages-1);
+      const list=this.filtered(),pages=Math.max(1,Math.ceil(this.total/50));this.page=Math.min(this.page,pages-1);
       this.root.querySelector('#wb-selected').textContent=`已勾选 ${this.selected.size} 条`;
-      this.root.querySelector('#wb-rows').innerHTML=`<div class="wb-list">${list.slice(this.page*50,(this.page+1)*50).map(e=>`<article class="wb-row"><label class="wb-select"><input type="checkbox" data-wb-select="${e.id}" aria-label="选择 ${esc(e.word)}" ${this.selected.has(e.id)?'checked':''}></label><div><button class="wb-word" data-wb-action="edit" data-id="${e.id}">${esc(e.word)}</button><small>${esc(e.phonetic)} · ${labels[e.entry_kind]}</small><div class="wb-chips">${e.collections.map(c=>`<span>${esc(c.name)}</span>`).join('')}${e.aliases.length?`<span>词形 ${esc(e.aliases.join(', '))}</span>`:''}</div></div><div><p class="wb-meaning">${esc(e.meaning)}</p><small>${e.senses.length} 个义项 · ${e.contexts.length} 个原句 · ${e.cards.length} 张卡片</small><small>${e.schedule.suspended?'复习已暂停':e.schedule.state==='new'?'尚未开始复习':'下次：'+this.date(e.schedule.due_at)}${e.schedule.leech?' · 困难词':''}</small></div><div class="wb-row-actions">${button('edit','编辑',`data-id="${e.id}"`)}${button('pause',e.schedule.suspended?'恢复复习':'暂停',`data-id="${e.id}"`)}${button('difficult',e.schedule.leech?'移出困难词':'标为困难',`data-id="${e.id}"`)}${button('delete','删除',`data-id="${e.id}"`)}</div></article>`).join('')||'<div class="empty-state"><h2>这里还没有词条</h2><p>添加单词、短语或句型，或调整筛选条件。</p></div>'}</div><div class="wb-pagination">${button('previous','上一页',this.page===0?'disabled':'')}<span>${list.length} 条 · ${this.page+1} / ${pages} 页</span>${button('next','下一页',this.page+1>=pages?'disabled':'')}${button('select-page','勾选本页')}${button('clear-selection','清空勾选')}</div>`;
+      this.root.querySelector('#wb-rows').innerHTML=`<div class="wb-list">${list.map(e=>`<article class="wb-row"><label class="wb-select"><input type="checkbox" data-wb-select="${e.id}" aria-label="选择 ${esc(e.word)}" ${this.selected.has(e.id)?'checked':''}></label><div><button class="wb-word" data-wb-action="edit" data-id="${e.id}">${esc(e.word)}</button><small>${esc(e.phonetic)} · ${labels[e.entry_kind]}</small><div class="wb-chips">${e.collections.map(c=>`<span>${esc(c.name)}</span>`).join('')}${e.aliases.length?`<span>词形 ${esc(e.aliases.join(', '))}</span>`:''}</div></div><div><p class="wb-meaning">${esc(e.meaning)}</p><small>${e.senses.length} 个义项 · ${e.contexts.length} 个原句 · ${e.cards.length} 张卡片</small><small>${e.schedule.suspended?'复习已暂停':e.schedule.state==='new'?'尚未开始复习':'下次：'+this.date(e.schedule.due_at)}${e.schedule.leech?' · 困难词':''}</small></div><div class="wb-row-actions">${button('edit','编辑',`data-id="${e.id}"`)}${button('pause',e.schedule.suspended?'恢复复习':'暂停',`data-id="${e.id}"`)}${button('difficult',e.schedule.leech?'移出困难词':'标为困难',`data-id="${e.id}"`)}${button('delete','删除',`data-id="${e.id}"`)}</div></article>`).join('')||'<div class="empty-state"><h2>这里还没有词条</h2><p>添加单词、短语或句型，或调整筛选条件。</p></div>'}</div><div class="wb-pagination">${button('previous','上一页',this.page===0?'disabled':'')}<span>${list.length} 条 · ${this.page+1} / ${pages} 页</span>${button('next','下一页',this.page+1>=pages?'disabled':'')}${button('select-page','勾选本页')}${button('clear-selection','清空勾选')}</div>`;
     }
-    date(value){return new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));}
+    date(value){return window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat('zh-CN',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));}
     open(title,content){this.panelGeneration=(this.panelGeneration||0)+1;this.dialog.innerHTML=`<div class="modal-heading"><h2>${esc(title)}</h2>${button('close','关闭')}</div>${content}<p id="wb-error" class="form-error" role="alert"></p>`;if(!this.dialog.open)this.dialog.showModal();}
     error(error){if(this.dead)return;const target=this.dialog.open?this.dialog.querySelector('#wb-error'):null;if(target)target.textContent=error.message;else this.toast(error.message,true);}
     newDraft(entry){return entry?structuredClone(entry):{word:'',entry_kind:'word',phonetic:'',note:'',mastery:'new',senses:[{meaning:'',part_of_speech:'',example:''}],contexts:[],notes:[],collections:[],cards:[],aliases:[]};}
@@ -75,7 +83,7 @@
       }catch(error){if(active())throw error;}
     }
 
-    exportForm(){const list=this.selected.size?this.entries.filter(e=>this.selected.has(e.id)):this.filtered();this.exportIds=list.map(e=>e.id);this.open('导出词条',`<p>将导出${this.selected.size?'勾选的':'当前筛选的'} ${list.length} 条词条。JSON 保存完整资料；CSV 仅保存基础字段与分类。导入文件不恢复历史复习日志。</p><label>格式<select id="wb-export-format"><option value="json">JSON · 完整资料</option><option value="csv">CSV · 表格基础字段</option></select></label><label class="wb-check"><input id="wb-export-media" type="checkbox" checked>JSON 包含图片与音频（文件较大时可关闭）</label>${button('download','下载文件')}`);}
+    exportForm(){const list=this.selected.size?this.entries.filter(e=>this.selected.has(e.id)):this.filtered();this.exportIds=list.map(e=>e.id);this.open('导出词条',`<p>将导出${this.selected.size?'勾选的':'当前页的'} ${list.length} 条词条。JSON 保存完整资料；CSV 仅保存基础字段与分类。导入文件不恢复历史复习日志。</p><label>格式<select id="wb-export-format"><option value="json">JSON · 完整资料</option><option value="csv">CSV · 表格基础字段</option></select></label><label class="wb-check"><input id="wb-export-media" type="checkbox" checked>JSON 包含图片与音频（文件较大时可关闭）</label>${button('download','下载文件')}`);}
     async download(){if(!this.exportIds.length||this.exportIds.length>500)throw new Error('请选择 1–500 条词条。');const query=new URLSearchParams({ids:this.exportIds.join(','),format:this.dialog.querySelector('#wb-export-format').value,media:this.dialog.querySelector('#wb-export-media').checked?'1':'0'});const response=await fetch('/api/wordbook/export?'+query,{signal:this.abort.signal});if(!response.ok)throw new Error((await response.json()).error);const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download='margin-words.'+query.get('format');link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);this.dialog.close();}
     mergeForm(){const entries=this.entries.filter(e=>this.selected.has(e.id));if(entries.length<2||entries.length>31)throw new Error('请先勾选 2–31 个需要合并的词形。');this.mergeEntries=entries;this.open('合并词形',`<p>将 ${entries.map(e=>esc(e.word)).join('、')} 合并到所选词条。保留目标词的掌握度和复习计划，汇总原句、义项、卡片与历史记录；其余词条变为可识别词形。</p><label>保留的目标词条<select id="wb-merge-target">${entries.map(e=>`<option value="${e.id}">${esc(e.word)}${e.suggested_lemma&&e.suggested_lemma!==e.word?' · 词典原形 '+esc(e.suggested_lemma):''}</option>`).join('')}</select></label>${button('merge-confirm','确认合并')}`);}
     async handle(event){
@@ -83,12 +91,12 @@
       if(event.type==='submit'&&input.id==='wb-edit'){event.preventDefault();event.stopPropagation();await this.save();return;}
       if(event.type==='input'){
         if(input.dataset.wbField)this.readField(input);
-        if(input.id==='wb-search'){this.filters.query=input.value;this.page=0;this.rows();}return;
+        if(input.id==='wb-search'){this.filters.query=input.value;this.page=0;clearTimeout(this.filterTimer);this.filterTimer=setTimeout(()=>this.render(true).catch(e=>this.error(e)),250);}return;
       }
       if(event.type==='change'){
         try{if(input.dataset.wbSelect){const id=Number(input.dataset.wbSelect);input.checked?this.selected.add(id):this.selected.delete(id);this.root.querySelector('#wb-selected').textContent=`已勾选 ${this.selected.size} 条`;}
           else if(input.dataset.wbMembership){const id=Number(input.dataset.wbMembership);this.draft.collections=this.draft.collections.filter(c=>c.id!==id);if(input.checked)this.draft.collections.push(this.collections.find(c=>c.id===id));}
-          else if(['wb-collection','wb-kind','wb-status'].includes(input.id)){this.filters[input.id.slice(3)]=input.value;this.page=0;this.rows();}
+          else if(['wb-collection','wb-kind','wb-status'].includes(input.id)){this.filters[input.id.slice(3)]=input.value;this.page=0;clearTimeout(this.filterTimer);this.filterTimer=setTimeout(()=>this.render(true).catch(e=>this.error(e)),250);}
           else if(input.id==='wb-media')await this.upload(input.files[0]);
           else if(input.id==='wb-import-file')await this.preview(input.files[0]);
         }catch(e){this.error(e);}return;
@@ -100,10 +108,11 @@
         if(action==='close')this.dialog.close();
         else if(action==='add')this.edit();
         else if(action==='edit')this.edit((await this.request('/'+id)).entry);
-        else if(action==='previous'||action==='next'){this.page+=action==='next'?1:-1;this.rows();}
+        else if(action==='previous'||action==='next'){this.page+=action==='next'?1:-1;await this.render(true);}
         else if(action==='clear-selection'){this.selected.clear();this.rows();}
-        else if(action==='select-page'){this.filtered().slice(this.page*50,(this.page+1)*50).forEach(e=>this.selected.add(e.id));this.rows();}
-        else if(action==='delete'){if(await this.confirm(`删除「${entry.word}」及其卡片？历史复习计数会保留。`)){await this.api('/vocabulary/'+id,{method:'DELETE',body:{}});await this.changed();}}
+        else if(action==='select-page'){this.filtered().forEach(e=>this.selected.add(e.id));this.rows();}
+        else if(action==='delete'){if(await this.confirm(`删除「${entry.word}」及其卡片？历史复习计数会保留。`)){const result=await this.api('/vocabulary/'+id,{method:'DELETE',body:{}});this.undoToken=result.undo_token;await this.changed();this.toast('词条已删除，10分钟内可点击撤销。');}}
+        else if(action==='undo'){await this.api('/undo/'+this.undoToken,{method:'POST',body:{}});this.undoToken=null;await this.changed();this.toast('词条、卡片和复习安排已恢复。');}
         else if(action==='pause'||action==='difficult'){await this.api('/review/cards/'+id,{method:'PATCH',body:{version:entry.schedule.version,[action==='pause'?'suspended':'leech']:!entry.schedule[action==='pause'?'suspended':'leech']}});await this.render();}
         else if(action==='collection-add'){await this.request('/collections','POST',{kind:this.root.querySelector('#wb-new-kind').value,name:this.root.querySelector('#wb-new-name').value});await this.render();}
         else if(action==='collection-rename'){await this.request('/collections/'+id,'PATCH',{name:this.root.querySelector(`[data-collection-name="${id}"]`).value});await this.render();}

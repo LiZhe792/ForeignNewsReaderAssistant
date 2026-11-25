@@ -59,8 +59,10 @@ ROOT = Path(__file__).resolve().parent
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    from newsreader.observability import install as install_observability
+    install_observability(app)
     app.config.update(
-        DATABASE=str(ROOT / "instance" / "margin.sqlite3"),
+        DATABASE=os.getenv('MARGIN_DATABASE',str(Path(os.getenv('MARGIN_DATA_DIR',ROOT/'instance'))/'margin.sqlite3')),
         MAX_CONTENT_LENGTH=21 * 1024 * 1024,
         JSON_AS_ASCII=False,
         TRUSTED_HOSTS=["localhost", "127.0.0.1", "[::1]"],
@@ -87,12 +89,22 @@ def create_app(test_config=None):
     if not app.config.get("WRITING_DATABASE"):
         app.config["WRITING_DATABASE"] = os.getenv("MARGIN_WRITING_DATABASE") or writing_database(app.config["DATABASE"])
     install_writing(app)
+    from newsreader.accounts import install as install_accounts
+    install_accounts(app)
     app.register_blueprint(article_qa)
     app.register_blueprint(speech)
     app.register_blueprint(knowledge)
     app.register_blueprint(lab)
     app.register_blueprint(exports)
     app.register_blueprint(deep_analysis)
+    from newsreader.platform import platform
+    app.register_blueprint(platform)
+    from newsreader.learning_coach import coach
+    app.register_blueprint(coach)
+    from newsreader.undo import undo
+    app.register_blueprint(undo)
+    from newsreader.collaboration import install as install_collaboration
+    install_collaboration(app)
     with app.app_context():
         init_db()
         initialize_management(app)
@@ -125,6 +137,10 @@ def create_app(test_config=None):
 
     @app.errorhandler(Exception)
     def handle_error(error):
+        if isinstance(error, ModuleNotFoundError) and (error.name or '').split('.')[0] in {
+            'pymupdf','rapidocr_onnxruntime','fastembed','openpyxl','reportlab','genanki','edge_tts','PIL','numpy'
+        }:
+            return jsonify(error='此扩展需要可选依赖，请在项目解释器中运行 python -m pip install -r requirements.txt，然后重启。'),503
         if isinstance(error, HTTPException):
             messages = {400: "请求格式不正确。", 404: "记录不存在。", 405: "不支持此操作。", 413: "提交内容过大。"}
             return jsonify(error=messages.get(error.code, error.description)), error.code
@@ -132,7 +148,8 @@ def create_app(test_config=None):
             return jsonify(error=str(error)), 400
         if isinstance(error, sqlite3.IntegrityError):
             return jsonify(error="数据关联无效，请刷新后重试。"), 400
-        app.logger.exception("Request failed")
+        from flask import g
+        app.logger.error('Request failed: id=%s type=%s route=%s',getattr(g,'request_id',''),type(error).__name__,request.url_rule)
         return jsonify(error="服务暂时遇到问题，请稍后重试。"), 500
 
     def body():
@@ -164,6 +181,34 @@ def create_app(test_config=None):
     @app.get("/")
     def index():
         return render_template("index.html", reader_defaults=READER_DEFAULTS)
+
+    @app.get('/hub')
+    def hub():
+        return render_template('hub.html')
+
+    @app.get('/offline')
+    def offline_reader():
+        return render_template('offline.html')
+
+    @app.get('/sw.js')
+    def service_worker():
+        response = app.send_static_file('sw.js')
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
+
+    @app.get('/manifest.webmanifest')
+    def manifest():
+        return app.send_static_file('manifest.webmanifest')
+
+    @app.get('/offline-dictionary.json')
+    def offline_dictionary():
+        from newsreader.dictionary import EXTRA, CORE
+        entries={term:item.get('translation','') for term,item in EXTRA.items() if item.get('translation')}
+        entries.update({term:item.get('meaning','') for term,item in CORE.items() if isinstance(item,dict) and item.get('meaning')})
+        response=jsonify(entries)
+        response.headers['Cache-Control']='public, max-age=86400'
+        return response
 
     @app.get("/api/health")
     def health():
@@ -220,6 +265,10 @@ def create_app(test_config=None):
     def article_detail(article_id):
         article = record("articles", article_id)
         article["difficulty"] = assess_difficulty(article["content"])
+        language_row=get_db().execute("SELECT payload_json FROM extension_records WHERE id=? AND kind='article-language'",('article-language-'+str(article_id),)).fetchone()
+        from newsreader.learning import article_language
+        article['language']=article_language(article['content'], json.loads(language_row[0])['language'] if language_row else 'auto')
+        article['difficulty']=assess_difficulty(article['content'],article['language'])
         article["content_hash"] = article_digest(article["content"])
         article["tts_segments"] = article_segments(article["content"])
         article["tags"] = tags_for_articles(get_db()).get(article_id, [])
@@ -227,7 +276,7 @@ def create_app(test_config=None):
 
     @app.get("/api/articles/search")
     def search_articles():
-        return jsonify(articles=filtered_articles(get_db(), request.args))
+        return jsonify(filtered_articles(get_db(), request.args, with_page=True))
 
     @app.get("/api/articles/search-options")
     def search_options():
@@ -268,16 +317,16 @@ def create_app(test_config=None):
         else:
             article = {"title": text(data, "title", 250, required=True),
                        "content": text(data, "content", 100000, required=True),
-                       "source": text(data, "source", 100, default="个人导入") or "个人导入", "source_url": ""}
+                       "source": text(data, "source", 100, default="个人导入") or "个人导入", "source_url": text(data, 'source_url', 2048)}
         if len(words(article["content"])) < 40:
-            raise ValueError("请至少提供 40 个英文单词的正文。")
+            raise ValueError("请至少提供40个词或文字单位的正文。")
         category = text(data, "category", 20, default="其他")
         if not category_exists(category):
             raise ValueError("请选择有效的文章分类。")
         db = get_db()
-        duplicate = db.execute("SELECT id FROM articles WHERE title_norm=? OR (source_url!='' AND source_url=?)", (normalize_title(article["title"]), article["source_url"])).fetchone()
-        if duplicate:
-            return jsonify(id=duplicate["id"], duplicate=True)
+        duplicate = find_duplicate(db, article['title'], article['source_url'], article['content'])
+        if duplicate and data.get('keep_separate') is not True:
+            return jsonify(id=duplicate, duplicate=True)
         article_id = insert_article(
             db, title=article["title"], content=article["content"], source=article["source"],
             source_url=article["source_url"], category=category,
@@ -352,6 +401,8 @@ def create_app(test_config=None):
 
     @app.get("/api/vocabulary")
     def vocabulary():
+        if request.args.get('compact') == '1':
+            return jsonify(words=[dict(r) for r in get_db().execute('SELECT id,word,mastery FROM vocabulary ORDER BY id')])
         rows = get_db().execute(
             "SELECT v.*, a.title AS article_title FROM vocabulary v LEFT JOIN articles a ON a.id=v.article_id ORDER BY v.created_at DESC, v.id DESC"
         ).fetchall()
@@ -411,11 +462,8 @@ def create_app(test_config=None):
 
     @app.delete("/api/vocabulary/<int:word_id>")
     def delete_word(word_id):
-        record("vocabulary", word_id)
-        db = get_db()
-        db.execute("DELETE FROM vocabulary WHERE id=?", (word_id,))
-        db.commit()
-        return jsonify(ok=True)
+        from newsreader.undo import delete_word
+        return jsonify(ok=True,undo_token=delete_word(get_db(),word_id),undo_seconds=600)
 
     @app.post("/api/checkin")
     def checkin():
@@ -780,7 +828,12 @@ def create_app(test_config=None):
 
 
 if __name__ == "__main__":
-    application = create_app()
     port = int(os.getenv("PORT", "5000"))
-    print(f"\nMargin reader: http://127.0.0.1:{port}\nPress Ctrl+C to stop.\n", flush=True)
+    from doctor import inspect
+    checks=inspect(port)
+    if not checks['port_available']:
+        raise SystemExit(f'端口 {port} 已被占用。请关闭旧服务，或在 PyCharm 环境变量中设置 PORT=5001。')
+    if checks['free_disk_mb']<32:raise SystemExit('数据盘可用空间不足32MB，请释放空间后重试。')
+    application = create_app()
+    print(f"\nMargin reader: http://127.0.0.1:{port}\nDatabase: {application.config['DATABASE']}\nPress Ctrl+C to stop.\n", flush=True)
     application.run(host="127.0.0.1", port=port, debug=False, threaded=True)

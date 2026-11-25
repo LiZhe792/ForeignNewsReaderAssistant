@@ -4,7 +4,7 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const names={dictation:'逐句听写',keywords:'关键词填空',readalong:'跟读录音',shadow:'影子跟读'};
   const btn=(action,label,attributes='')=>`<button type="button" class="button small" data-listen="${action}" ${attributes}>${label}</button>`;
-  const date=value=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+  const date=value=>window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat('zh-CN',{timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
   class Listening {
     constructor({root,api,toast,articleId}){
       Object.assign(this,{root,api,toast,articleId});this.abort=new AbortController();this.drafts=new Map();this.mode='dictation';this.index=0;this.paragraph=0;this.end=0;this.blind=true;this.rate=1;this.repeats=3;this.gap=1;this.tab='practice';this.message='';this.recordState='idle';this.voices=[];
@@ -65,6 +65,7 @@
         recorder.onstop=()=>{
           if(this.dead||session!==this.recordSession)return;this.recordState='idle';
           if(session.size&&session.size<=6*1024*1024){if(d.url)URL.revokeObjectURL(d.url);d.blob=new Blob(session.chunks,{type:(recorder.mimeType||session.chunks[0]?.type||'audio/webm').split(';')[0]});d.url=URL.createObjectURL(d.blob);d.duration=Math.min(120000,Math.max(1,Math.round(performance.now()-session.start)));d.voiced=Math.min(d.duration,session.voiced);d.pauses=session.pauses;d.analysis=session.frames>0;d.saved=false;d.result=null;d.pending=null;}
+          if(!session.size)this.message='录音未产生音频，请确认麦克风输入正常，并持续录制一段话后重试。';
           if(this.tab==='practice')this.draw();
         };
         recorder.start(200);this.recordState='recording';this.monitor(session);if(this.recognitionEnabled)this.recognize(d,session);

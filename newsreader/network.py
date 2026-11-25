@@ -127,6 +127,8 @@ def fetch_document(url, max_bytes=2_000_000, extra_headers=None, allow_not_modif
             return 200, b"".join(chunks), header_map, response.getheader("Content-Type", ""), url
         except FetchError:
             raise
+        except TimeoutError as exc:
+            raise FetchError('网站响应超时。输入已保留，可重试或改用粘贴导入。') from exc
         except (OSError, ValueError, http.client.HTTPException) as exc:
             raise FetchError("获取网页失败，请检查网络，或使用粘贴导入。") from exc
         finally:

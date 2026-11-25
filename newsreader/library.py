@@ -1,5 +1,9 @@
 """Article library management: categories, tags, dedup and batch operations."""
 
+import hashlib
+import re
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from .db import DEFAULT_CATEGORIES, get_db, now, normalize_title
 
 PRIORITIES = (0, 1, 2, 3)
@@ -8,17 +12,44 @@ STATUSES = ("active", "archived", "trashed")
 STATUS_LABELS = {"active": "未归档", "archived": "已归档", "trashed": "回收站"}
 
 
-def find_duplicate(db, title, source_url=""):
-    """Return an existing article id that matches the URL or normalized title."""
+def canonical_url(value):
+    """Ignore tracking parameters without discarding meaningful article IDs."""
+    if not value:
+        return ''
+    parsed = urlsplit(value.strip())
+    if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError('原文链接必须是 HTTP / HTTPS 地址。')
+    port = parsed.port
+    host = parsed.hostname.lower()
+    if ':' in host:
+        host = '[' + host + ']'
+    if port and (parsed.scheme, port) not in (('http', 80), ('https', 443)):
+        host += ':' + str(port)
+    query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+             if not k.lower().startswith('utm_') and k.lower() not in ('fbclid', 'gclid')]
+    return urlunsplit((parsed.scheme.lower(), host, parsed.path or '/', urlencode(sorted(query)), ''))
+
+
+def content_fingerprint(content):
+    return hashlib.sha256(re.sub(r'\s+', ' ', content).strip().encode('utf-8')).hexdigest()
+
+
+def find_duplicate(db, title, source_url="", content=None):
+    """Only reuse an identical source or identical title AND body, never title alone."""
     if source_url:
-        row = db.execute("SELECT id FROM articles WHERE source_url=?", (source_url,)).fetchone()
-        if row:
-            return row["id"]
+        url = canonical_url(source_url)
+        for row in db.execute("SELECT id,source_url FROM articles WHERE source_url!=''"):
+            try:
+                if canonical_url(row['source_url']) == url:
+                    return row['id']
+            except ValueError:
+                continue
     norm = normalize_title(title)
-    if norm:
-        row = db.execute("SELECT id FROM articles WHERE title_norm=? LIMIT 1", (norm,)).fetchone()
-        if row:
-            return row["id"]
+    if norm and content is not None:
+        digest = content_fingerprint(content)
+        for row in db.execute("SELECT id,content FROM articles WHERE title_norm=?", (norm,)):
+            if content_fingerprint(row['content']) == digest:
+                return row['id']
     return None
 
 

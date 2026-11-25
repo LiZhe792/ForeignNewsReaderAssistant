@@ -327,13 +327,15 @@ const MarginInterface = (() => {
     contrast: stored.contrast === true,
     motion: stored.motion === true,
   };
+  Object.assign(english,window.MarginExtraEnglish||{});
+  const translatedNodes=new WeakMap();
   const t = (id, params = {}) => {
     const translation = Object.hasOwn(messages, id) ? messages[id][preferences.language === 'en' ? 1 : 0] :
       preferences.language === 'en' && Object.hasOwn(english, id) ? english[id] : id;
     return translation.replace(/\{(\w+)\}/g, (match, name) => Object.hasOwn(params, name) ? params[name] : match);
   };
   const number = value => new Intl.NumberFormat(preferences.language).format(value);
-  const dateTime = value => new Intl.DateTimeFormat(preferences.language, {
+  const dateTime = value => window.MarginPlatform?.date ? MarginPlatform.date(value,true) : new Intl.DateTimeFormat(preferences.language, {
     dateStyle: 'medium', timeStyle: 'short',
   }).format(new Date(value));
 
@@ -347,6 +349,24 @@ const MarginInterface = (() => {
         const value = t(element.getAttribute('data-i18n-' + attribute));
         if (element.getAttribute(attribute) !== value) element.setAttribute(attribute, value);
       });
+    }
+    localizeControls(scope);
+  }
+
+  function localizeControls(scope = document) {
+    const controls=scope.querySelectorAll('button,label,summary,legend,h1,h2,h3,nav a,option');
+    for(const element of controls){
+      if(element.closest('#article-body,.reader-title,.card-title,[data-open],blockquote,pre,[data-user-content],.wb-word,.article-options,#lab-article,#shared-list,#collection-list,#offline-title'))continue;
+      const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode()){
+        const node=walker.currentNode;
+        if(node.parentElement.closest('script,style,textarea,[lang=en]'))continue;
+        let saved=translatedNodes.get(node);
+        if(!saved||saved.last!==node.textContent)saved={source:node.textContent,last:node.textContent};
+        const key=saved.source.trim();if(!Object.hasOwn(english,key))continue;
+        const value=preferences.language==='en'?saved.source.replace(key,english[key]):saved.source;
+        saved.last=value;translatedNodes.set(node,saved);if(node.textContent!==value)node.textContent=value;
+      }
     }
   }
 
@@ -399,6 +419,12 @@ const MarginInterface = (() => {
     }
   });
   apply();
+  let scheduled=false;
+  new MutationObserver(records=>{
+    if(scheduled||!records.some(r=>r.type==='childList'&&r.addedNodes.length||r.type==='characterData'))return;
+    // Dynamic status messages must not be reset to their initial data-i18n text.
+    scheduled=true;requestAnimationFrame(()=>{scheduled=false;localizeControls();});
+  }).observe(document.body,{childList:true,subtree:true,characterData:true});
 
   return {t, number, dateTime, localize, language: () => preferences.language};
 })();

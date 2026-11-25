@@ -8,7 +8,7 @@ import math
 
 from flask import Blueprint, abort, jsonify, request
 
-from .db import CHINA_TZ, get_db, now
+from .db import CHINA_TZ, current_timezone, get_db, now
 from .dictionary import EXTRA, offline_entry
 from .learning import assess_difficulty, words
 
@@ -38,7 +38,7 @@ def digest(content):
 
 
 def clock():
-    return datetime.now(CHINA_TZ)
+    return datetime.now(current_timezone())
 
 
 def body():
@@ -172,6 +172,7 @@ def lexicon(content):
 
 def analyze(article, profile, evidence, known):
     entries, base = lexicon(article['content'])
+    if article.get('level')=='N/A':base={**base,'level':'N/A'}
     total = base['word_count']
     groups = dict.fromkeys(('mastered', 'stable_review', 'learning', 'assumed_familiar', 'to_explore', 'unlisted'), 0)
     burden, preview = 0, []
@@ -186,9 +187,9 @@ def analyze(article, profile, evidence, known):
             preview.append({'word': term, 'count': count, 'basis': '已记生词' if group == 'learning' else '词库未覆盖，待判断' if group == 'unlisted' else '超出当前词频假设'})
     load = burden / max(total, 1)
     target = min(4, max(0, LEVELS.index(profile['level']) + evidence['adjustment']))
-    relative = .65 * (LEVELS.index(base['level']) - target) + .75 * max(-1, min(2, (load - .12) / .15))
+    relative = .65 * ((LEVELS.index(base['level']) if base['level'] in LEVELS else target) - target) + .75 * max(-1, min(2, (load - .12) / .15))
     minutes = max(1, math.ceil(total / profile['speed']))
-    label = '轻松' if relative < -.65 else '适合' if relative <= .55 else '挑战'
+    label = '暂不评级' if base['level']=='N/A' else '轻松' if relative < -.65 else '适合' if relative <= .55 else '挑战'
     return {'hash': digest(article['content']), 'label': label, 'relative': round(relative, 3),
             'baseline_level': base['level'], 'ease': base['score'], 'sentence_length': base['average_sentence_length'],
             'word_count': total, 'minutes': minutes, 'vocabulary': groups,
@@ -284,7 +285,7 @@ def recommend():
     include_read = bool(query_int('include_read', int(not prefs['exclude_read']), 0, 1))
     limit = query_int('limit', 12, 1, 50)
     pool, suppressed = [], 0
-    for row in db.execute('SELECT * FROM articles ORDER BY id'):
+    for row in db.execute("SELECT * FROM articles WHERE status!='trashed' ORDER BY id"):
         article = dict(row); feedback = current_feedback(db, article)
         if (not include_read and article['progress'] >= 100) or (category and article['category'] != category): continue
         if feedback['interest'] == 'less': suppressed += 1; continue

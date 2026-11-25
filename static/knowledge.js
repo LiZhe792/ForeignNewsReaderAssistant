@@ -256,6 +256,7 @@ window.MarginKnowledge = class MarginKnowledge {
     const params=new URLSearchParams(tab==='items'?this.filters:{});
     if(more && this.cursor)params.set('before',this.cursor);
     this.$('#k-list-status').textContent='正在读取…';this.$('#k-more').disabled=true;
+    this.$('#k-list').inert=true;this.$('#k-list').setAttribute('aria-busy','true');
     try {
       const result=await this.api('/knowledge/'+(tab==='items'?'items':'maps')+'?'+params);
       if(epoch!==this.epoch||version!==this.listVersion)return;
@@ -269,6 +270,7 @@ window.MarginKnowledge = class MarginKnowledge {
         if(epoch===this.epoch&&version===this.listVersion)this.$('#k-tag-options').innerHTML=options.tags.map(tag=>`<option value="${this.escape(tag)}"></option>`).join('');
       }
     } catch(error) {if(epoch===this.epoch&&version===this.listVersion){this.$('#k-list-status').textContent=error.message+' 可点击刷新列表重试。';this.$('#k-more').disabled=false;}}
+    finally {if(epoch===this.epoch&&version===this.listVersion&&this.$('#k-list')){this.$('#k-list').inert=false;this.$('#k-list').removeAttribute('aria-busy');}}
   }
 
   editSnapshot() {return JSON.stringify(Object.fromEntries(new FormData(this.form)));}

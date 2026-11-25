@@ -1,3 +1,4 @@
+const {clickReaderTool}=require('./browser_helpers.cjs');
 /* Local Flask / SQLite / Chromium. All files and restores are disposable test data. */
 const assert=require('node:assert/strict'),{spawn}=require('node:child_process');const fs=require('node:fs'),os=require('node:os'),path=require('node:path');const {pathToFileURL}=require('node:url');const {before,after,test}=require('node:test');const {chromium}=require('playwright');
 const root=path.join(__dirname,'..');let server,directory,origin,options;
@@ -60,7 +61,7 @@ test('offline preference persists and the reader still supports local lookup',as
 });
 
 test('offline AI interface shows paused generation and hides the setup prompt',async t=>{
-  const {page,api}=await fixture(t);await api('/data/preferences','PATCH',{offline:true});await page.goto(origin+'/#reader/1');await page.locator('#article-body').waitFor();await page.locator('[data-study-action=open-context]').click();await page.locator('#study-dialog').waitFor();await page.waitForFunction(()=>document.querySelector('#study-service')?.textContent.includes('离线模式'));
+  const {page,api}=await fixture(t);await api('/data/preferences','PATCH',{offline:true});await page.goto(origin+'/#reader/1');await page.locator('#article-body').waitFor();await clickReaderTool(page,'[data-study-action=open-context]');await page.locator('#study-dialog').waitFor();await page.waitForFunction(()=>document.querySelector('#study-service')?.textContent.includes('离线模式'));
   assert.equal(await page.locator('#study-generate').isDisabled(),true);assert.equal(await page.locator('#study-setup').isVisible(),false);
 });
 

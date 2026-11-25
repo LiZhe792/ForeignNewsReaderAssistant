@@ -140,7 +140,9 @@ def recognize(image):
             img = ImageOps.exif_transpose(opened).convert("RGB")
             with _ocr_lock:
                 if _ocr is None:
-                    _ocr = RapidOCR()
+                    # Bound detector dimensions. The upstream short-side upscale
+                    # both used excess memory and missed long lines in wide scans.
+                    _ocr = RapidOCR(det_model_path=None, det_limit_side_len=960, det_limit_type='max')
                 result, _ = _ocr(np.asarray(img)[:, :, ::-1].copy())
         return "\n".join(line[1] for line in (result or []))
     except ValueError:

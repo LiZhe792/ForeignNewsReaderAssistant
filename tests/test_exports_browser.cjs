@@ -12,7 +12,7 @@ const errors = [];
 before(async () => {
   temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'margin-exports-browser-'));
   const local = path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-  server = spawn(process.env.EXPORT_TEST_PYTHON || (fs.existsSync(local) ? local : 'python'), ['-B', '-u', '-c', `
+  server = spawn(process.env.EXPORT_TEST_PYTHON || process.env.READING_TEST_PYTHON || (fs.existsSync(local) ? local : 'python'), ['-B', '-u', '-c', `
 import json, logging, sys
 from app import create_app
 from newsreader.db import get_db
@@ -45,7 +45,7 @@ server.serve_forever()
     server.once('exit', code => { clearTimeout(timer); reject(new Error('Server exit ' + code + ' ' + stderr)); });
     server.stdout.on('data', data => { output += data; const m = output.match(/PORT:(\d+)/); if (m) { clearTimeout(timer); resolve('http://127.0.0.1:' + m[1]); } });
   });
-  browser = await chromium.launch({headless: true, ...(process.env.EXPORT_TEST_BROWSER ? {channel: process.env.EXPORT_TEST_BROWSER} : {})});
+  browser = await chromium.launch({headless: true, ...(process.env.READING_TEST_CHROME ? {executablePath:process.env.READING_TEST_CHROME} : {}), ...(process.env.EXPORT_TEST_BROWSER ? {channel: process.env.EXPORT_TEST_BROWSER} : {})});
 });
 after(async () => {
   await browser?.close();

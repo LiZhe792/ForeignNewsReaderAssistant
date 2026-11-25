@@ -7,25 +7,47 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import current_app, g
+from flask import current_app, g, has_app_context
 from .preferences import READER_DEFAULTS
 
-CHINA_TZ = timezone(timedelta(hours=8))
+CHINA_TZ = timezone(timedelta(hours=8), 'Asia/Shanghai')
 
 DEFAULT_CATEGORIES = ("科技", "文化", "科学", "生活", "环境", "其他")
 
 
 def normalize_title(title):
     """Lowercase alphanumeric title used for duplicate detection."""
-    return re.sub(r"[^a-z0-9]+", "", (title or "").lower())
+    return ''.join(c for c in (title or '').casefold() if c.isalnum())
 
 
 def today():
-    return datetime.now(CHINA_TZ).date()
+    return datetime.now(current_timezone()).date()
 
 
 def now():
-    return datetime.now(CHINA_TZ).isoformat(timespec="seconds")
+    return datetime.now(current_timezone()).isoformat(timespec="seconds")
+
+
+def timezone_for(name):
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    if name == 'Asia/Shanghai':
+        return CHINA_TZ
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        raise ValueError('时区无效，请选择 IANA 时区；Windows 请安装 tzdata。') from None
+
+
+def current_timezone():
+    if not has_app_context():
+        return CHINA_TZ
+    if 'reading_timezone' not in g:
+        try:
+            row = get_db().execute("SELECT value FROM settings WHERE key='locale.timezone'").fetchone()
+            g.reading_timezone = timezone_for(json.loads(row[0])) if row else CHINA_TZ
+        except (sqlite3.Error, ValueError, TypeError):
+            g.reading_timezone = CHINA_TZ
+    return g.reading_timezone
 
 
 def get_db():
@@ -276,7 +298,54 @@ def backfill_sources(db):
     db.commit()
 
 
+SCHEMA_VERSION = 9
+
+
 def init_db():
+    """Protect the last usable database before running an upgrade.
+
+    SQLite backup includes committed WAL pages. A failed multi-module upgrade is
+    restored from that snapshot, since old module initializers may commit DDL.
+    """
+    import shutil
+    import uuid
+    path=Path(current_app.config['DATABASE'])
+    path.parent.mkdir(parents=True,exist_ok=True)
+    snapshot=None
+    version=0
+    if path.exists() and path.stat().st_size:
+        with closing(sqlite3.connect(path)) as previous:
+            if previous.execute('PRAGMA quick_check').fetchone()[0]!='ok':
+                raise RuntimeError('学习数据库完整性检查未通过。请先用备份恢复，当前文件保持不变。')
+            try:
+                row=previous.execute("SELECT value FROM settings WHERE key='schema.version'").fetchone()
+                version=int(row[0]) if row else 0
+            except sqlite3.OperationalError:
+                version=0
+            if version>SCHEMA_VERSION:
+                raise RuntimeError('数据库由更新版本创建，请使用对应版本的程序。')
+            if version<SCHEMA_VERSION:
+                if shutil.disk_usage(path.parent).free<max(path.stat().st_size*3,32*1024*1024):
+                    raise RuntimeError('磁盘空间不足，无法创建升级保护副本。请释放空间后重试。')
+                folder=path.parent/'migration-backups';folder.mkdir(exist_ok=True)
+                snapshot=folder/(path.stem+'-v'+str(version)+'-'+uuid.uuid4().hex+'.sqlite3')
+                with closing(sqlite3.connect(snapshot)) as target:previous.backup(target)
+    try:
+        _initialize_database()
+        db=get_db()
+        if db.execute('PRAGMA foreign_key_check').fetchone():
+            raise RuntimeError('升级后的数据关联检查未通过。')
+        db.execute("INSERT OR REPLACE INTO settings VALUES('schema.version',?)",(str(SCHEMA_VERSION),))
+        db.commit()
+    except Exception:
+        if snapshot:
+            close_db()
+            with closing(sqlite3.connect(snapshot)) as source,closing(sqlite3.connect(path)) as target:
+                source.backup(target)
+        raise
+
+
+def _initialize_database():
     from .learning import assess_difficulty
 
     db = get_db()
@@ -297,6 +366,10 @@ def init_db():
     db.executescript(PLAN_SCHEMA)
     from .learning_lab import SCHEMA as LAB_SCHEMA
     db.executescript(LAB_SCHEMA)
+    from .platform import SCHEMA as PLATFORM_SCHEMA
+    db.executescript(PLATFORM_SCHEMA)
+    from .search_index import install as install_search_index
+    install_search_index(db)
     # A marker prevents deleted demonstration articles from reappearing on restart.
     if not db.execute("SELECT 1 FROM settings WHERE key='seeded'").fetchone():
         demo_path = Path(__file__).resolve().parent.parent / "data" / "articles.json"

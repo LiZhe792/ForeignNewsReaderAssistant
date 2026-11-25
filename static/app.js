@@ -50,6 +50,7 @@ function toast(message, error = false) {
   $('#toast-region').append(element); setTimeout(() => { element.classList.add('fading'); setTimeout(() => element.remove(), 250); }, 3800);
 }
 let dataGeneration=null, dataStale=false;
+let urlPreviewController=null;
 function dataChanged(){ dataStale=true; const banner=$('#data-changed-banner');if(banner)banner.hidden=false; }
 async function api(path, options = {}) {
   const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 55000);
@@ -59,7 +60,7 @@ async function api(path, options = {}) {
   try {
     if(dataStale&&!options.allowDataChange){const error=new Error('学习数据已还原，请重新载入后继续。');error.status=409;throw error;}
     const multipart=typeof FormData!=='undefined'&&options.body instanceof FormData;
-    const response = await fetch('/api' + path, { ...options, signal: controller.signal, headers: { ...(multipart?{}:{'Content-Type':'application/json'}), ...(dataGeneration?{'X-Margin-Generation':dataGeneration}:{}), ...options.headers }, body: options.body === undefined ? undefined : multipart?options.body:JSON.stringify(options.body) });
+    const response = await fetch('/api' + path, { ...options, signal: controller.signal, headers: { ...(multipart?{}:{'Content-Type':'application/json'}), ...(dataGeneration?{'X-Margin-Generation':dataGeneration}:{}), ...(typeof MarginPlatform!=='undefined'?{'X-Margin-Account':MarginPlatform.scope}:{}), ...options.headers }, body: options.body === undefined ? undefined : multipart?options.body:JSON.stringify(options.body) });
     const generation=response.headers?.get?.('X-Margin-Generation');
     if(generation&&dataGeneration&&generation!==dataGeneration&&!options.allowDataChange){dataChanged();const error=new Error('学习数据已在其他页面还原，请重新载入。');error.status=409;throw error;}
     let payload; try { payload = await response.json(); } catch { throw new Error('服务返回格式异常，请确认 Python 服务正在运行。'); }
@@ -106,7 +107,8 @@ dropZone.addEventListener('drop', event => {
   previewFile(event.dataTransfer.files[0]);
 });
 $('#import-file').addEventListener('change', event => {const file=event.target.files[0];event.target.value='';previewFile(file);});
-$('#import-dialog').addEventListener('close', () => {++filePreviewVersion;if(!filePreviewReady)$('#file-status').textContent='';});
+const importQueue=new MarginImportQueue({root:$('#batch-results'),api,changed:refreshStats});
+$('#import-dialog').addEventListener('close', () => {importQueue.cancel();urlPreviewController?.abort();state.importCancelled=true;++filePreviewVersion;if(!filePreviewReady)$('#file-status').textContent='';});
 
 let reader = null;
 let flow = null;
@@ -163,11 +165,11 @@ function updateSidebar() {
   $('#page-label').textContent = ui({library:'发现文章',reader:'沉浸阅读',vocabulary:'我的生词',review:'间隔复习',listening:'听说训练',exercises:'阅读测验',personalization:'难度与推荐',analytics:'学习数据分析',data:'离线与数据管理',plans:'学习计划',activity:'学习足迹',knowledge:'知识整理',exports:'导出与联动',feeds:'订阅源',lab:'拓展学习'}[state.view] || '发现文章');
 }
 async function loadData() {
-  const [articles, vocabulary, stats, settings, categories, tags] = await Promise.all([api('/articles'),api('/vocabulary'),api('/stats'),api('/settings'),api('/categories'),api('/tags')]);
-  state.articles = articles.articles; state.words = vocabulary.words; state.stats = stats; state.settings = settings;
+  const [articles, stats, settings, categories, tags] = await Promise.all([api('/articles/search?limit=24'),api('/stats'),api('/settings'),api('/categories'),api('/tags')]);
+  state.articles = articles.articles; state.stats = stats; state.settings = settings;
   state.categories = categories.categories; state.tags = tags.tags; updateSidebar();
 }
-function dateLabel() { return new Intl.DateTimeFormat(typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language(),{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Shanghai'}).format(new Date()); }
+function dateLabel() { if(window.MarginPlatform?.preferences?.date_format&&MarginPlatform.preferences.date_format!=='locale')return MarginPlatform.date(new Date());return new Intl.DateTimeFormat(typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language(),{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai'}).format(new Date()); }
 function weekDots() {
   const today = new Date(state.stats.today + 'T12:00:00'); const monday = new Date(today); monday.setDate(today.getDate() - (today.getDay()+6)%7);
   return ui(['一','二','三','四','五','六','日'], ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).map((day,index) => {
@@ -177,13 +179,8 @@ function weekDots() {
 }
 
 async function loadArticles() {
-  const params = new URLSearchParams();
-  if (state.status === 'favorite') params.set('favorite', '1');
-  else if (state.status === 'read_later') params.set('read_later', '1');
-  else if (state.status === 'archived') params.set('status', 'archived');
-  else if (state.status === 'trashed') params.set('status', 'trashed');
-  else params.set('status', 'all');
-  const result = await api('/articles?' + params.toString());
+  const params = new URLSearchParams({library_status:state.status,limit:24});
+  const result = await api('/articles/search?' + params.toString());
   state.articles = result.articles;
   state.selected = new Set();
 }
@@ -309,32 +306,39 @@ function highlight(text, query) {
   return String(text || '').split(re).map((part, i) => i % 2 ? `<mark>${escapeHTML(part)}</mark>` : escapeHTML(part)).join('');
 }
 let searchTimer;
-async function renderArticleCards() {
+async function renderArticleCards(append=false) {
+  if(append!==true)append=false;
   const version=++state.searchVersion;
   const params=new URLSearchParams({q:state.query.trim(), mode:state.searchMode});
   const filters={category:state.category==='全部'?'':state.category,level:state.difficulty==='全部'?'':state.difficulty,source:state.source,tag:state.tag,status:state.readingStatus,min_words:state.minWords,max_words:state.maxWords,min_minutes:state.minMinutes,max_minutes:state.maxMinutes};
   for (const [key,value] of Object.entries(filters)) if(value!=='') params.set(key,value);
+  params.set('library_status',state.status);params.set('limit','24');params.set('offset',append?String(state.articles.length):'0');
+  if(state.priority!=='全部')params.set('priority',state.priority);
   const status=$('#search-status'); if(!status)return;
   status.textContent=state.searchMode==='semantic' && state.query.trim()?'正在计算语义相似度；首次使用需下载模型，请稍候…':'正在搜索…';
   try {
     const result=await api('/articles/search?'+params,{timeoutMs:300000});
     if(version!==state.searchVersion||state.view!=='library'||!$('#article-grid'))return;
     const articles=result.articles;
-    status.textContent=`找到 ${articles.length} 篇文章${state.searchMode==='semantic' && state.query.trim()?' · 按语义相关度排序（英文模型）':''}`;
-    const allowed=new Set(state.articles.map(a=>a.id));
-    const visible=articles.filter(a=>allowed.has(a.id)&&(state.priority==='全部'||String(a.priority)===state.priority));
+    state.articles=append?[...state.articles,...articles]:articles;
+    if(!append)state.selected.clear();
+    status.textContent=`找到 ${result.total} 篇文章 · 已加载 ${state.articles.length} 篇${state.searchMode==='semantic' && state.query.trim()?' · 按语义相关度排序（英文模型）':''}`;
+    const visible=state.articles;
     $('#article-grid').innerHTML=visible.length?visible.map(cardHtml).join(''):empty('暂时没有找到匹配文章','换一个关键词或筛选条件。');
+    $('#article-load-more')?.remove();
+    if(visible.length<result.total){const more=document.createElement('button');more.id='article-load-more';more.className='button';more.textContent='加载更多文章';more.onclick=()=>{more.disabled=true;renderArticleCards(true)};$('#article-grid').after(more);}
     localizeUI($('#article-grid'));renderBatchBar();
   } catch(error) {if(version===state.searchVersion&&state.view==='library')status.textContent=error.message;}
 }
 
 function tokenizeParagraph(paragraph) {
   const saved = new Set(state.words.map(w=>w.word.toLowerCase()));
-  return paragraph.split(/([A-Za-z]+(?:['’-][A-Za-z]+)*)/g).map((part,index)=>index%2?`<span class="word ${saved.has(part.toLowerCase())?'saved':''}" data-word="${escapeHTML(part)}">${escapeHTML(part)}</span>`:escapeHTML(part)).join('');
+  return paragraph.split(/(\p{L}[\p{L}\p{M}]*(?:['’-]\p{L}[\p{L}\p{M}]*)*)/gu).map((part,index)=>index%2?`<span class="word ${saved.has(part.toLowerCase())?'saved':''}" data-word="${escapeHTML(part)}">${escapeHTML(part)}</span>`:escapeHTML(part)).join('');
 }
 function readerScroller() { return $('.reader-scroll'); }
 function renderReader(article) {
   state.article = article;
+  const articleLanguage=article.language&&article.language!=='auto'?article.language:'und';
   state.lookup = null;
   state.lookupRequest = null;
   state.lookupVersion++;
@@ -354,6 +358,7 @@ function renderReader(article) {
         <button class="reader-tool-button" data-reader-action="focus" aria-pressed="false" title="专注模式（F）" data-i18n-title="专注模式（F）">${icon('leaf')}<span data-i18n="专注">专注</span></button>
         <button class="reader-tool-button" data-reader-action="fullscreen" aria-pressed="false" title="全屏阅读（G）" data-i18n-title="全屏阅读（G）">${icon('fullscreen')}<span data-i18n="全屏">全屏</span></button>
         <button class="reader-tool-button" data-reader-action="lookup" title="打开查词面板" data-i18n-title="打开查词面板">${icon('search')}<span data-i18n="查词">查词</span></button>
+        <details class="reader-more-tools"><summary>学习工具</summary><div class="reader-more-menu" role="group" aria-label="学习工具">
         <button class="reader-tool-button" data-study-action="open-context" aria-haspopup="dialog">${icon('info')}<span data-i18n="AI 语境">AI 语境</span></button>
         <button class="reader-tool-button" data-study-action="open-translation" aria-haspopup="dialog">${icon('book')}<span data-i18n="翻译">翻译</span></button>
         <button class="reader-tool-button" data-qa-action="open" aria-haspopup="dialog">${icon('book')}<span>文章问答</span></button>
@@ -364,6 +369,7 @@ function renderReader(article) {
         <button class="reader-tool-button" data-analysis-open="article" title="理解文章与对比观点">${icon('book')}<span>深度理解</span></button>
         <button class="reader-tool-button" data-writing-action="open" aria-haspopup="dialog">${icon('pen')}<span>写作训练</span></button>
         <button class="reader-tool-button" data-writing-action="selection" aria-haspopup="dialog" hidden>用选中内容练习</button>
+        </div></details>
         <button class="reader-tool-button reader-help-button" data-reader-action="help" aria-label="阅读操作帮助" data-i18n-aria-label="阅读操作帮助" title="快捷键与手机手势（?）" data-i18n-title="快捷键与手机手势（?）">${icon('info')}</button>
       </div>
     </div>
@@ -376,18 +382,20 @@ function renderReader(article) {
     </div>
     <div class="reader-grid"><div class="reader-scroll" tabindex="0" role="region" aria-label="文章阅读区域" data-i18n-aria-label="文章阅读区域"><article class="reader-paper">
       <div class="reader-label"><span>${escapeHTML(ui(article.category))}</span><span> / </span>${levelTag(article.level)}<span title="${escapeHTML(article.difficulty.method)}">${ui("易读度 ", "Readability ")}${article.difficulty_score}</span></div>
-      <h1 class="reader-title" lang="en" dir="auto">${escapeHTML(article.title)}</h1>
+      <h1 class="reader-title" lang="${articleLanguage}" dir="auto">${escapeHTML(article.title)}</h1>
       ${article.subtitle?`<p class="reader-subtitle">${escapeHTML(article.subtitle)}</p>`:''}
       <div class="reader-byline"><span>${escapeHTML(article.source)}</span><span>${icon('clock')} ${article.reading_minutes}${ui(' 分钟', ' min')}</span><span>${article.word_count}${ui(' 词', ' words')}</span>
         ${article.source_url?`<a href="${escapeHTML(article.source_url)}" target="_blank" rel="noopener noreferrer" data-i18n="阅读原文 ↗">阅读原文 ↗</a>`:(article.is_demo?'<span data-i18n="原创学习示例">原创学习示例</span>':'<span data-i18n="个人导入">个人导入</span>')}
         <div class="reader-tools"><button class="icon-button danger" data-action="delete-article" title="删除文章" data-i18n-title="删除文章" aria-label="删除文章" data-i18n-aria-label="删除文章">${icon('trash')}</button></div>
       </div>
+      <details class="reader-article-details"><summary>文章信息与练习</summary>
       <div class="reader-practice-links"><a class="button small" href="/writing?article=${article.id}" data-i18n="根据文章写作">根据文章写作</a><a class="button small" href="#listening/${article.id}" data-i18n="听力与口语训练">听力与口语训练</a><a class="button small" href="#exercises/${article.id}" data-i18n="阅读练习与测验">阅读练习与测验</a><a class="button small" href="#personalization/article/${article.id}" data-i18n="个人难度与读后反馈">个人难度与读后反馈</a></div>
       <form id="article-tags-form" class="reader-tags"><label>文章标签（用逗号分隔，最多 10 个）<input name="tags" aria-label="文章标签" maxlength="220" value="${escapeHTML((article.tags || []).join(', '))}" placeholder="例如：环境, 城市"></label><button type="submit" class="button">保存标签</button></form>
       <section class="similar-section"><button class="button" data-action="similar-articles">查找相似文章</button><span class="similar-hint">本机语义匹配，首次使用需下载英文模型</span><div id="similar-results" role="status"></div></section>
+      </details>
       <div class="reader-hint">${icon('pen')}<span data-i18n="单击或划选一个英文单词，查看释义并收藏">单击或划选一个英文单词，查看释义并收藏</span></div>
       <p id="reader-layout-note" class="reader-layout-note" hidden></p>
-      <div class="article-body" id="article-body" lang="en">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${article.tts_segments ? article.tts_segments.filter(s=>s.paragraph===i).map(s=>`<span class="tts-sentence" data-sentence-index="${s.index}">${tokenizeParagraph(s.text)}</span>`).join('') : tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
+      <div class="article-body" id="article-body" lang="${articleLanguage}">${paragraphs.map((p, i) => `<p class="paragraph" id="reader-p-${i}" data-number="${i+1}" tabindex="-1">${article.tts_segments ? article.tts_segments.filter(s=>s.paragraph===i).map(s=>`<span class="tts-sentence" data-sentence-index="${s.index}">${tokenizeParagraph(s.text)}</span>`).join('') : tokenizeParagraph(p.trim())}<button class="paragraph-finish" data-flow-paragraph="${i}" lang="zh-CN" hidden></button></p>`).join('')}</div>
       <div class="reader-end"><small>THE END · A NEW PERSPECTIVE</small><p data-i18n="又多了解了一点世界，也离目标近了一点。">又多了解了一点世界，也离目标近了一点。</p><p><a class="button small" href="#lab/${article.id}">读后回忆与拓展学习</a></p>
         <button class="button primary" data-action="complete-reading" id="complete-reading">${icon('check')}${article.progress>=100?ui('已完成阅读'):ui('标记为已读 · 完成打卡')}</button>
       </div>
@@ -415,6 +423,13 @@ function renderReader(article) {
     getWords:()=>state.words, onLookup:(word,article,index)=>learningEvents?.observe(word,article,index), onWords:async()=>{state.words=(await api('/vocabulary')).words;await refreshStats();}, lookup});
   readingBudget = new MarginReadingBudget({root:app,reader,getSettings:()=>state.settings,onChange:saveSettings});
   study = new MarginStudy({root:app,article,reader,settings:state.settings,api,toast,onSettings:saveSettings,getLookup:()=>state.lookup});
+  if(typeof MarginPlatform!=='undefined')MarginPlatform.mountReader(article);
+  for(const p of document.querySelectorAll('#article-body .paragraph')){
+    const text=p.dataset.plain||'';
+    if(/^#{2,4} /.test(text)){p.classList.add('article-heading');p.setAttribute('role','heading');p.setAttribute('aria-level',String(text.match(/^#+/)[0].length));}
+    else if(text.startsWith('> '))p.classList.add('article-quote');
+    else if(text.startsWith('- '))p.classList.add('article-list-item');
+  }
   requestAnimationFrame(() => {
     const scroller = readerScroller();
     if (!scroller || state.article!==article || state.view!=='reader' || !activeSession || !reader) return;
@@ -536,7 +551,7 @@ function summaryTiles() {
 async function renderVocabulary() {
   wordbookUI?.destroy();
   wordbookUI=new MarginWordbook({root:app,api,toast,confirm:confirmDelete,onChange:async()=>{
-    state.words=(await api('/vocabulary')).words;await refreshStats();
+    await refreshStats();
   }});
   await wordbookUI.render();
 }
@@ -608,6 +623,7 @@ function renderFeeds() {
     </div></div>`;
 }
 function setImportMode(mode) {
+  if(mode!=='batch')importQueue.cancel();
   state.importMode=['paste','url','batch','file'].includes(mode)?mode:'paste';
   ++filePreviewVersion;
   if(!filePreviewReady)$('#file-status').textContent='';
@@ -621,12 +637,14 @@ function setImportMode(mode) {
   $('#url-fields input').required=state.importMode==='url';
   $('#batch-fields textarea').required=state.importMode==='batch';
   $('#import-error').textContent='';
+  if(mode!=='paste'){const input=$('#import-form').elements.source_url;if(input)input.value='';$('#import-duplicate-choice')?.remove();}
 }
 function openImport(url = '') {
   const form = $('#import-form');
+  state.importCancelled=false;
   setImportMode(url ? 'url' : state.importMode);
   if (url) form.elements.url.value = url;
-  $('#batch-results').innerHTML = '';
+  if(importQueue.rows.length)importQueue.render();
   $('#import-dialog').showModal();
 }
 async function pasteClipboard(target) {
@@ -654,9 +672,9 @@ function showSourceDialog(id) {
 }
 
 function openSettings() { $('#settings-dialog').showModal(); }
-function showWordDialog(id=null) {
+async function showWordDialog(id=null) {
   state.editWord=id;const form=$('#word-form');form.reset();$('#word-error').textContent='';
-  const word=state.words.find(w=>w.id===id);$('#word-dialog-title').textContent=word?ui('记住 ', 'Edit ')+word.word:ui('添加一个想记住的词');
+  const word=id?(await api('/wordbook/'+id)).entry:null;$('#word-dialog-title').textContent=word?ui('记住 ', 'Edit ')+word.word:ui('添加一个想记住的词');
   form.elements.word.disabled=!!word;if(word){form.elements.word.value=word.word;form.elements.meaning.value=word.meaning;form.elements.note.value=word.note;}
   $('#word-dialog').showModal();
 }
@@ -678,10 +696,12 @@ async function navigate(event) {
   articleQA?.destroy();articleQA=null;deepAnalysis?.destroy();deepAnalysis=null;
   writingTrainer?.destroy();writingTrainer=null;
   const version=++state.routeVersion;state.lookupVersion++;
-  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;planUI?.destroy();planUI=null;
-  if(activeSession){try{await flushSession(activeSession);}catch(error){toast(error.message,true);}activeSession=null;}
-  if(version!==state.routeVersion)return;
+  // Close the old article immediately, even while its progress is being saved.
   study?.destroy();study=null;flow?.destroy();flow=null;reader?.destroy();reader=null;
+  practiceUI?.destroy();practiceUI=null;personalUI?.destroy();personalUI=null;analyticsUI?.destroy();analyticsUI=null;dataUI?.destroy();dataUI=null;planUI?.destroy();planUI=null;
+  const departingSession=activeSession;activeSession=null;
+  if(departingSession){try{await flushSession(departingSession);}catch(error){toast(error.message,true);}}
+  if(version!==state.routeVersion)return;
   wordbookUI?.destroy();wordbookUI=null;reviewUI?.destroy();reviewUI=null;
   const rawHash=location.hash.slice(1);
   const bookmarkletUrl=rawHash.startsWith('import?')?new URLSearchParams(rawHash.slice(7)).get('url')||'':'';
@@ -690,10 +710,10 @@ async function navigate(event) {
   else app.setAttribute('lang', 'zh-CN');
   app.classList.remove('reader-page');app.scrollTop=0;updateSidebar();app.innerHTML=loading(ui('正在打开你的阅读手记…'));
   try {
-    if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const article=await api('/articles/'+id);if(version===state.routeVersion)renderReader(article);}
+    if(state.view==='reader') {if(!/^\d+$/.test(id||''))throw new Error('文章地址无效。');const [article,vocabulary]=await Promise.all([api('/articles/'+id),api('/vocabulary?compact=1')]);if(version===state.routeVersion){state.words=vocabulary.words;renderReader(article);}}
     else {await refreshStats();if(version!==state.routeVersion)return;
       if(state.view==='library'){if(id){try{const category=decodeURIComponent(id);if(['科技','文化','科学','生活','环境','其他'].includes(category)){state.category=category;state.difficulty='全部';state.query='';}}catch{}}await Promise.all([loadArticles(),loadCategoriesTags()]);state.searchOptions=await api('/articles/search-options');if(version===state.routeVersion){renderLibrary();if(bookmarkletUrl){history.replaceState(null,'','#library');openImport(bookmarkletUrl);}}}
-      else if(state.view==='vocabulary'){state.words=(await api('/vocabulary')).words;if(version===state.routeVersion)await renderVocabulary();}
+      else if(state.view==='vocabulary'){if(version===state.routeVersion)await renderVocabulary();}
       else if(state.view==='lab'){labUI=new MarginLearningLab({root:app,api,toast,articleId:id});await labUI.render();}
       else if(state.view==='knowledge')await ensureKnowledge().renderLibrary(app);
       else if(state.view==='exports'){exportCenter ||= new MarginExports({api,toast});await exportCenter.mount(app,id);}
@@ -827,19 +847,30 @@ document.addEventListener('submit',async event=> {
   const button=$('button[type="submit"]',form);if(!button)return;button.disabled=true;
   try {if(form.id==='import-form') {
     if(state.importMode==='batch'){
-      const urls=form.elements.urls.value.split(/\s+/).filter(item=>/^https?:\/\//i.test(item));
-      if(!urls.length){$('#import-error').textContent='请粘贴至少一个 http(s) 开头的文章链接。';return;}
+      const urls=form.elements.urls.value.split(/\s+/).filter(Boolean);
       button.textContent='正在批量导入…';
-      const result=await api('/articles/batch',{method:'POST',body:{urls,category:form.elements.category.value}});
-      $('#batch-results').innerHTML=result.results.map(row=>`<div class="batch-row ${row.ok?'ok':'fail'}"><span class="batch-mark">${row.ok?(row.duplicate?'·':'✓'):'✕'}</span><div><strong>${escapeHTML(row.url)}</strong><small>${escapeHTML(row.message||row.error||'')}</small></div></div>`).join('')||'<p class="feed-hint">没有可导入的链接。</p>';
-      await refreshStats();
-      toast(result.imported?`已导入 ${result.imported} 篇文章。`:'没有导入新文章，请查看失败原因。',!result.imported);
+      await importQueue.start(urls,form.elements.category.value);
       return;
     }
 
     if(state.importMode==='file'&&!filePreviewReady)throw new Error('请先选择文件并等待识别完成。');
+    if(state.importMode==='url'){
+      urlPreviewController?.abort();urlPreviewController=new AbortController();
+      button.textContent='正在提取，完成后请预览校正…';
+      const preview=await api('/platform/import-preview',{method:'POST',body:{url:form.elements.url.value},signal:urlPreviewController.signal});
+      if(!$('#import-dialog').open)return;
+      setImportMode('paste');
+      for(const key of ['title','content','source'])if(form.elements[key])form.elements[key].value=preview.article[key]||'';
+      let origin=form.elements.source_url;
+      if(!origin){origin=document.createElement('input');origin.type='hidden';origin.name='source_url';form.append(origin);}
+      origin.value=preview.article.source_url;
+      $('#import-duplicate-choice')?.remove();
+      if(preview.candidates.length){const label=document.createElement('label');label.id='import-duplicate-choice';label.innerHTML='<input type="checkbox" name="keep_separate"> 核对后仍另存一篇（保留已有文章与学习记录）';form.append(label);}
+      $('#import-error').textContent='提取完成，请检查正文后再次点击导入。'+(preview.candidates.length?' 发现可能重复：'+preview.candidates.map(c=>c.title+'（'+c.reason+'）').join('；'):'');
+      return;
+    }
     $('#import-error').textContent='';button.textContent=ui(state.importMode==='url'?'正在提取正文…':'正在导入…');
-    const payload=Object.fromEntries(new FormData(form));const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();filePreviewReady=false;toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
+    const payload=Object.fromEntries(new FormData(form));payload.keep_separate=form.elements.keep_separate?.checked===true;const result=await api('/articles',{method:'POST',body:payload});$('#import-dialog').close();form.reset();$('#import-duplicate-choice')?.remove();filePreviewReady=false;toast(result.duplicate?'文章已在库中，为你打开。':'文章已导入，开始新的阅读。');location.hash='reader/'+result.id;if(location.hash==='#reader/'+result.id&&state.article?.id===result.id)await navigate();
   }else if(form.id==='feed-form') {
     $('#feed-error').textContent='';button.textContent='正在抓取订阅源…';
     const payload=Object.fromEntries(new FormData(form));const result=await api('/feeds',{method:'POST',body:payload});
@@ -884,10 +915,10 @@ document.addEventListener('mouseup',event=> {
 });
 document.addEventListener('keydown', event => { lastActive = performance.now();if(event.target.id==='article-search'&&event.key==='Enter'){event.preventDefault();clearTimeout(searchTimer);renderArticleCards();} });
 $('#confirm-dialog').addEventListener('cancel',()=> {if(confirmResolve){confirmResolve(false);confirmResolve=null;}});
-window.addEventListener('hashchange', async () => {
+window.addEventListener('hashchange', async event => {
   const focus = document.activeElement;
   const expected = state.routeVersion + 1;
-  await navigate();
+  await navigate(event);
   if (expected !== state.routeVersion) return;
   const announcement = $('#route-status');
   if (announcement) announcement.textContent = $('#page-label').textContent;
@@ -918,6 +949,7 @@ setInterval(()=> {
 
 hydrateIcons();
 async function boot(){
+  if(typeof MarginPlatform!=='undefined')await MarginPlatform.ready;
   if(typeof MarginData!=='undefined'){const info=await api('/data/state');dataGeneration=info.generation;MarginData.prepare(info);}
   if(typeof MarginLearningEvents!=='undefined')learningEvents=new MarginLearningEvents({api,toast});
   await loadData();

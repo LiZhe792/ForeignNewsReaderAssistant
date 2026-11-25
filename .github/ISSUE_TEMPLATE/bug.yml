@@ -1,0 +1,22 @@
+name: 问题反馈
+description: 提供可复现步骤与运行环境，不提交密钥或私人文章
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤与预期结果
+      description: 写明打开的功能、操作步骤、实际现象和期望行为。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、Python 版本、浏览器、项目分支/提交，以及是否为登录账户、离线或共享服务。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 错误与证据
+      description: 可提供请求 ID、脱敏日志或截图。不要上传 API 密钥、Cookie、完整个人数据库或私人文章。

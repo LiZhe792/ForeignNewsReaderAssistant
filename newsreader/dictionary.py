@@ -5,6 +5,7 @@ interface and allowing deterministic tests without contacting external services.
 """
 import json
 import re
+import unicodedata
 from pathlib import Path
 from urllib.parse import quote
 
@@ -27,8 +28,14 @@ TAG_LABELS = {'zk': '中考', 'gk': '高考', 'cet4': 'CET-4', 'cet6': 'CET-6',
 def normalize_term(value):
     if not isinstance(value, str) or len(value) > 120:
         raise ValueError('请输入不超过 60 个字符的英文单词或短语。')
-    term = re.sub(r'\s+', ' ', value.strip().lower().replace('’', "'"))
-    if len(term) > 60 or not TERM.fullmatch(term):
+    term = unicodedata.normalize('NFC',re.sub(r'\s+', ' ', value.strip().lower().replace('’', "'")))
+    multilingual = False
+    from flask import has_app_context
+    if has_app_context():
+        row=get_db().execute("SELECT value FROM settings WHERE key='locale.article_language'").fetchone()
+        multilingual=bool(row and json.loads(row[0])!='en')
+    valid_unicode=bool(re.fullmatch(r"[^\W\d_]+(?:['\- ][^\W\d_]+){0,5}",term,re.UNICODE))
+    if len(term) > 60 or not (TERM.fullmatch(term) or multilingual and valid_unicode):
         raise ValueError('请输入 1–6 个英文单词组成的单词或短语（可含连字符或撇号）。')
     return term
 
@@ -215,7 +222,7 @@ def lookup(term, provider, fetch):
         result.update(local, found=True)
         result['phonetics']['other'] = local['phonetic'] if not any(pronunciation) else ''
         return result
-    if provider != 'offline':
+    if provider != 'offline' and TERM.fullmatch(term):
         remote = online_entry(term, fetch)
         if remote:
             result.update(remote)

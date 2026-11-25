@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Margin 外刊收藏",
+  "version": "1.0.0",
+  "description": "将当前文章链接发送到自己的外刊学习助手预览。",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
