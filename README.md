@@ -2,11 +2,66 @@
 
 **最终完成版 · 2026-11-28**（Git 标签：`final-2026-11-28`）。
 
-**Margin 知刊 · 外刊学习助手**，赛题 1：在流畅阅读与深入学习之间自由切换。
+**Margin 知刊 · 外刊学习助手**，面向外刊阅读、英语学习与个人知识积累，支持在流畅阅读与深入学习之间切换。
 
-Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `app.py`；日常使用无需 Node.js、外部数据库或批处理脚本。项目源码采用 MIT，第三方组件各自遵守其许可证，见 [资源与许可说明](THIRD_PARTY_NOTICES.md)。
+Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `app.py`；日常使用无需 Node.js、外部数据库或批处理脚本。项目源码采用 MIT，第三方组件各自遵守其许可证，见 [资源与许可说明](#第三方资源来源与许可证声明)。
 
-## PyCharm 运行
+## 项目简介
+
+项目以文章为学习起点，把内容获取、阅读查词、生词复习、听说训练、阅读测验、写作输出和学习记录放在同一个学习空间中。文章、词汇与笔记保留来源关联，练习结果进入学习记录，用户可据此选择下一次阅读或复习任务。
+
+主要使用流程：**导入材料 → 流畅阅读 → 精读理解 → 收藏与整理 → 复习和练习 → 查看反馈 → 调整计划与继续学习**。基础阅读与离线词典可在本机使用；AI、在线朗读、模型下载和跨设备服务需按对应条件配置。
+
+- [功能说明](#功能入口与需求对应) · [使用方式](#使用方式)
+- [技术栈](#技术栈) · [运行环境与启动步骤](#运行环境与启动步骤)
+- [第三方资源来源与许可证声明](#第三方资源来源与许可证声明) · [AI 工具使用声明](#ai-工具使用声明)
+- [项目开发文档（Word）](docs/项目开发文档.docx)：完整功能闭环、模块与数据关系、接口、部署和验收说明。
+
+## 技术栈
+
+| 层次 | 技术与职责 |
+| --- | --- |
+| 服务端 | Python 3.11 / 3.12、Flask 3.1.2；应用工厂与业务 Blueprint 提供页面和 JSON API |
+| 前端 | HTML、CSS、原生 JavaScript；模块化交互、响应式阅读、Service Worker 与浏览器本地存储；无需前端编译 |
+| 数据 | SQLite；文章、词汇、练习、计划等按账户隔离；FTS5 支持全文检索 |
+| 内容处理 | Beautiful Soup、Python-Markdown、charset-normalizer；PyMuPDF 与 RapidOCR 用于 PDF / OCR |
+| 学习能力 | 本地词典、SM-2 复习调度、FastEmbed 语义向量、可配置 AI 接口 |
+| 音频 | edge-tts 在线朗读；可选 faster-whisper 本机识别；浏览器录音 |
+| 导出与桌面 | openpyxl、ReportLab、genanki；可选 pywebview 窗口与 plyer 通知 |
+| 验证 | Python unittest、Node.js 原生测试运行器、Playwright Chromium、GitHub Actions |
+
+## 运行环境与启动步骤
+
+### 环境要求
+
+- 推荐 Python 3.11 或 3.12，使用独立虚拟环境。Windows 可直接使用 PyCharm；其他系统可按下列命令启动，系统依赖和可选组件需按平台安装。
+- 浏览器推荐较新的 Chrome / Edge；浏览器测试以 Chromium 为主。录音需要麦克风授权，PWA 与完整离线能力需要 localhost 或 HTTPS。
+- 首次安装依赖、在线导入、AI 和在线 TTS 需要网络。本机模型需要额外磁盘空间，首次使用前可显式下载。
+- Node.js 22 用于开发测试，日常运行不需要。原生桌面入口在 Windows 上需要 WebView2 Runtime。
+
+### 命令行启动
+
+在项目根目录执行。Windows PowerShell 无需激活环境也可运行：
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe doctor.py
+.\.venv\Scripts\python.exe app.py
+```
+
+已有虚拟环境时跳过创建步骤，使用其解释器安装和运行。macOS / Linux 可使用：
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python doctor.py
+.venv/bin/python app.py
+```
+
+启动后访问 <http://127.0.0.1:5000>。关闭服务可在终端按 `Ctrl+C`。端口占用时设置环境变量 `PORT` 后重新启动；PowerShell 示例为 `$env:PORT = '5001'`。
+
+### PyCharm 启动
 
 1. 打开项目，选择 Python 3.11 或 3.12 虚拟环境；已有环境可选择 `.venv/Scripts/python.exe`。
 2. 在该解释器的终端执行：
@@ -27,6 +82,19 @@ Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `a
 | 本机语音识别 | `python -m pip install -r requirements-speech.txt` |
 | 原生桌面窗口 | `python -m pip install -r requirements-desktop.txt`，然后运行 `desktop.py`；Windows 需要 WebView2 Runtime |
 | 浏览器关闭后提醒 | `python -m pip install -r requirements-background.txt`，然后另行运行 `background.py` |
+
+以上 `python` 均指当前项目虚拟环境解释器。基础安装适合先体验核心流程；需要扩展功能时安装对应依赖，安装完整依赖也不会自动下载本机 AI 模型。
+
+## 使用方式
+
+1. **获取文章**：在导入窗口粘贴网址或正文、上传文件，先检查预览中的标题、来源与正文，再保存。需要持续更新时添加 RSS / Atom 订阅。
+2. **阅读与理解**：打开文章，设置主题、字号和阅读模式。流畅阅读时先暂存待查词，段后集中处理；精读时使用查词、翻译、句法分析和问答。
+3. **积累词汇与知识**：把词语连同原句加入生词本，将重点句、批注和主题笔记整理为知识卡或表达库，保留回到原文的位置。
+4. **练习与反馈**：完成今日间隔复习；按需进行听写、跟读、阅读测验或写作训练，查看错题、反馈与修订对照，再安排补练。
+5. **跟踪学习**：查看学习日历、计划和统计报告，结合错题与遗忘记录调整任务；在学习闭环工具中进行读后回忆、词汇迁移和同主题任务包学习。
+6. **保存与迁移**：按需导出学习材料或创建备份。离线使用前下载文章；跨设备使用时连接同一个服务并登录同一账户。
+
+独立写作页面为 `/writing`，支持本地草稿、登录后同步、继续编辑、冲突处理和会话退出。它与文章关联的写作训练用途不同：写作训练保留题目与 AI 反馈，独立写作页面管理通用草稿。
 
 ## 功能入口与需求对应
 
@@ -61,6 +129,8 @@ Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `a
 新增学习闭环：阅读干扰预算建议（可忽略/撤销）；读后回忆 → 三个候选要点的 AI 证据核对 → 补练；已学词的新语境迁移与确认安排复习；按真实错题/遗忘记录选择短练习；三级渐退句子支架；三篇同主题顺序任务包；三表达迁移写作及 AI 用法核对。入口在「拓展学习」和「账户与工具 → 学习闭环」。
 
 ## AI、语音与模型
+
+本节介绍应用运行时的服务配置；开发辅助工具声明见文末。
 
 「账户与工具 → AI 与显示」保存 DeepSeek 设置，问答、写作、语境、翻译、句法、测验和学习闭环共用。密钥只存当前本机/账户私有文件，不发给浏览器。显式设置的旧 `MARGIN_AI_*` Responses 接口配置仍优先；界面显示实际配置状态。
 
@@ -112,6 +182,21 @@ python backup.py restore margin-private-backup.zip --into restored-instance
 
 后台提醒：另运行 `background.py`，浏览器关闭后仍可检查提醒和每日学习库备份；进程和电脑需要保持运行。可以 `--database` 指定某个本机账户库，`--once` 便于自行配置系统任务，`--console` 仅输出文字。不会自动安装开机服务或系统计划任务。
 
+### 启动入口速查
+
+| 文件 | 使用场景 |
+| --- | --- |
+| `app.py` | 本机完整学习服务，默认端口 5000 |
+| `demo.py` | 使用独立临时学习目录演示，默认端口 5001 |
+| `server.py` | 同一服务的跨设备学习；非本机地址需配置 HTTPS 与允许的主机名 |
+| `writing_server.py` | 仅提供账户写作服务，默认端口 5443；不开放本机阅读库 |
+| `desktop.py` | 使用原生窗口打开学习助手 |
+| `background.py` | 独立运行提醒和定期学习库备份 |
+| `doctor.py` / `setup_models.py` | 环境诊断 / 按需下载语音与语义模型 |
+| `backup.py` | 整实例备份、校验和恢复到新目录 |
+
+独立写作服务可用 `python writing_server.py` 在本机启动。对外服务同样需要 `--hostname`、`--tls-cert`、`--tls-key`，可用 `MARGIN_WRITING_SIGNUP_CODE` 设置注册口令。它的身份与草稿存储位置可通过 `MARGIN_WRITING_DATABASE` 指定。
+
 ## 导入与性能
 
 网页先预览再保存；文件识别后支持纠错。批量导入逐条显示结果，可停止后续链接并单独重试失败项；进行中的链接先完成，成功结果保留。URL 规范化与正文指纹统一去重，同标题不同正文不会被误丢弃。付费、登录和动态加载网页可改用粘贴正文；只导入有权使用的内容。
@@ -125,7 +210,7 @@ python backup.py restore margin-private-backup.zip --into restored-instance
 ```sh
 python -m unittest discover -s tests -v
 node --test tests/test_frontend.cjs tests/test_speech_player.cjs
-npm install --no-save playwright
+npm install --no-save playwright@1.58.2
 npx playwright install chromium
 node --test --test-concurrency=3 tests/*browser.cjs
 ```
@@ -134,6 +219,52 @@ PowerShell 可用 `$browserTests = Get-ChildItem tests/*browser.cjs | Select-Obj
 
 运行 `demo.py` 可创建全新的独立演示目录并在 5001 端口启动，真实学习库保持原样。建议用同一篇文章演示：导入预览 → 流畅阅读暂存词 → 精读查词收藏 → 段后整理/标注 → 今日 SRS → 学习日历 → 离线重载和同步。需要 AI 的部分另配本机密钥并主动生成。
 
-本轮已做受控流程测试、手机窄屏/200% 字体检查、真实 OCR 样本、本机语义向量与合成语音识别、桌面窗口加载。真实 AI 解释质量、真人发音有效性、30–50 条人工标注、5–8 人阅读对照试验、Safari/Firefox 和跨实体设备仍需人工/外部验收，不能用自动测试通过代替学习效果结论。
+现有验证覆盖受控流程、手机窄屏/200% 字体、OCR 样本、本机语义向量与合成语音识别、桌面窗口加载；历史结果见下方版本与验证记录。真实 AI 解释质量、真人发音有效性、人工标注、阅读对照试验、Safari/Firefox 和跨实体设备仍需人工/外部验收，不能用自动测试通过代替学习效果结论。
 
-架构：`app.py` 负责应用工厂与公共入口，`newsreader/` 为 Flask 模块及 SQLite 业务，`static/` 为独立前端模块，`templates/` 为页面，`data/` 为词典与原创样例，`tests/` 为临时数据库/受控网络测试。`extension_records` 保存带版本的扩展实体，账户库共享登录服务而不共享学习数据。协作方式见 [贡献指南](CONTRIBUTING.md)，本轮变化见 [版本记录](CHANGELOG.md)。
+架构：`app.py` 负责应用工厂与公共入口，`newsreader/` 为 Flask 模块及 SQLite 业务，`static/` 为独立前端模块，`templates/` 为页面，`data/` 为词典与原创样例，`tests/` 为临时数据库/受控网络测试。`extension_records` 保存带版本的扩展实体，账户库共享登录服务而不共享学习数据。
+
+### 版本与验证记录
+
+- **2026-11-28 最终完成版**（`final-2026-11-28`）：清理重复导入、无引用代码、旧版生词界面与过期材料，统一 AI 配置示例；优化浅色、护眼、深色、高对比度及悬停、禁用状态的按钮配色；调整 CI 的 Chromium 路径。
+- 该版本记录的验证结果：473 项 Python 测试通过；23 项 Node 逻辑测试与 180 项浏览器用例首轮共通过 201/203，两项音频超时用例单独复跑通过。76 个页面与状态组合完成 2640 次按钮对比度测量，最低 4.64:1；批量管理与回收站恢复完成验证。
+- **2026-11-25 功能整合**：补齐账户隔离、多端、PWA 离线、小组与教师任务、桌面、扩展、独立写作、学习闭环和后台提醒；完善导入、分页、全文索引、撤销与备份恢复。该阶段记录为 473 项 Python、180 项浏览器、24 项 Node 测试；首次完整浏览器回归为 170/177，修复后复验。OCR 四行样本初次提取两行，调整缩放后提取四行。
+
+以上为相应版本的历史验收记录。当前改动应按实际范围重新执行检查，记录环境、失败及复验情况；GitHub CI 结果以对应提交的 Actions 为准。
+
+## 开发与维护
+
+从最新 `main` 建立功能分支，通过 Pull Request 提交完整差异；说明问题、改动后的行为、用户入口、实际验证和数据影响。同步主分支时保留双方有效改动，避免复制旧公共文件覆盖其他功能或强制推送共享分支。
+
+新增学习表须同时检查初始化与迁移、账户隔离、备份恢复、删除引用、旧页冲突和离线行为；新增接口限制输入、使用参数化 SQL，并核对原文引用。AI 待分析材料不能覆盖系统规则。新增依赖更新依赖清单及下方许可声明。
+
+测试使用临时数据库与受控响应，不使用个人密钥或真实学习记录。小修改运行相关检查，跨模块变更运行完整回归；问题反馈提供脱敏复现材料。`instance/`、虚拟环境、IDE 私有文件、密钥、录音、模型与备份不进入 Git。
+
+`data/build_dictionary.py` 用于从本机 ECDICT 检出重建词库，命令为 `python data/build_dictionary.py /path/to/ECDICT`。它保留来源版本和许可，不属于闲置业务文件；运行前应确认上游版本与预期词库一致。
+
+## 第三方资源来源与许可证声明
+
+项目自有源码按 [MIT 许可证](LICENSE) 发布。第三方代码、模型、字体、在线服务和用户导入材料保留各自的权利与使用条件，**不能把整个安装环境统称为 MIT**。
+
+| 资源 | 来源 | 许可证与说明 |
+| --- | --- | --- |
+| 离线英汉词典 | [ECDICT](https://github.com/skywind3000/ECDICT)，revision `39cfb9672c0906b63569e0453c2e6abfb9ab182a`；12,000 个高频词及学习补充 | MIT；随项目保留 [原始许可](data/ECDICT-LICENSE.txt)；词形与扩展知识不等于完整权威词典 |
+| Web 与文本处理 | [Flask 3.1.2 / Werkzeug](https://palletsprojects.com/)、[Beautiful Soup 4.14.2](https://www.crummy.com/software/BeautifulSoup/)、[Python-Markdown 3.10.2](https://python-markdown.github.io/)、[charset-normalizer 3.4.4](https://github.com/jawah/charset_normalizer) | 分别为 BSD-3-Clause、MIT、BSD-3-Clause、MIT |
+| PDF 与 OCR | [PyMuPDF 1.26.7](https://pymupdf.readthedocs.io/)、[RapidOCR 1.2.3](https://github.com/RapidAI/RapidOCR) 及自带的 [PaddleOCR PP-OCRv3/v2 模型](https://github.com/PaddlePaddle/PaddleOCR) | PyMuPDF 为 **AGPL-3.0 或商业许可**；RapidOCR 及所用 OCR 模型按 Apache-2.0；OCR 结果需校对 |
+| 在线朗读 | [edge-tts 7.3.1](https://github.com/rany2/edge-tts) | LGPL-3.0；联网使用微软语音服务，另遵守服务条款；生成音频不附带重新授权承诺 |
+| 表格与学习导出 | [openpyxl 3.1.5](https://openpyxl.readthedocs.io/)、[ReportLab 4.4.5](https://www.reportlab.com/)、[genanki 0.13.1](https://github.com/kerrickstaley/genanki) | MIT、BSD、MIT |
+| 语义搜索 | [FastEmbed 0.9.1](https://github.com/qdrant/fastembed)、[BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) | 工具 Apache-2.0；上游模型 MIT，使用 Qdrant ONNX 量化版本；以英文检索为主，下载时核对模型卡 |
+| 本机语音识别 | [faster-whisper 1.2.1](https://github.com/SYSTRAN/faster-whisper)、源自 OpenAI Whisper 的 [tiny.en 模型](https://huggingface.co/Systran/faster-whisper-tiny.en)、[PyAV 11–15](https://pyav.org/) | 识别库及模型 MIT；PyAV BSD，随 wheel 分发的 FFmpeg 依实际构建遵守 LGPL / GPL；识别反馈不等于声学发音评分 |
+| 桌面与通知 | [pywebview 5.4–6.x](https://pywebview.flowrl.com/)、[plyer 2.1.0](https://github.com/kivy/plyer) | BSD / MIT；WebView 与系统组件遵守对应条款 |
+| 字体与示例素材 | 本机系统字体；项目内示例文章、练习与 SVG 图标 | 字体文件不随项目分发；原创示例及项目图标随源码许可；用户导入内容权利归对应权利人 |
+
+上表集中记录主要资源的来源、版本和使用限制；直接依赖以 `requirements*.txt` 为准，间接依赖以实际发行版元数据为准。对外发布或再分发前需保留相应许可声明。系统字体不随项目分发，PWA PNG 图标由项目 SVG 渲染；外刊导入与小组分享不自动获得文章转载权。
+
+## AI 工具使用声明
+
+**开发辅助工具：豆包。** 辅助范围包括需求梳理、方案讨论、代码与文档整理、问题定位及测试思路梳理。AI 输出属于开发参考，项目维护者负责确认需求、审查实现、运行验证，并对最终代码与文档负责；AI 参与不代表已完成全部人工验收。
+
+开发辅助声明与应用运行时服务配置分别说明：当前应用按用户设置调用 DeepSeek 或兼容 Responses 的服务，语音识别与语义检索使用上表列出的真实模型；这些资源的来源和许可证保持原始名称。
+
+应用只在用户主动生成时发送相关文本。用户需自行配置接口和额度，核对返回内容与原文，不把 AI 反馈视为已验证的事实或教学效果。自动化测试使用受控响应，不冒充真实服务质量评测，也不上传个人密钥。
+
+运行时 AI 可用于语境、翻译、句法、文章分析、问答、测验、写作、支架和学习闭环；离线词典、SM-2、计时统计、去重与分页不依赖生成式 AI。接口按提供方服务条款、额度和收费规则使用。
