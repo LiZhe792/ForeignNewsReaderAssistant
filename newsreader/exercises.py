@@ -7,7 +7,7 @@ from pathlib import Path
 from flask import Blueprint, abort, jsonify, request
 from . import ai
 from .assistance import generation_guard, paragraphs
-from .db import CHINA_TZ, current_timezone, get_db
+from .db import current_timezone, get_db
 from .training import body, digest, integer, keywords, normalize, text, token, units
 
 exercises = Blueprint('exercises', __name__, url_prefix='/api/reading')

@@ -8,7 +8,7 @@ import math
 
 from flask import Blueprint, abort, jsonify, request
 
-from .db import CHINA_TZ, current_timezone, get_db, now
+from .db import current_timezone, get_db, now
 from .dictionary import EXTRA, offline_entry
 from .learning import assess_difficulty, words
 

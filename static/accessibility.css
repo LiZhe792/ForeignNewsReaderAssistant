@@ -44,7 +44,6 @@
 [data-large-text] .nav-list a { min-width: 0; overflow-wrap: anywhere; }
 [data-large-text] .reader-back, [data-large-text] .topbar .button.small { font-size: .8rem; }
 [data-large-text] .article-body { font-size: calc(var(--reader-font, 20px) * 1.15); }
-[data-large-text] .library-controls .difficulty-select { width: auto; max-width: 56%; height: auto; }
 [data-large-text] :is(.card-art, .icon-button, .nav-list a) { min-height: 36px; }
 @media (max-width: 760px) {
   [data-large-text] .sidebar-bottom .settings-link { font-size: 0; }
@@ -61,7 +60,7 @@
   color-scheme: light;
 }
 [data-high-contrast] :is(.app-shell, .modal, .writing-main, .writing-header)
-  :is(p, small, label, input, textarea, select, legend, summary, dt, dd, li, h1, h2, h3, th, td, .eyebrow, .tag, .breadcrumb, .nav-list a, .local-badge, .settings-link, .reader-back, .reader-label, .reader-byline, .reader-hint, .reading-status, .card-meta, .card-footer, .filter, .read-link, .button:not(.primary):not(.danger)) {
+  :is(p, small, label, input, textarea, select, legend, summary, dt, dd, li, h1, h2, h3, th, td, .eyebrow, .tag, .breadcrumb, .nav-list a, .local-badge, .settings-link, .reader-back, .reader-label, .reader-byline, .reader-hint, .reading-status, .card-meta, .card-footer, .filter, .read-link):not(button *, .button *) {
   color: var(--ink) !important;
 }
 [data-high-contrast] :is(input, textarea, select, .button, fieldset) { border-color: var(--line); }

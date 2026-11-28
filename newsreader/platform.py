@@ -5,13 +5,12 @@ import math
 import sqlite3
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 
-from flask import Blueprint, abort, current_app, g, jsonify, render_template, request
+from flask import Blueprint, abort, current_app, g, jsonify, request
 from .accounts import account, account_id
-from .db import get_db, now, today
-from .library import canonical_url, content_fingerprint, find_duplicate
+from .db import get_db, now
+from .library import content_fingerprint
 
 platform = Blueprint("platform", __name__, url_prefix="/api/platform")
 TABLES = ("extension_records",)
@@ -335,7 +334,7 @@ def complete_assessment(identity):
 
 @platform.get("/reading-path")
 def reading_path():
-    from .personalization import LEVELS, context, analyze
+    from .personalization import context, analyze
     category = request.args.get("category", "")
     try:
         budget = int(request.args.get("minutes", 15))

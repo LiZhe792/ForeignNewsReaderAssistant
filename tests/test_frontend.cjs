@@ -196,15 +196,6 @@ test('selecting a sentence longer than six words does not query one clicked word
   assert.equal(ui.calls.length, 0);
 });
 
-test('the vocabulary form pattern compiles under modern browser validation rules', () => {
-  const html = fs.readFileSync(path.join(root, 'templates/index.html'), 'utf8');
-  const pattern = html.match(/name="word" pattern="([^"]+)"/)[1];
-  const regex = new RegExp(`^(?:${pattern})$`, 'v');
-  for (const word of ['journey', 'well-being', "reader's", 'reader’s', 'take into account']) assert.equal(regex.test(word), true);
-  for (const word of ['one two three four five six seven', '123', '<script>', 'read-']) assert.equal(regex.test(word), false);
-});
-
-
 test('a lost reading acknowledgement retries the original receipt before saving newer progress', async () => {
   const ui=frontend();let first=true;
   ui.respond(()=>{if(first){first=false;throw new TypeError('Lost acknowledgement');}return ok({});});

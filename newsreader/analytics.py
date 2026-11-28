@@ -10,7 +10,7 @@ import re
 import uuid
 
 from flask import Blueprint, Response, abort, jsonify, request
-from .db import CHINA_TZ, current_timezone, get_db, now
+from .db import current_timezone, get_db, now
 from .dictionary import normalize_term
 from .personalization import digest, lexicon, knowledge
 from .reading_flow import contains_term

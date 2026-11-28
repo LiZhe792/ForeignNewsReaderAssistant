@@ -46,7 +46,6 @@ async function backup(api,context){const record=(await api('/data/backups','POST
 async function confirm(page,accept=true){await page.locator('#confirm-dialog').waitFor();await page.getByRole('button',{name:accept?'确认删除':'保留记录',exact:true}).click();}
 async function added(api,word='journey'){return api('/vocabulary','POST',{word,meaning:'测试释义'});}
 async function message(page,text){await page.locator('#data-message').getByText(text,{exact:false}).waitFor();}
-async function restore(page,api,context){const saved=await backup(api,context);await uploaded(page,'restore',saved.buffer);await page.locator('[data-restore-confirm]').check();await act(page,'apply-restore').click();await page.locator('#data-storage strong').first().waitFor();return saved;}
 
 test('data manager describes local offline operation and initializes the data generation',async t=>{
   const {page,api}=await fixture(t);assert.match(await page.locator('.data-page').innerText(),/本机 Python 服务/);assert.equal(await page.locator('#data-offline').isChecked(),false);

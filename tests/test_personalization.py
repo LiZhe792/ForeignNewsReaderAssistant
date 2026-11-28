@@ -103,7 +103,7 @@ class PersonalizationTests(unittest.TestCase):
         self.assertEqual(len(self.sql('SELECT id FROM articles')),5)
 
     def test_feedback_is_reversible_and_dimensions_independent(self):
-        first=self.feedback(difficulty='hard'); second=self.feedback(interest='less')
+        self.feedback(difficulty='hard'); second=self.feedback(interest='less')
         self.assertEqual(second['feedback']['difficulty'],'hard')
         self.assertEqual(second['feedback']['version'],2)
         self.assertNotIn(1,[a['id'] for a in self.call('/recommendations')['articles']])
@@ -286,7 +286,7 @@ class PersonalizationTests(unittest.TestCase):
 
     def test_profile_level_and_confirmed_vocabulary_change_relative_difficulty(self):
         identity=self.article('The city has a small park. '*10)
-        low=self.profile(level='A2'); before=self.call(f'/articles/{identity}')['analysis']
+        self.profile(level='A2'); before=self.call(f'/articles/{identity}')['analysis']
         self.profile(level='C2');after=self.call(f'/articles/{identity}')['analysis']
         self.assertLess(after['relative'],before['relative'])
         for word in ('the','city','has','a','small','park'): self.known(word)

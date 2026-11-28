@@ -1,12 +1,11 @@
 """Request-scoped learning databases, sharing the existing secure account service."""
 import hashlib
-import sqlite3
 import time
 from pathlib import Path
 from threading import RLock
 
-from flask import Config, current_app, g, has_request_context, jsonify, redirect, request
-from .db import close_db, get_db, init_db
+from flask import Config, g, has_request_context, jsonify, redirect, request
+from .db import close_db, init_db
 
 COOKIE = "margin_learning_session"
 SAFE_PATHS = ("/api/writing-workspace/session", "/api/platform/identity")

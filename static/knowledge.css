@@ -61,7 +61,7 @@ mark[data-k-mark="pink"] { background: #edc3d4; color: #5e2a40; }
 .k-library .page-intro { margin-bottom: 24px; }
 .k-library-tools { padding: 15px 20px; background: var(--k-surface); border: 1px solid var(--k-border); border-radius: 10px; }
 .k-tabs { display: flex; gap: 25px; border-bottom: 1px solid var(--k-border); margin: 25px 0 20px; }
-.k-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 1px; cursor: pointer; color: var(--k-muted); font: inherit; }
+.k-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 1px; cursor: pointer; color: var(--k-text); font: inherit; }
 .k-tabs button.active { border-color: var(--k-accent); color: var(--k-accent); font-weight: 600; }
 .k-filters { display: flex; align-items: end; gap: 12px; margin: 0 0 16px; flex-wrap: wrap; }
 .k-filters label { flex: 1; min-width: 115px; margin: 0; }

@@ -1,7 +1,6 @@
 """SQLite persistence. All user data lives in instance/margin.sqlite3."""
 
 import json
-import re
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone

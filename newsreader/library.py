@@ -4,12 +4,10 @@ import hashlib
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from .db import DEFAULT_CATEGORIES, get_db, now, normalize_title
+from .db import now, normalize_title
 
 PRIORITIES = (0, 1, 2, 3)
-PRIORITY_LABELS = {0: "无优先级", 1: "低", 2: "中", 3: "高"}
 STATUSES = ("active", "archived", "trashed")
-STATUS_LABELS = {"active": "未归档", "archived": "已归档", "trashed": "回收站"}
 
 
 def canonical_url(value):

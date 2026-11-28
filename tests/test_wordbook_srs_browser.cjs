@@ -61,7 +61,6 @@ const srs=(page,action)=>page.locator(`[data-srs="${action}"]`);
 const field=(page,key)=>page.locator(`[data-wb-field="${key}"]`);
 async function go(page,route){await page.evaluate(route=>location.hash=route,route);await page.locator(route==='vocabulary'?'#wb-rows':'#srs-card').waitFor();}
 async function save(page){await page.locator('#wb-edit button[type="submit"]').click();await page.waitForFunction(()=>!document.querySelector('#wordbook-dialog').open);}
-async function refreshReview(page){await go(page,'review');await srs(page,'reload').click();}
 async function screenshot(page,name){if(process.env.READING_TEST_SCREENSHOTS){fs.mkdirSync(process.env.READING_TEST_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.READING_TEST_SCREENSHOTS,name+'.png')});}}
 
 test('wordbooks, multiple senses and contexts, phrase patterns and note templates persist',async t=>{

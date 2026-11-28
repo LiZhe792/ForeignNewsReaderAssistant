@@ -2,7 +2,6 @@
 import base64
 import csv
 import io
-import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -78,9 +77,14 @@ class WordbookSrsTests(unittest.TestCase):
         self.assertGreater(result['version'], e['version'])
 
     def test_phrase_pattern_and_duplicate_validation(self):
+        for word in ('journey', 'well-being', "reader's"):
+            self.entry(word)
+        self.post('/wordbook', {'word':'reader’s', 'meaning':'读者的'}, 409)
         self.entry('take into account', entry_kind='phrase')
         self.entry('the more + clause, the more + clause', entry_kind='pattern')
         self.post('/wordbook', {'word':'take into account', 'meaning':'考虑'}, 409)
+        for word in ('one two three four five six seven', '123', '<script>', 'read-'):
+            self.post('/wordbook', {'word':word, 'meaning':'测试'}, 400)
         for extra in ({'word':'<script>'}, {'entry_kind':[]}, {'senses':[]}, {'senses':[None]}, {'contexts':[{'text':'hi', 'article_id':True}]}, {'notes':[{'title':'x', 'body':None}]}, {'mastery':'done'}, {'collection_ids':[True]}):
             self.post('/wordbook', {'word':'test', 'meaning':'测试', **extra}, 400)
 
@@ -236,7 +240,8 @@ class WordbookSrsTests(unittest.TestCase):
         self.post('/wordbook/import', {'format':'csv','csv':'word,meaning\na,b,c'}, 400)
 
     def test_export_selection_and_limits(self):
-        a, b = self.entry('journey'), self.entry('city')
+        a = self.entry('journey')
+        self.entry('city')
         self.assertEqual(len(self.client.get('/api/wordbook/export?ids='+str(a['id'])).json['entries']), 1)
         self.assertEqual(self.client.get('/api/wordbook/export?ids=1,abc').status_code, 400)
         self.post('/wordbook/import', {'entries':[{'word':'a','meaning':'a'}]*501}, 400)

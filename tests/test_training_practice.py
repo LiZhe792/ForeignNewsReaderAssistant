@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from app import create_app
 from newsreader.db import CHINA_TZ, get_db
-from newsreader.exercises import BANK, TYPES, validate_questions
+from newsreader.exercises import BANK, TYPES
 from newsreader.training import compare, units
 
 
@@ -236,7 +236,7 @@ class PracticeTests(unittest.TestCase):
         self.assertEqual(result['answers'],partial)
 
     def test_history_finalizes_expired_sessions_once(self):
-        session=self.start(time_limit_seconds=1);self.current+=timedelta(seconds=5)
+        self.start(time_limit_seconds=1);self.current+=timedelta(seconds=5)
         for _ in range(2):history=self.call('/reading/history')
         self.assertEqual(history['sessions'][0]['status'],'completed')
         self.assertEqual(len(self.call('/reading/mistakes')['mistakes']),8)

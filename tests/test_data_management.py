@@ -8,7 +8,6 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import threading
-import time
 import unittest
 from unittest.mock import patch
 import zipfile

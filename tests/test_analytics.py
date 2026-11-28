@@ -2,7 +2,6 @@
 import csv
 from datetime import datetime, timedelta
 import io
-import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -89,7 +88,7 @@ class AnalyticsTests(unittest.TestCase):
 
     def test_reading_receipt_retries_only_count_once_even_after_article_delete(self):
         identity=self.article();receipt=self.serial_id();data={'request_id':receipt,'seconds':30,'progress':20,'position':20}
-        first=self.call(f'/articles/{identity}/progress','PATCH',data)
+        self.call(f'/articles/{identity}/progress','PATCH',data)
         again=self.call(f'/articles/{identity}/progress','PATCH',data);self.assertTrue(again['duplicate'])
         self.assertEqual(self.report()['totals']['seconds'],30)
         self.call('/articles/'+str(identity),'DELETE',{})
@@ -244,7 +243,7 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(r['topics'],[]);self.assertEqual(r['totals']['completed_words'],0);self.assertIsNone(r['totals']['speed_wpm'])
 
     def test_upgrade_backfills_known_completion_and_vocabulary_once(self):
-        identity=self.article();word=self.word();self.progress(identity,30,100)
+        identity=self.article();self.word();self.progress(identity,30,100)
         with self.app.app_context():
             db=get_db();db.execute('DROP TRIGGER learning_word_add');db.execute('DROP TRIGGER learning_word_remove')
             for name in ('learning_reading_events','learning_lookup_events','learning_word_events'):db.execute('DROP TABLE '+name)

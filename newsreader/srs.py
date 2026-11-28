@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta
 
 from flask import Blueprint, abort, jsonify, request
-from .db import CHINA_TZ, current_timezone, get_db
+from .db import current_timezone, get_db
 
 review=Blueprint('review',__name__,url_prefix='/api/review')
 SCHEMA='''

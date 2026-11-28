@@ -3,9 +3,8 @@
 import calendar
 import json
 import os
-import re
 import sqlite3
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
@@ -47,8 +46,6 @@ from newsreader.deep_analysis import deep_analysis
 from newsreader.file_import import extract_file
 
 from newsreader.search import filtered_articles, similar_articles
-
-from newsreader.db import close_db, get_db, init_db, normalize_title, now, today
 
 from newsreader.library import (
     PRIORITIES, STATUSES, ensure_tag, find_duplicate, set_article_tags, tags_for_articles,
@@ -583,7 +580,7 @@ def create_app(test_config=None):
 
     @app.patch("/api/feeds/<int:feed_id>")
     def update_feed(feed_id):
-        feed = record("feeds", feed_id)
+        record("feeds", feed_id)
         data = body()
         db = get_db()
         if "enabled" in data:

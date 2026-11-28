@@ -1,7 +1,7 @@
 """Study plans use real learning events and a controlled Beijing clock."""
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 import hashlib
 import io
 import json

@@ -8,7 +8,6 @@ from unittest.mock import patch
 import pymupdf
 
 from app import create_app
-from newsreader.file_import import extract_file
 
 
 TEXT = "The world is full of stories and every reader can discover something new. " * 5

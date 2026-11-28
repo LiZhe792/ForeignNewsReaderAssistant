@@ -15,7 +15,11 @@ body.reader-active {
   --muted: var(--reader-muted);
   --line: var(--reader-border);
   --green: var(--reader-accent);
+  --on-green: var(--reader-on-accent);
   --green-soft: var(--reader-soft);
+  --button-bg: var(--reader-bg);
+  --disabled-bg: var(--reader-soft);
+  --disabled-text: var(--reader-text);
   color-scheme: light;
 }
 body.reader-active[data-reader-theme="dark"] {
@@ -26,6 +30,7 @@ body.reader-active[data-reader-theme="dark"] {
   --reader-border: #435447;
   --reader-accent: #b9d6a7;
   --reader-on-accent: #17221d;
+  --green-hover: #cee5c0;
   --reader-soft: #304335;
   --reader-selected: #415b37;
   color-scheme: dark;
@@ -39,6 +44,7 @@ body.reader-active[data-reader-theme="sepia"] {
   --reader-accent: #526340;
   --reader-on-accent: #ffffff;
   --reader-soft: #e3e6c9;
+  --green-hover: #40532d;
   --reader-selected: #d9dfb6;
 }
 .reader-active .app-shell { min-height: 0; }
@@ -47,10 +53,10 @@ body.reader-active[data-reader-theme="sepia"] {
   color: var(--reader-text);
   border-color: var(--reader-border);
 }
-.reader-active :is(.brand, .brand strong, .brand-cn, .local-profile strong, .daily-title, .modal h2, .modal h3, .lookup-title h2) {
+.reader-active :is(.brand, .brand strong, .brand-cn, .local-profile strong, .daily-title, .modal h2, .modal h3, .lookup-title h2, .settings-link) {
   color: var(--reader-text);
 }
-.reader-active :is(.sidebar small, .workspace-label, .settings-link, .nav-list a, .breadcrumb, .local-badge, .eyebrow, .modal label, .help-section p, .help-section li) {
+.reader-active :is(.sidebar small, .workspace-label, .nav-list a, .breadcrumb, .local-badge, .eyebrow, .modal label, .help-section p, .help-section li) {
   color: var(--reader-muted);
 }
 .reader-active :is(.daily-card, .nav-list a.active, .avatar, .nav-count, .info-note) { background: var(--reader-soft); color: var(--reader-text); }
@@ -58,10 +64,6 @@ body.reader-active[data-reader-theme="sepia"] {
 .reader-active .daily-meta { color: var(--reader-muted); }
 .reader-active .daily-progress { background: var(--reader-border); }
 .reader-active .brand-mark { color: white; background: #2c5140; }
-.reader-active :is(.button, .icon-button) { color: var(--reader-text); border-color: var(--reader-border); }
-.reader-active .button { background: var(--reader-bg); }
-.reader-active .button.primary { background: var(--reader-accent); border-color: var(--reader-accent); color: var(--reader-on-accent); }
-.reader-active .button.danger { color: #bf624e; }
 .reader-active :is(input, select, textarea) { background: var(--reader-bg); border-color: var(--reader-border); color: var(--reader-text); }
 .reader-active input::placeholder, .reader-active textarea::placeholder { color: var(--reader-muted); }
 .reader-active :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--reader-accent); outline-offset: 3px; }

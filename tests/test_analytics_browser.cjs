@@ -52,7 +52,6 @@ async function fixture(t,{seeded=false,mobile=false}={}){
   await page.goto(origin+'/#analytics');await page.locator('.analytics-summary h2').waitFor();return{page,api,context,id};
 }
 const act=(p,id)=>p.locator(`[data-analytics="${id}"]`);
-async function updated(p){await p.waitForFunction(()=>document.querySelector('#analytics-status')?.textContent.startsWith('已更新'));}
 
 test('empty report distinguishes zero counts from missing speed and review samples',async t=>{
   const {page}=await fixture(t);assert.match(await page.locator('.analytics-summary').innerText(),/还没有可统计/);

@@ -1,5 +1,7 @@
 # ForeignNewsReaderAssistant
 
+**最终完成版 · 2026-11-28**（Git 标签：`final-2026-11-28`）。
+
 **Margin 知刊 · 外刊学习助手**，赛题 1：在流畅阅读与深入学习之间自由切换。
 
 Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `app.py`；日常使用无需 Node.js、外部数据库或批处理脚本。项目源码采用 MIT，第三方组件各自遵守其许可证，见 [资源与许可说明](THIRD_PARTY_NOTICES.md)。

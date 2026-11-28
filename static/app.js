@@ -71,7 +71,7 @@ async function api(path, options = {}) {
 }
 
 const state = {articles:[], words:[], stats:{}, settings:{font_size:20,line_height:1.9}, view:'library', article:null,
-  category:'全部', difficulty:'全部', query:'', searchMode:'text', source:'', tag:'', minWords:'', maxWords:'', minMinutes:'', maxMinutes:'', readingStatus:'', searchVersion:0, searchOptions:{sources:[],tags:[]}, mastery:'all', wordQuery:'', lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste', editWord:null};
+  category:'全部', difficulty:'全部', query:'', searchMode:'text', source:'', tag:'', minWords:'', maxWords:'', minMinutes:'', maxMinutes:'', readingStatus:'', searchVersion:0, searchOptions:{sources:[],tags:[]}, lookup:null, month:'', routeVersion:0, lookupVersion:0, importMode:'paste'};
 const app = $('#app');
 let labUI=null, readingBudget=null;
 let interfaceLanguage = typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language();
@@ -169,7 +169,6 @@ async function loadData() {
   state.articles = articles.articles; state.stats = stats; state.settings = settings;
   state.categories = categories.categories; state.tags = tags.tags; updateSidebar();
 }
-function dateLabel() { if(window.MarginPlatform?.preferences?.date_format&&MarginPlatform.preferences.date_format!=='locale')return MarginPlatform.date(new Date());return new Intl.DateTimeFormat(typeof MarginInterface === 'undefined' ? 'zh-CN' : MarginInterface.language(),{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:window.MarginPlatform?.preferences?.timezone||'Asia/Shanghai'}).format(new Date()); }
 function weekDots() {
   const today = new Date(state.stats.today + 'T12:00:00'); const monday = new Date(today); monday.setDate(today.getDate() - (today.getDay()+6)%7);
   return ui(['一','二','三','四','五','六','日'], ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).map((day,index) => {
@@ -298,12 +297,6 @@ function renderLibrary() {
   renderBatchBar();
   renderArticleCards();localizeUI(app);
   if(typeof MarginPersonalization!=='undefined'){personalUI?.destroy();personalUI=new MarginPersonalization({root:$('#personal-library'),api,toast,compact:true});personalUI.render();}
-}
-function highlight(text, query) {
-  if (!query || state.searchMode !== 'text') return escapeHTML(text);
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp('(' + escaped + ')', 'gi');
-  return String(text || '').split(re).map((part, i) => i % 2 ? `<mark>${escapeHTML(part)}</mark>` : escapeHTML(part)).join('');
 }
 let searchTimer;
 async function renderArticleCards(append=false) {
@@ -555,7 +548,6 @@ async function renderVocabulary() {
   }});
   await wordbookUI.render();
 }
-function renderWordRows(){wordbookUI?.rows();}
 
 async function renderActivity(month='',version=state.routeVersion) {
   const stats=await api('/stats'+(month?'?month='+month:''));if(version!==state.routeVersion||state.view!=='activity')return;state.month=stats.month;
@@ -672,12 +664,6 @@ function showSourceDialog(id) {
 }
 
 function openSettings() { $('#settings-dialog').showModal(); }
-async function showWordDialog(id=null) {
-  state.editWord=id;const form=$('#word-form');form.reset();$('#word-error').textContent='';
-  const word=id?(await api('/wordbook/'+id)).entry:null;$('#word-dialog-title').textContent=word?ui('记住 ', 'Edit ')+word.word:ui('添加一个想记住的词');
-  form.elements.word.disabled=!!word;if(word){form.elements.word.value=word.word;form.elements.meaning.value=word.meaning;form.elements.note.value=word.note;}
-  $('#word-dialog').showModal();
-}
 let confirmResolve=null;
 function confirmDelete(message) {
   if(message.startsWith('删除文章「'))message += ' 本篇写作练习、草稿和反馈也会删除。';
@@ -744,9 +730,6 @@ document.addEventListener('click',async event=> {
     if(button.dataset.open){location.hash='reader/'+button.dataset.open;return;}
     if(button.dataset.status){state.status=button.dataset.status;await loadArticles();renderLibrary();return;}
     if(button.dataset.manageTab){state.manageMode=button.dataset.manageTab;renderManage();return;}
-    if(button.dataset.masteryFilter){state.mastery=button.dataset.masteryFilter;$$('[data-mastery-filter]').forEach(b=>b.classList.toggle('active',b===button));renderWordRows();return;}
-    if(button.dataset.editWord){showWordDialog(Number(button.dataset.editWord));return;}
-    if(button.dataset.deleteWord){const id=Number(button.dataset.deleteWord),word=state.words.find(w=>w.id===id);if(await confirmDelete(`删除生词「${word.word}」？`)){await api('/vocabulary/'+id,{method:'DELETE',body:{}});state.words=state.words.filter(w=>w.id!==id);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('生词已删除。');}return;}
     if(button.dataset.monthOffset){const [year,month]=state.month.split('-').map(Number);const next=new Date(year,month-1+Number(button.dataset.monthOffset),1);await renderActivity(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);return;}
     if(button.dataset.calendarDay){
       const date=button.dataset.calendarDay;
@@ -803,7 +786,6 @@ document.addEventListener('click',async event=> {
         toast('文章已删除，生词仍然保留。');
       }
     }
-    else if(action==='add-word')showWordDialog();
     else if(action==='manage-library'){$('#manage-dialog').showModal();renderManage();}
     else if(action==='edit-article')openArticleDialog(Number(button.dataset.edit));
     else if(action==='clear-selection'){state.selected.clear();renderLibrary();}
@@ -818,7 +800,7 @@ document.addEventListener('click',async event=> {
   }catch(error){toast(error.message,true);button.disabled=false;}
 });
 
-document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;clearTimeout(searchTimer);++state.searchVersion;searchTimer=setTimeout(renderArticleCards,300);}else if(event.target.id==='word-search'){state.wordQuery=event.target.value;renderWordRows();}else if(event.target.id==='manual-meaning'&&state.lookup){state.lookup.manualMeaning=event.target.value;}});
+document.addEventListener('input',event=> {if(event.target.id==='article-search'){state.query=event.target.value;clearTimeout(searchTimer);++state.searchVersion;searchTimer=setTimeout(renderArticleCards,300);}else if(event.target.id==='manual-meaning'&&state.lookup){state.lookup.manualMeaning=event.target.value;}});
 document.addEventListener('toggle',event=>{if(event.target.matches('.lookup-definition')&&state.lookup){state.lookup.expanded=event.target.open;event.target.querySelector('summary').textContent=ui(event.target.open?'收起释义':'展开释义');}},{capture:true});
 document.addEventListener('change',async event=> {
   const input=event.target;
@@ -832,8 +814,7 @@ document.addEventListener('change',async event=> {
     else if(input.id==='source-filter'){state.source=input.value;renderArticleCards();}
     else if(input.id==='status-filter'){state.readingStatus=input.value;renderArticleCards();}
     else if({'min-words':'minWords','max-words':'maxWords','min-minutes':'minMinutes','max-minutes':'maxMinutes'}[input.id]){state[{'min-words':'minWords','max-words':'maxWords','min-minutes':'minMinutes','max-minutes':'maxMinutes'}[input.id]]=input.value;renderArticleCards();}
-    else if(input.dataset.wordMastery){const id=Number(input.dataset.wordMastery);input.disabled=true;const result=await api('/vocabulary/'+id,{method:'PATCH',body:{mastery:input.value}});const word=state.words.find(w=>w.id===id);Object.assign(word,result);await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast('掌握度已更新。');}
-  }catch(error){input.disabled=false;toast(error.message,true);if(input.dataset.wordMastery)input.value=state.words.find(w=>w.id===Number(input.dataset.wordMastery)).mastery;}
+  }catch(error){input.disabled=false;toast(error.message,true);}
 });
 document.addEventListener('submit',async event=> {
   event.preventDefault();const form=event.target;
@@ -895,9 +876,7 @@ document.addEventListener('submit',async event=> {
   }else if(form.id==='tag-add-form') {
     await api('/tags',{method:'POST',body:{name:form.elements.name.value.trim()}});
     await loadCategoriesTags();renderManage();toast('标签已添加。');
-  }else if(form.id==='word-form') {
-    $('#word-error').textContent='';const payload=Object.fromEntries(new FormData(form));const result=await api('/vocabulary'+(state.editWord?'/'+state.editWord:''),{method:state.editWord?'PATCH':'POST',body:payload});$('#word-dialog').close();state.words=(await api('/vocabulary')).words;await refreshStats();if(state.view==='vocabulary')renderVocabulary();toast(result.duplicate?'这个单词已经收藏过了。':'生词已保存。');
-  }}catch(error){const target=$({'import-form':'#import-error','word-form':'#word-error','article-form':'#article-error','feed-form':'#feed-error','source-form':'#source-error','tag-form':'#tag-error'}[form.id]||'#unused-form-error');if(target)target.textContent=error.message;else toast(error.message,true);}
+  }}catch(error){const target=$({'import-form':'#import-error','article-form':'#article-error','feed-form':'#feed-error','source-form':'#source-error','tag-form':'#tag-error'}[form.id]||'#unused-form-error');if(target)target.textContent=error.message;else toast(error.message,true);}
   finally{button.disabled=false;if(form.id==='import-form')button.innerHTML='<span data-i18n="导入并开始阅读">'+ui('导入并开始阅读')+'</span>'+icon('arrow-right');}
 });
 

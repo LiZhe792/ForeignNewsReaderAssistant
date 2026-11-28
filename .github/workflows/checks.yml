@@ -24,5 +24,7 @@ jobs:
       - run: find static browser-extension -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: npm install --no-save playwright@1.58.2
       - run: npx playwright install --with-deps chromium
-      - run: node --test --test-concurrency=3 tests/*browser.cjs
+      - run: |
+          export READING_TEST_CHROME="$(node -p 'require("playwright").chromium.executablePath()')"
+          node --test --test-concurrency=3 tests/*browser.cjs
       - run: git diff --check

@@ -1,5 +1,4 @@
 """AI transport, source grounding, resume semantics and versioned user edits."""
-import copy
 import io
 import json
 import re
@@ -8,11 +7,11 @@ import threading
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 
 from app import create_app
 from newsreader import ai
-from newsreader.assistance import MAX_UNIT, digest, paragraphs, spans
+from newsreader.assistance import MAX_UNIT, paragraphs, spans
 from newsreader.db import get_db, init_db
 from ai_fixtures import context_result, translation_result
 

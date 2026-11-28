@@ -3,7 +3,6 @@
 import math
 import re
 
-WORD_PATTERN = re.compile(r"[A-Za-z]+(?:['’-][A-Za-z]+)*")
 UNICODE_PATTERN = re.compile(r"[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]|[^\W\d_]+(?:['’-][^\W\d_]+)*", re.UNICODE)
 
 

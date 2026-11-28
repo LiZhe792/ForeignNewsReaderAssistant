@@ -18,7 +18,6 @@ instance/
 .coverage
 htmlcov/
 node_modules/
-ai.env
 *.log
 .DS_Store
 Thumbs.db

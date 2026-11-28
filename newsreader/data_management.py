@@ -1,8 +1,7 @@
 """Local offline controls and verified, transactional data portability."""
 from contextlib import closing
-from datetime import datetime, timedelta
+from datetime import datetime
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -17,7 +16,7 @@ import zipfile
 import zlib
 
 from flask import Blueprint, Response, abort, current_app, g, jsonify, request, send_file
-from .db import CHINA_TZ, get_db, now
+from .db import get_db, now
 from .learning import assess_difficulty, words
 from .study_plans import PLAN_TABLES, parse_day, validate_plan
 

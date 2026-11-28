@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import create_app
-from newsreader.library import content_fingerprint
 
 CONTENT = "A careful reader follows the evidence and asks thoughtful questions about the world. " * 8
 
