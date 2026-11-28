@@ -32,12 +32,15 @@ window.MarginWriting = class MarginWriting {
       this.saveTimer = setTimeout(()=>this.saveCurrent(), 700);
     });
     listen(this.dialog, 'close', function() {
+      // A queued close from the previous article can reach the new controller.
+      if(this.destroyed||this.dialog.open||!this.anchor)return;
+      const anchor=this.anchor;
+      this.anchor=null;
       clearTimeout(this.pollTimer);
       this.$('#writing-api-key').value='';
-      if(this.destroyed)return;
       this.rememberDraft(); this.saveCurrent();
       this.reader.scroller.focus({preventScroll:true});
-      this.reader.restoreAnchor(this.anchor);
+      this.reader.restoreAnchor(anchor);
     });
     this.$('#writing-article-title').textContent = article.title;
     this.$('#writing-editor').hidden = true;

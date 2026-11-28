@@ -82,7 +82,7 @@ async function go(page,id){
 async function setup(t,options={}){
   const context=await browser.newContext({viewport:{width:1440,height:1050},...options});
   t.after(()=>context.close());
-  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.stack||error.message));
   const article=await api(context,'/api/articles','POST',{title:'Writing '+t.name,content:articleText});
   await go(page,article.id);
   await page.waitForSelector('#article-body');
@@ -271,6 +271,29 @@ test('closing and navigating during feedback cannot update the next article',asy
   const stored=await api(context,'/api/writing/exercises/'+exercise);
   assert.equal(stored.exercise.article_id,id);
   assert.equal(stored.attempts[0].status,'complete');
+});
+
+test('a delayed close from the previous article does not affect the new reader',async t=>{
+  const {page,context}=await setup(t);
+  await page.evaluate(()=>{
+    window.__writingCloseHeld=false;
+    document.querySelector('#writing-dialog').addEventListener('close',event=>{
+      event.stopImmediatePropagation();
+      window.__writingCloseHeld=true;
+    },{capture:true,once:true});
+  });
+  const other=await api(context,'/api/articles','POST',{title:'Delayed close target',content:articleText});
+  await go(page,other.id);
+  await page.waitForFunction(()=>window.__writingCloseHeld);
+  await page.locator('.pending-open').focus();
+  await page.evaluate(()=>document.querySelector('#writing-dialog').dispatchEvent(new Event('close')));
+  assert.equal(await page.locator('.pending-open').evaluate(el=>el===document.activeElement),true);
+  assert.equal(await page.locator('#writing-dialog').isVisible(),false);
+  await clickReaderTool(page,'[data-writing-action="open"]');
+  await page.waitForFunction(()=>document.querySelector('#writing-mode').options.length===12);
+  await create(page);await save(page,'She go on a journey.');
+  await clickReaderTool(page,'[data-writing-action="close"]');
+  await page.waitForFunction(()=>document.activeElement===document.querySelector('.reader-scroll'));
 });
 
 test('deleting an exercise removes its drafts and history after confirmation',async t=>{
