@@ -24,3 +24,6 @@ Thumbs.db
 
 # Local backup archives and private restore previews
 *-data/
+
+# Keep the original recording local; the viewing copy is a GitHub release asset.
+/演示视频.mp4
