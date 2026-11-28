@@ -21,9 +21,44 @@ before(async () => {
   const python = process.env.READING_TEST_PYTHON || (fs.existsSync(localPython) ? localPython : 'python');
   server = spawn(python, ['-u', '-c', `
 import sys
+from threading import Event
+from flask import jsonify, request
 from app import create_app
 from werkzeug.serving import make_server
-server = make_server('127.0.0.1', 0, create_app({'DATABASE': sys.argv[1]}), threaded=True)
+app = create_app({'DATABASE': sys.argv[1]})
+pending_fault = {'fail_word': None, 'hold_word': None}
+pending_started, pending_release = Event(), Event()
+
+@app.route('/api/__test/pending-control', methods=['GET', 'POST'])
+def pending_control():
+    if request.method == 'POST':
+        control = request.get_json()
+        if control['mode'] == 'fail-next':
+            pending_fault['fail_word'] = control['word']
+        elif control['mode'] == 'hold':
+            pending_fault['hold_word'] = control['word']
+            pending_started.clear()
+            pending_release.clear()
+        elif control['mode'] == 'release':
+            pending_release.set()
+    return jsonify(started=pending_started.is_set())
+
+# Simulate real HTTP failures/delays: Chromium keepalive requests can bypass page routing.
+@app.before_request
+def intercept_pending_word():
+    if request.method != 'POST' or not request.path.endswith('/pending-words'):
+        return
+    word = request.get_json().get('word')
+    if word == pending_fault['fail_word']:
+        pending_fault['fail_word'] = None
+        return jsonify(error='Test interruption'), 503
+    if word == pending_fault['hold_word']:
+        pending_started.set()
+        if not pending_release.wait(20):
+            return jsonify(error='Test request was not released'), 503
+        pending_fault['hold_word'] = None
+
+server = make_server('127.0.0.1', 0, app, threaded=True)
 print('PORT:' + str(server.server_port), flush=True)
 server.serve_forever()
 `, path.join(temporary, 'test.sqlite3')], {cwd: root, stdio: ['ignore', 'pipe', 'pipe']});
@@ -207,14 +242,7 @@ test('density and mastered-word preferences are applied and survive a reload', a
 
 test('failed staging and collection can be retried without losing a manually entered meaning', async t => {
   const {page, api, articleId} = await readerPage(t);
-  let reject = true;
-  await page.route('**/pending-words', async route => {
-    if (route.request().method() === 'POST' && reject) {
-      reject = false;
-      return route.fulfill({status: 503, contentType: 'application/json', body: JSON.stringify({error: 'Test interruption'})});
-    }
-    return route.continue();
-  });
+  await api('/__test/pending-control', 'POST', {mode: 'fail-next', word: 'well-being'});
   await word(page, 'well-being').click();
   await page.locator('[data-flow-action="retry-save"]').waitFor();
   assert.equal((await api(`/articles/${articleId}/pending-words`)).words.length, 0);
@@ -259,29 +287,25 @@ test('stage reminders count active time, pause during dialogs and do not steal f
 });
 
 test('an asynchronous queue update preserves the meaning being typed and its caret', async t => {
-  const {page, dictionaryRequests} = await readerPage(t);
+  const {page, api, dictionaryRequests} = await readerPage(t);
   await page.route('**/api/dictionary?word=well-being&provider=*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({found: false, message: '请手动填写释义。'}),
   }));
   await word(page, 'well-being').click();
   await countPending(page, 1);
-  let release, started;
-  const waiting = new Promise(resolve => { started = resolve; });
-  await page.route('**/pending-words', async route => {
-    if (route.request().method() === 'POST' && route.request().postDataJSON().word === 'journey') {
-      await new Promise(resolve => { release = resolve; started(); });
-    }
-    await route.continue();
-  });
+  await api('/__test/pending-control', 'POST', {mode: 'hold', word: 'journey'});
   await word(page, 'journey').click();
-  await waiting;
+  await page.waitForFunction(async () => {
+    const response = await fetch('/api/__test/pending-control');
+    return (await response.json()).started;
+  }, null, {polling: 100, timeout: 10000});
   await queue(page);
   await page.locator('.pending-definition summary').click();
   const meaning = page.locator('[data-pending-meaning]');
   await meaning.fill('幸福与安康');
   await meaning.press('ArrowLeft');
   const caret = await meaning.evaluate(el => el.selectionStart);
-  release();
+  await api('/__test/pending-control', 'POST', {mode: 'release'});
   await countPending(page, 2);
   await settleLayout(page);
   assert.equal(await meaning.inputValue(), '幸福与安康');
