@@ -16,7 +16,7 @@ Python + Flask + SQLite，原生 JavaScript 界面。用 PyCharm 直接运行 `a
 - [技术栈](#技术栈) · [运行环境与启动步骤](#运行环境与启动步骤)
 - [第三方资源来源与许可证声明](#第三方资源来源与许可证声明) · [AI 工具使用声明](#ai-工具使用声明)
 - [项目开发文档（Word）](项目开发文档.docx)：完整功能闭环、模块与数据关系、接口、部署和验收说明。
-- [演示视频（高清 MP4，约 32 分 49 秒）](https://github.com/LiZhe792/ForeignNewsReaderAssistant/releases/download/submission-2026-11-28/%E6%BC%94%E7%A4%BA%E8%A7%86%E9%A2%91.mp4)：完整项目演示，保留 2558 × 1528 分辨率与 30 fps，下载后播放。
+- [演示视频（高清 MP4，约 32 分 49 秒）](https://github.com/LiZhe792/ForeignNewsReaderAssistant/releases/download/submission-2026-11-28/demo-hd.mp4)：完整项目演示，保留 2558 × 1528 分辨率与 30 fps，下载后播放。
 
 ## 技术栈
 
